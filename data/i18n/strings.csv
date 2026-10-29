@@ -7,3 +7,41 @@ MENU_SETTINGS,Settings,Настройки
 MENU_QUIT,Quit,Выход
 MENU_LANGUAGE,Language: English,Язык: Русский
 MENU_COMING_SOON,Coming soon — under construction.,Скоро будет — в разработке.
+GOOD_MUSHROOMS,Mushrooms,Грибы
+GOOD_CIGARETTES,Bootleg cigarettes,Левые сигареты
+GOOD_MOON_MOSS,"""Moon Moss""",«Лунный мох»
+GOOD_PHONES,Stolen phones,Краденые телефоны
+GOOD_BLUE_DUST,"""Blue Dust""",«Синяя пыль»
+HUD_DAY,Day %d,День %d
+HUD_MONEY,Cash: $%s,Деньги: $%s
+HUD_DEBT,Debt: $%s,Долг: $%s
+HUD_PAYMENT_DUE,Loan shark wants $%s more by the end of day %d,Ростовщик ждёт ещё $%s до конца дня %d
+HUD_PAYMENT_DONE,Payment made. Next one is due by the end of day %d,Платёж внесён. Следующий — к концу дня %d
+HUD_PAUSE,Pause,Пауза
+MARKET_TITLE,Street market,Уличный рынок
+COL_GOOD,Goods,Товар
+COL_BUY,Buy,Купить
+COL_SELL,Sell,Продать
+COL_OWNED,You have,У тебя
+OWNED_AVG,%d (paid $%s each),%d (брал по $%s)
+BTN_BUY_MAX,Buy max,На все
+BTN_SELL_ALL,Sell all,Продать всё
+DEBT_TITLE,Loan shark,Ростовщик
+DEBT_HINT,+%d%% interest every 7 days. Miss a payment and it's over.,+%d%% каждые 7 дней. Не заплатишь вовремя — конец.
+BTN_PAY_DUE,Pay what's due,Внести платёж
+BTN_PAY_ALL,Pay all you can,Отдать всё
+LOG_TITLE,Log,Журнал
+BTN_END_DAY,End day,Закончить день
+BTN_SAVE,Save,Сохранить
+BTN_TO_MENU,Main menu,В меню
+SAVED,Game saved.,Игра сохранена.
+LOG_NEW_GAME,"You owe the loan shark $%s. First payment of $%s is due in %d days. You have $%s.","Ты должен ростовщику $%s. Первый платёж $%s — через %d дней. В кармане $%s."
+LOG_LOADED,Game loaded. Day %d.,Игра загружена. День %d.
+LOG_DAY_ENDED,Day %d is over. Prices changed.,День %d закончился. Цены изменились.
+LOG_INTEREST,Interest added to your debt: +$%s,Ростовщик начислил проценты: +$%s
+LOG_PAYMENT_OK,Payment accepted. The loan shark is calm for now.,Платёж принят. Ростовщик пока спокоен.
+LOG_PAYMENT_MISSED,You missed the payment. The collectors came for you.,Ты не внёс платёж. За тобой пришли вышибалы.
+END_LOST_TITLE,Game over,Игра окончена
+END_LOST_TEXT,You missed the payment. The loan shark took everything.,Ты не заплатил вовремя. Ростовщик забрал всё.
+END_WON_TITLE,Free at last,Свобода
+END_WON_TEXT,You paid off the whole debt in %d days.,Ты выплатил весь долг за %d дн.

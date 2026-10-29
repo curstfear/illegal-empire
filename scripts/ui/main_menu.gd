@@ -1,8 +1,9 @@
 extends Control
-## Главное меню. Пока работают только «Выход» и смена языка,
-## остальные кнопки показывают подсказку «в разработке».
+## Главное меню: новая игра, загрузка, выход и смена языка.
+## «Настройки» пока показывают подсказку «в разработке».
 
 const SETTINGS_PATH := "user://settings.cfg"
+const GAME_SCENE := "res://scenes/ui/game_screen.tscn"
 const LANGUAGES: Array[String] = ["ru", "en"]
 
 @onready var _new_game_button: Button = %NewGameButton
@@ -17,12 +18,23 @@ const LANGUAGES: Array[String] = ["ru", "en"]
 func _ready() -> void:
 	_load_language()
 	_version_label.text = "v%s" % ProjectSettings.get_setting("application/config/version", "0.0.0")
-	_new_game_button.pressed.connect(_show_coming_soon)
-	_load_game_button.pressed.connect(_show_coming_soon)
+	_new_game_button.pressed.connect(_start_new_game)
+	_load_game_button.pressed.connect(_continue_game)
+	_load_game_button.disabled = not SaveSystem.has_save()
 	_settings_button.pressed.connect(_show_coming_soon)
 	_quit_button.pressed.connect(get_tree().quit)
 	_language_button.pressed.connect(_switch_language)
 	_new_game_button.grab_focus()
+
+
+func _start_new_game() -> void:
+	GameState.new_game()
+	get_tree().change_scene_to_file(GAME_SCENE)
+
+
+func _continue_game() -> void:
+	if GameState.continue_game():
+		get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _show_coming_soon() -> void:

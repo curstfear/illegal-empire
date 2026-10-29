@@ -1,0 +1,262 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/game_screen.gd" id="1_screen"]
+
+[sub_resource type="Gradient" id="Gradient_bg"]
+offsets = PackedFloat32Array(0, 0.6, 1)
+colors = PackedColorArray(0.035, 0.04, 0.07, 1, 0.07, 0.05, 0.09, 1, 0.16, 0.04, 0.07, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
+gradient = SubResource("Gradient_bg")
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+
+[node name="GameScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_screen")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture2D_bg")
+expand_mode = 1
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TopBar" type="PanelContainer" parent="Margin/Layout"]
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="Margin/Layout/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 28
+
+[node name="DayLabel" type="Label" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 26
+
+[node name="TimeLabel" type="Label" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+
+[node name="MoneyLabel" type="Label" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.9, 0.55, 1)
+theme_override_font_sizes/font_size = 26
+
+[node name="DebtLabel" type="Label" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.4, 0.42, 1)
+theme_override_font_sizes/font_size = 26
+
+[node name="Spacer" type="Control" parent="Margin/Layout/TopBar/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PauseButton" type="Button" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "HUD_PAUSE"
+
+[node name="Speed1Button" type="Button" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+toggle_mode = true
+text = "×1"
+
+[node name="Speed2Button" type="Button" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+toggle_mode = true
+text = "×2"
+
+[node name="Speed4Button" type="Button" parent="Margin/Layout/TopBar/Row"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+toggle_mode = true
+text = "×4"
+
+[node name="PaymentLabel" type="Label" parent="Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.65, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+
+[node name="Body" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="MarketPanel" type="PanelContainer" parent="Margin/Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.2
+
+[node name="Box" type="VBoxContainer" parent="Margin/Layout/Body/MarketPanel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MarketTitle" type="Label" parent="Margin/Layout/Body/MarketPanel/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "MARKET_TITLE"
+
+[node name="MarketGrid" type="GridContainer" parent="Margin/Layout/Body/MarketPanel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 10
+columns = 8
+
+[node name="Side" type="VBoxContainer" parent="Margin/Layout/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 16
+
+[node name="DebtPanel" type="PanelContainer" parent="Margin/Layout/Body/Side"]
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Margin/Layout/Body/Side/DebtPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DebtTitle" type="Label" parent="Margin/Layout/Body/Side/DebtPanel/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "DEBT_TITLE"
+
+[node name="DebtHint" type="Label" parent="Margin/Layout/Body/Side/DebtPanel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.55)
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 3
+
+[node name="PayDueButton" type="Button" parent="Margin/Layout/Body/Side/DebtPanel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_PAY_DUE"
+
+[node name="PayAllButton" type="Button" parent="Margin/Layout/Body/Side/DebtPanel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_PAY_ALL"
+
+[node name="LogPanel" type="PanelContainer" parent="Margin/Layout/Body/Side"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Box" type="VBoxContainer" parent="Margin/Layout/Body/Side/LogPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LogTitle" type="Label" parent="Margin/Layout/Body/Side/LogPanel/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "LOG_TITLE"
+
+[node name="LogText" type="RichTextLabel" parent="Margin/Layout/Body/Side/LogPanel/Box"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 16
+scroll_following = true
+
+[node name="BottomBar" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="EndDayButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_END_DAY"
+
+[node name="SaveButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_SAVE"
+
+[node name="MenuButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_TO_MENU"
+
+[node name="EndOverlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.02, 0.04, 0.85)
+
+[node name="Center" type="CenterContainer" parent="EndOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="EndOverlay/Center"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="EndTitle" type="Label" parent="EndOverlay/Center/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 64
+horizontal_alignment = 1
+
+[node name="EndText" type="Label" parent="EndOverlay/Center/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="EndMenuButton" type="Button" parent="EndOverlay/Center/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(380, 56)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "BTN_TO_MENU"

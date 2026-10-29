@@ -1,0 +1,12 @@
+{
+	"start_money": 120,
+	"start_debt": 48000,
+	"weekly_interest": 0.02,
+	"payment_interval_days": 14,
+	"payment_min": 1500,
+	"day_length_sec": 90.0,
+	"sell_spread": 0.95,
+	"price_reversion": 0.5,
+	"min_price_factor": 0.5,
+	"max_price_factor": 1.8
+}
