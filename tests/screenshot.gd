@@ -1,17 +1,19 @@
 extends Node
-## Служебный прогон экрана игры со скриншотами (для проверки глазами).
+## Служебный прогон партии со скриншотами (для проверки глазами).
 ## Godot --path . res://tests/screenshot.tscn -- <папка_для_png>
 
-const GAME_SCENE := preload("res://scenes/ui/game_screen.tscn")
+const GAME_SCENE := preload("res://scenes/game.tscn")
 
 
 func _ready() -> void:
 	var out_dir: String = OS.get_cmdline_user_args()[0] if not OS.get_cmdline_user_args().is_empty() else "user://"
 	TranslationServer.set_locale("ru")
 	GameState.new_game()
-	var screen := GAME_SCENE.instantiate()
-	add_child(screen)
-	await _frames(10)
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var city: Node3D = game.get_node("City")
+	await _frames(15)
 	_shot(out_dir.path_join("1_start.png"))
 
 	# Без случайных проверок, чтобы прогон был предсказуемым.
@@ -20,50 +22,52 @@ func _ready() -> void:
 	s.balance.check_base = 0.0
 	s.balance.check_per_heat = 0.0
 
-	# Лесопарк: сбор.
-	GameState.travel("forest")
-	GameState.do_activity("pick_mushrooms")
-	GameState.do_activity("pick_herbs")
+	# Карточка чужого района: кнопка «Перейти».
+	screen.open_card("forest")
 	await _frames(10)
-	_shot(out_dir.path_join("2_forest.png"))
-	print("лес: грибов ", s.inventory.mushrooms, ", трав ", s.inventory.herbs, ", сил ", s.energy, ", время ", Clock.minutes_of_day())
+	_shot(out_dir.path_join("2_card_other.png"))
 
-	# Рынок: левая посылка, ларёк, вкладка ларька.
-	GameState.travel("market")
-	GameState.do_activity("shady_parcel")
+	# Переход в лесопарк по кнопке карточки и сбор.
+	screen.get_node("%CardTravelButton").pressed.emit()
+	GameState.do_activity("pick_mushrooms")
+	await _frames(10)
+	_shot(out_dir.path_join("3_forest.png"))
+	print("лес: район ", s.district, ", грибов ", s.inventory.mushrooms, ", время ", Clock.minutes_of_day())
+
+	# Рынок: окно рынка и вкладка ларька.
+	screen.open_card("market")
+	screen.get_node("%CardTravelButton").pressed.emit()
+	screen.get_node("%CardMarketButton").pressed.emit()
 	s.clean += 400
 	GameState.buy_stall()
-	GameState.stock_stall("mushrooms")
-	var tabs: TabContainer = screen.get_node("%Tabs")
-	tabs.current_tab = 1
+	screen.get_node("%Tabs").current_tab = 1
 	await _frames(10)
-	_shot(out_dir.path_join("3_market_stall.png"))
-	print("рынок: грязных ", s.dirty, ", ларёк ", s.stall.owned, ", в ларьке грибов ", s.stall.stock.mushrooms)
+	_shot(out_dir.path_join("4_market_window.png"))
 
-	Clock.finish_day()
-	tabs.current_tab = 2
-	s.skills.add_xp("charisma", 70)
-	GameState.changed.emit()
-	await _frames(10)
-	_shot(out_dir.path_join("4_skills.png"))
+	# Ночь в клубах.
+	screen.get_node("%MarketCloseButton").pressed.emit()
+	screen.open_card("clubs")
+	screen.get_node("%CardTravelButton").pressed.emit()
+	screen.get_node("%Tabs").current_tab = 0
+	Clock.elapsed = 0.72 * 90.0
+	Clock.paused = true
+	await _frames(15)
+	_shot(out_dir.path_join("5_night_clubs.png"))
+	print("клик в центр клубов → ", city.district_at_screen(city.anchor_screen_position("clubs") + Vector2(0, 40)))
 
-	# Проверка полиции и арест.
+	# Проверка полиции.
 	s.balance.check_base = check_base
-	tabs.current_tab = 0
 	GameState.buy("cigarettes", 1)
 	s.pending_check = { "bribe": 90 }
 	GameState.changed.emit()
 	await _frames(10)
-	_shot(out_dir.path_join("5_check.png"))
-	var day_before := s.day
-	GameState.resolve_check("arrest")
-	await _frames(10)
-	print("арест: дней прошло = ", s.day - day_before, ", часы на паузе = ", Clock.paused)
+	_shot(out_dir.path_join("6_check.png"))
+	GameState.resolve_check("surrender")
 
-	for i in 14:
+	for i in 15:
 		Clock.finish_day()
 	await _frames(10)
-	_shot(out_dir.path_join("6_end.png"))
+	_shot(out_dir.path_join("7_end.png"))
 	print("continue: ", GameState.continue_game(), ", day ", GameState.session.day, ", status ", GameState.session.status)
 	get_tree().quit()
 

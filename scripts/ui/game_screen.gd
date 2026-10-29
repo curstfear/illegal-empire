@@ -1,6 +1,6 @@
 extends Control
-## Экран партии (прототип): верхняя панель, районы, рынок, дела района,
-## вкладки «Деньги / Ларёк / Навыки», журнал, окно проверки полиции.
+## Интерфейс партии поверх 3D-города: верхняя панель, карточка района над зданием,
+## окно рынка, вкладки «Деньги / Ларёк / Навыки», журнал, окно проверки полиции.
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
@@ -21,12 +21,17 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 @onready var _speed_buttons: Dictionary = { 1: %Speed1Button, 2: %Speed2Button, 4: %Speed4Button }
 @onready var _payment_label: Label = %PaymentLabel
 @onready var _event_label: Label = %EventLabel
-@onready var _district_bar: HBoxContainer = %DistrictBar
-@onready var _travel_hint: Label = %TravelHint
-@onready var _market_title: Label = %MarketTitle
-@onready var _market_grid: GridContainer = %MarketGrid
-@onready var _activities_title: Label = %ActivitiesTitle
+@onready var _card: PanelContainer = %DistrictCard
+@onready var _card_title: Label = %CardTitle
+@onready var _card_info: Label = %CardInfo
+@onready var _card_close_button: Button = %CardCloseButton
+@onready var _card_travel_button: Button = %CardTravelButton
+@onready var _card_market_button: Button = %CardMarketButton
 @onready var _activities_grid: GridContainer = %ActivitiesGrid
+@onready var _market_window: PanelContainer = %MarketWindow
+@onready var _market_title: Label = %MarketTitle
+@onready var _market_close_button: Button = %MarketCloseButton
+@onready var _market_grid: GridContainer = %MarketGrid
 @onready var _tabs: TabContainer = %Tabs
 @onready var _debt_hint: Label = %DebtHint
 @onready var _pay_due_button: Button = %PayDueButton
@@ -57,10 +62,12 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 @onready var _end_text: Label = %EndText
 @onready var _end_menu_button: Button = %EndMenuButton
 
+## 3D-город (ставит сцена игры). Нужен, чтобы держать карточку над зданием.
+var city: Node3D
+## Район, чья карточка открыта ("" — закрыта).
+var _card_district: String = ""
 ## Узлы строк рынка по id товара: { "buy": Label, "sell": Label, ... }.
 var _rows: Dictionary = {}
-## Кнопки районов по id района.
-var _district_buttons: Dictionary = {}
 ## Кнопки дел текущего района по id дела.
 var _activity_buttons: Dictionary = {}
 ## Строки ларька по id товара: { "stock": Label, "button": Button }.
@@ -73,7 +80,6 @@ func _ready() -> void:
 	if GameState.session == null:
 		GameState.new_game()
 	var s := GameState.session
-	_build_districts()
 	_build_market()
 	_build_stall()
 	_build_skills()
@@ -81,8 +87,21 @@ func _ready() -> void:
 	_tabs.set_tab_title(1, tr("TAB_STALL"))
 	_tabs.set_tab_title(2, tr("TAB_SKILLS"))
 	for button: Button in [_pay_due_button, _pay_all_button, _borrow_button, _deposit_button, _withdraw_button,
-			_loan_button, _repay_button, _buy_stall_button]:
+			_loan_button, _repay_button, _buy_stall_button, _card_close_button, _card_travel_button,
+			_card_market_button, _market_close_button]:
 		_make_small(button)
+	_card_close_button.pressed.connect(close_card)
+	_card_travel_button.pressed.connect(func() -> void:
+		GameState.travel(_card_district)
+		_refresh())
+	# Пока открыт рынок, карточку района прячем, чтобы окна не налезали друг на друга.
+	_card_market_button.pressed.connect(func() -> void:
+		_market_window.visible = true
+		_card.visible = false
+		_refresh())
+	_market_close_button.pressed.connect(func() -> void:
+		_market_window.visible = false
+		open_card(GameState.session.district))
 	_pause_button.pressed.connect(func() -> void: Clock.paused = not Clock.paused)
 	for value: int in _speed_buttons:
 		_speed_buttons[value].pressed.connect(Clock.set_speed.bind(value))
@@ -111,7 +130,7 @@ func _ready() -> void:
 	_borrow_button.text = tr("BTN_BORROW") % [_format_money(s.balance.shark_loan_step),
 			_format_money(roundi(s.balance.shark_loan_step * (1.0 + s.balance.shark_loan_fee)))]
 	_buy_stall_button.text = tr("BTN_BUY_STALL") % _format_money(s.balance.stall_price)
-	_travel_hint.text = tr("TRAVEL_HINT") % int(s.balance.travel_hours)
+	_card_travel_button.text = tr("BTN_TRAVEL_HERE") % int(s.balance.travel_hours)
 	_add_log_entry(GameState.intro)
 	_refresh()
 	Clock.set_speed(1)
@@ -123,6 +142,37 @@ func _process(_delta: float) -> void:
 	# Часы идут, и дело может перестать помещаться в остаток дня.
 	for id: String in _activity_buttons:
 		_activity_buttons[id].disabled = not GameState.can_do_activity(id)
+	_place_card()
+
+
+## Открыть карточку района над его главным зданием.
+func open_card(district: String) -> void:
+	_card_district = district
+	_card.visible = true
+	_market_window.visible = false
+	if city != null:
+		city.select(district)
+	_refresh()
+
+
+func close_card() -> void:
+	_card_district = ""
+	_card.visible = false
+	if city != null:
+		city.select("")
+
+
+## Карточка висит над зданием и следует за камерой, но не уходит за край экрана.
+func _place_card() -> void:
+	if not _card.visible or city == null:
+		return
+	_card.size = _card.get_combined_minimum_size()
+	var anchor: Vector2 = city.anchor_screen_position(_card_district)
+	var pos := anchor - Vector2(_card.size.x / 2.0, _card.size.y + 24.0)
+	var screen := get_viewport_rect().size
+	pos.x = clampf(pos.x, 16.0, screen.x - _card.size.x - 470.0)
+	pos.y = clampf(pos.y, 120.0, screen.y - _card.size.y - 80.0)
+	_card.position = pos
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -143,21 +193,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 # --- Построение ---
-
-func _build_districts() -> void:
-	for district: Dictionary in GameState.session.market.districts:
-		var button := Button.new()
-		button.text = district.name_key
-		button.toggle_mode = true
-		button.add_theme_font_size_override("font_size", 17)
-		_make_small(button)
-		button.pressed.connect(func() -> void:
-			GameState.travel(district.id)
-			_refresh())
-		_district_bar.add_child(button)
-		_district_bar.move_child(button, _travel_hint.get_index())
-		_district_buttons[district.id] = button
-
 
 func _build_market() -> void:
 	for header: String in ["COL_GOOD", "COL_RISK", "COL_BUY", "COL_SELL", "COL_OWNED", "", "", "", ""]:
@@ -190,27 +225,30 @@ func _build_activities() -> void:
 	for child in _activities_grid.get_children():
 		_activities_grid.remove_child(child)
 		child.queue_free()
+	if _card_district != s.district:
+		return
 	for activity: Dictionary in s.local_activities():
 		var id: String = activity.id
-		var name_label := _add_label(_activities_grid, activity.name_key, 300)
-		if not activity.legal:
-			name_label.add_theme_color_override("font_color", COLOR_DIRTY)
-		var hours := _add_label(_activities_grid, tr("ACT_HOURS") % int(activity.hours), 50)
-		var energy := _add_label(_activities_grid, tr("ACT_ENERGY") % int(activity.energy), 90)
-		var result := _add_label(_activities_grid, "", 170)
-		for label: Label in [hours, energy, result]:
-			label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-			label.add_theme_font_size_override("font_size", 16)
+		var name_label := _add_label(_activities_grid, activity.name_key, 210)
+		name_label.add_theme_font_size_override("font_size", 16)
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var result: String
 		if activity.kind == "job":
 			var key := "ACT_PAY_CLEAN" if activity.legal else "ACT_PAY_DIRTY"
-			result.text = tr(key) % _format_money(s.activity_pay(activity))
+			result = tr(key) % _format_money(s.activity_pay(activity))
 		else:
 			var range_ := s.activity_yield(activity)
-			result.text = tr("ACT_YIELD") % [range_[0], range_[1]]
+			result = tr("ACT_YIELD") % [range_[0], range_[1]]
+		var details := _add_label(_activities_grid, "%s · %s\n%s" % [tr("ACT_HOURS") % int(activity.hours),
+				tr("ACT_ENERGY") % int(activity.energy), result], 120)
+		details.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		details.add_theme_font_size_override("font_size", 14)
+		details.modulate = Color(1, 1, 1, 0.75)
 		if not activity.legal:
-			result.text += "  " + tr("ACT_RISKY")
-			result.add_theme_color_override("font_color", COLOR_DIRTY)
+			name_label.add_theme_color_override("font_color", COLOR_DIRTY)
+			details.add_theme_color_override("font_color", COLOR_DIRTY)
 		_activity_buttons[id] = _add_button(_activities_grid, "BTN_DO", GameState.do_activity.bind(id))
+		_activity_buttons[id].size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _build_stall() -> void:
@@ -307,20 +345,12 @@ func _refresh() -> void:
 		_payment_label.text = tr("HUD_PAYMENT_DONE") % s.next_payment_day
 	_refresh_event_label()
 
-	for id: String in _district_buttons:
-		var button: Button = _district_buttons[id]
-		button.set_pressed_no_signal(id == s.district)
-		button.disabled = not s.can_act() and id != s.district
-	var district_name := tr(s.market.get_district(s.district).name_key)
-	if s.has_market():
-		_market_title.text = tr("MARKET_TITLE") % district_name
-	else:
-		_market_title.text = tr("MARKET_NONE") % district_name
-	_market_grid.visible = s.has_market()
+	# Рынок открыт только там, где он есть и где ты стоишь.
+	if not s.has_market():
+		_market_window.visible = false
+	_market_title.text = tr("MARKET_TITLE") % tr(s.market.get_district(s.district).name_key)
 	_refresh_market()
-
-	_build_activities()
-	_activities_title.text = tr("ACTIVITIES_TITLE") % district_name
+	_refresh_card()
 
 	var can_act := s.can_act()
 	_pay_due_button.disabled = not can_act or s.payment_left() == 0 or s.money < s.payment_left()
@@ -342,6 +372,25 @@ func _refresh() -> void:
 	_refresh_stall()
 	_refresh_skills()
 	_refresh_check()
+
+
+func _refresh_card() -> void:
+	if _card_district == "":
+		return
+	var s := GameState.session
+	var here := _card_district == s.district
+	var stars := s.police.stars(_card_district)
+	_card_title.text = tr(s.market.get_district(_card_district).name_key)
+	var info := tr("HUD_HEAT") % ("★".repeat(stars) + "☆".repeat(5 - stars))
+	if here:
+		info = tr("CARD_YOU_ARE_HERE") + "   ·   " + info
+	_card_info.text = info
+	_card_travel_button.visible = not here
+	_card_travel_button.disabled = not s.can_act()
+	_card_market_button.visible = here and s.has_market()
+	_card_market_button.disabled = _market_window.visible
+	_activities_grid.visible = here
+	_build_activities()
 
 
 func _refresh_market() -> void:

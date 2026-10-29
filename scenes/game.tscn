@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/city/city.tscn" id="2_city"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_screen.tscn" id="3_screen"]
+
+[node name="Game" type="Node"]
+script = ExtResource("1_game")
+
+[node name="City" parent="." instance=ExtResource("2_city")]
+
+[node name="Hud" type="CanvasLayer" parent="."]
+
+[node name="GameScreen" parent="Hud" instance=ExtResource("3_screen")]

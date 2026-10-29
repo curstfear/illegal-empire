@@ -3,7 +3,7 @@ extends Control
 ## «Настройки» пока показывают подсказку «в разработке».
 
 const SETTINGS_PATH := "user://settings.cfg"
-const GAME_SCENE := "res://scenes/ui/game_screen.tscn"
+const GAME_SCENE := "res://scenes/game.tscn"
 const LANGUAGES: Array[String] = ["ru", "en"]
 
 @onready var _new_game_button: Button = %NewGameButton

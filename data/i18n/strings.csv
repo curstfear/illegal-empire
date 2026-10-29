@@ -148,3 +148,15 @@ SKILL_STEALTH_EFFECT,−%d%% heat,−%d%% розыска
 SKILL_CRAFT_EFFECT,+%d%% gathering,+%d%% к сбору
 LOG_STALL_SOLD_CLEAN,Your stall sold goods for $%s clean.,Ларёк продал товар на $%s чистыми.
 OWNED_FREE,%d (gathered),%d (своё)
+POI_MARKET_HALL,Market,Рынок
+POI_BANK,Bank,Банк
+POI_STALL,Your stall spot,Место для ларька
+POI_STATION,Train station,Вокзал
+POI_SHARK,Loan shark,Ростовщик
+POI_CLUB,Club,Клуб
+POI_HOME,Your room,Твоя комната
+POI_FOREST,Forest park,Лесопарк
+BTN_TRAVEL_HERE,Go here (%d h),Перейти сюда (%d ч)
+BTN_OPEN_MARKET,Open the market,Открыть рынок
+CARD_YOU_ARE_HERE,You are here,Ты здесь
+CONTROLS_HINT,"Click a district · two fingers: move · pinch: zoom · Q/E rotate · Space pause","Клик по району · два пальца — двигать · щипок — ближе/дальше · Q/E поворот · Пробел — пауза"

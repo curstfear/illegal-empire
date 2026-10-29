@@ -5,6 +5,12 @@
 | Файл / папка в проекте | Что это | Источник (ссылка) | Автор | Лицензия | Платно? | Дата |
 |---|---|---|---|---|---|---|
 | `icon.svg` | Иконка проекта (стандартная Godot) | Godot Engine | Godot contributors | MIT | нет | 2026-10-30 |
+| `assets/models/kaykit_city/` | KayKit: City Builder Bits 1.0 (FREE) — 41 модель glTF: здания, дороги, машины, скамейки, кусты; текстура `citybits_texture.png` | https://kaylousberg.itch.io/city-builder-bits | Kay Lousberg | CC0 1.0 (`License.txt` в папке) | нет | 2026-10-30 |
+| `assets/models/kenney_city_commercial/` | Kenney: City Kit Commercial 2.1 — 41 модель GLB: магазины, офисы, высотки | https://kenney.nl/assets/city-kit-commercial | Kenney | CC0 1.0 (`License.txt` в папке) | нет | 2026-10-30 |
+| `assets/models/kenney_city_roads/` | Kenney: City Kit Roads 2.2 — 95 моделей GLB: дороги, перекрёстки, знаки, фонари | https://kenney.nl/assets/city-kit-roads | Kenney | CC0 1.0 (`License.txt` в папке) | нет | 2026-10-30 |
+| `assets/models/kenney_cars/` | Kenney: Car Kit 3.1 — 50 моделей GLB: легковые, такси, полиция, грузовики, колёса | https://kenney.nl/assets/car-kit | Kenney | CC0 1.0 (`License.txt` в папке) | нет | 2026-10-30 |
+
+Архивы скачал пользователь в `~/Downloads`; в проект скопированы только glTF/GLB, текстуры и лицензии (без FBX/OBJ).
 
 ## Разрешённые лицензии
 - **CC0** (Kenney, Quaternius, Poly Pizza CC0) — можно всё, указывать автора не обязательно, но пишем.

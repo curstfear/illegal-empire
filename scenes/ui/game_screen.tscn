@@ -2,15 +2,6 @@
 
 [ext_resource type="Script" path="res://scripts/ui/game_screen.gd" id="1_screen"]
 
-[sub_resource type="Gradient" id="Gradient_bg"]
-offsets = PackedFloat32Array(0, 0.6, 1)
-colors = PackedColorArray(0.035, 0.04, 0.07, 1, 0.07, 0.05, 0.09, 1, 0.16, 0.04, 0.07, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
-gradient = SubResource("Gradient_bg")
-fill_from = Vector2(0.5, 0)
-fill_to = Vector2(0.5, 1)
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
 content_margin_left = 28.0
 content_margin_top = 24.0
@@ -27,6 +18,24 @@ corner_radius_top_right = 14
 corner_radius_bottom_right = 14
 corner_radius_bottom_left = 14
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+content_margin_left = 18.0
+content_margin_top = 14.0
+content_margin_right = 18.0
+content_margin_bottom = 14.0
+bg_color = Color(0.07, 0.08, 0.12, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.16)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 16
+
 [node name="GameScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -34,17 +43,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("1_screen")
-
-[node name="Background" type="TextureRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = SubResource("GradientTexture2D_bg")
-expand_mode = 1
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -53,6 +53,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 24
@@ -60,6 +61,7 @@ theme_override_constants/margin_bottom = 16
 
 [node name="Layout" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="TopBar" type="PanelContainer" parent="Margin/Layout"]
@@ -115,6 +117,7 @@ theme_override_font_sizes/font_size = 22
 [node name="Spacer" type="Control" parent="Margin/Layout/TopBar/Row"]
 layout_mode = 2
 size_flags_horizontal = 3
+mouse_filter = 2
 
 [node name="PauseButton" type="Button" parent="Margin/Layout/TopBar/Row"]
 unique_name_in_owner = true
@@ -145,92 +148,42 @@ text = "×4"
 
 [node name="InfoRow" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
+mouse_filter = 2
 theme_override_constants/separation = 24
 
 [node name="PaymentLabel" type="Label" parent="Margin/Layout/InfoRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.65, 0.3, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 17
 
 [node name="EventLabel" type="Label" parent="Margin/Layout/InfoRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.75, 0.6, 1, 1)
+theme_override_colors/font_color = Color(0.8, 0.68, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 17
 horizontal_alignment = 2
-
-[node name="DistrictBar" type="HBoxContainer" parent="Margin/Layout"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="DistrictTitle" type="Label" parent="Margin/Layout/DistrictBar"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 19
-text = "DISTRICT_TITLE"
-
-[node name="TravelHint" type="Label" parent="Margin/Layout/DistrictBar"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 0.45)
-theme_override_font_sizes/font_size = 15
 
 [node name="Body" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
+mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="Left" type="VBoxContainer" parent="Margin/Layout/Body"]
+[node name="CityArea" type="Control" parent="Margin/Layout/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 10
-
-[node name="MarketPanel" type="PanelContainer" parent="Margin/Layout/Body/Left"]
-layout_mode = 2
-
-[node name="Box" type="VBoxContainer" parent="Margin/Layout/Body/Left/MarketPanel"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="MarketTitle" type="Label" parent="Margin/Layout/Body/Left/MarketPanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
-theme_override_font_sizes/font_size = 20
-
-[node name="MarketGrid" type="GridContainer" parent="Margin/Layout/Body/Left/MarketPanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 6
-columns = 9
-
-[node name="ActivitiesPanel" type="PanelContainer" parent="Margin/Layout/Body/Left"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Box" type="VBoxContainer" parent="Margin/Layout/Body/Left/ActivitiesPanel"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="ActivitiesTitle" type="Label" parent="Margin/Layout/Body/Left/ActivitiesPanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
-theme_override_font_sizes/font_size = 20
-
-[node name="ActivitiesGrid" type="GridContainer" parent="Margin/Layout/Body/Left/ActivitiesPanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 14
-theme_override_constants/v_separation = 6
-columns = 5
+mouse_filter = 2
 
 [node name="Right" type="VBoxContainer" parent="Margin/Layout/Body"]
 custom_minimum_size = Vector2(430, 0)
 layout_mode = 2
+mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="Tabs" type="TabContainer" parent="Margin/Layout/Body/Right"]
@@ -386,6 +339,7 @@ scroll_following = true
 
 [node name="BottomBar" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
+mouse_filter = 2
 theme_override_constants/separation = 12
 
 [node name="EndDayButton" type="Button" parent="Margin/Layout/BottomBar"]
@@ -408,6 +362,144 @@ text = "BTN_SAVE"
 unique_name_in_owner = true
 layout_mode = 2
 text = "BTN_TO_MENU"
+
+[node name="Spacer" type="Control" parent="Margin/Layout/BottomBar"]
+custom_minimum_size = Vector2(24, 0)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RotateLeftButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+custom_minimum_size = Vector2(52, 0)
+theme_override_font_sizes/font_size = 24
+tooltip_text = "Q"
+text = "↺"
+
+[node name="RotateRightButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+custom_minimum_size = Vector2(52, 0)
+theme_override_font_sizes/font_size = 24
+tooltip_text = "E"
+text = "↻"
+
+[node name="ZoomOutButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+custom_minimum_size = Vector2(52, 0)
+theme_override_font_sizes/font_size = 24
+text = "−"
+
+[node name="ZoomInButton" type="Button" parent="Margin/Layout/BottomBar"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+custom_minimum_size = Vector2(52, 0)
+theme_override_font_sizes/font_size = 24
+text = "+"
+
+[node name="ControlsHint" type="Label" parent="Margin/Layout/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(1, 1, 1, 0.6)
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 14
+text = "CONTROLS_HINT"
+horizontal_alignment = 2
+autowrap_mode = 3
+
+[node name="DistrictCard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 0
+offset_right = 460.0
+offset_bottom = 120.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="Box" type="VBoxContainer" parent="DistrictCard"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="DistrictCard/Box"]
+layout_mode = 2
+
+[node name="CardTitle" type="Label" parent="DistrictCard/Box/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 21
+
+[node name="CardCloseButton" type="Button" parent="DistrictCard/Box/Header"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+text = "✕"
+
+[node name="CardInfo" type="Label" parent="DistrictCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.65)
+theme_override_font_sizes/font_size = 15
+
+[node name="CardTravelButton" type="Button" parent="DistrictCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ActivitiesGrid" type="GridContainer" parent="DistrictCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 6
+columns = 3
+
+[node name="CardMarketButton" type="Button" parent="DistrictCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BTN_OPEN_MARKET"
+
+[node name="MarketWindow" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 24.0
+offset_top = 132.0
+offset_right = 1060.0
+offset_bottom = 520.0
+
+[node name="Box" type="VBoxContainer" parent="MarketWindow"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="MarketWindow/Box"]
+layout_mode = 2
+
+[node name="MarketTitle" type="Label" parent="MarketWindow/Box/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.97, 0.97, 1, 1)
+theme_override_font_sizes/font_size = 20
+
+[node name="MarketCloseButton" type="Button" parent="MarketWindow/Box/Header"]
+unique_name_in_owner = true
+auto_translate_mode = 2
+layout_mode = 2
+text = "✕"
+
+[node name="MarketGrid" type="GridContainer" parent="MarketWindow/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 6
+columns = 9
 
 [node name="CheckOverlay" type="ColorRect" parent="."]
 unique_name_in_owner = true
