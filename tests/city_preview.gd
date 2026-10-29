@@ -44,13 +44,20 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("city_hero.png"))
 
-	rig._set_zoom(26.0, false)
-	rig.target = Vector3(10, 0, 10)
+	rig._set_zoom(34.0, false)
+	rig.target = Vector3(22, 0, 22)
 	var lighting := city.get_node("Lighting")
 	for hour in [12.0, 22.0]:
 		lighting.forced_hour = hour
 		await _frames(10)
 		_shot(out_dir.path_join("city_%02d.png" % int(hour)))
+	# Скорость: ночь (все фонари), весь город в кадре, жизнь на улицах идёт.
+	rig._set_zoom(64.0, false)
+	Clock.paused = false
+	await get_tree().create_timer(3.0).timeout
+	print("кадров в секунду: ", Engine.get_frames_per_second(),
+			", объектов на сцене: ", RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
+			", вызовов отрисовки: ", RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 	get_tree().quit()
 
 

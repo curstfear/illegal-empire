@@ -1,6 +1,7 @@
 extends Node3D
 ## Город в 3D: собирается из модулей по data/city.json.
-## Две улицы крест-накрест делят город на 4 района. Клик по кварталу выбирает район,
+## Сетка улиц делит город на кварталы; центральные улицы делят его на 4 района.
+## В кварталах — дома, площади, скверы и парковки. Клик по кварталу выбирает район,
 ## наведение курсора подсвечивает район.
 ## Только картинка: про игру знает лишь, в каком районе сейчас игрок.
 
@@ -12,6 +13,9 @@ const CLICK_SLOP := 8.0
 const CITY_PATH := "res://data/city.json"
 const MODELS := "res://assets/models/"
 const KAY := MODELS + "kaykit_city/"
+## Размер подписей зданий: такой он при масштабе камеры TAG_BASE_ZOOM.
+const TAG_PIXEL_SIZE := 0.0095
+const TAG_BASE_ZOOM := 26.0
 ## Фонари: сколько света ночью и какого цвета.
 const LAMP_COLOR := Color(1.0, 0.78, 0.5)
 
@@ -20,7 +24,9 @@ var neon_lights: Array[OmniLight3D] = []
 
 var _data: Dictionary
 var _size: int
-var _road: int
+## Номера рядов/столбцов клеток, где идут улицы, и центральная улица (граница районов).
+var _roads: Array[int] = []
+var _center: int
 var _tile: float
 ## Точка над главным зданием района — сюда крепится карточка.
 var _anchors: Dictionary = {}
@@ -35,9 +41,12 @@ var _hit_boxes: Array = []
 ## Подсветка земли района под курсором и подписи главных зданий по районам.
 var _highlights: Dictionary = {}
 var _main_tags: Dictionary = {}
+var _tags: Array[Label3D] = []
 var _hovered: String = ""
 ## Общие меши деревьев: [ствол, крона].
 var _tree_meshes: Array = []
+## Общие материалы по цвету.
+var _materials: Dictionary = {}
 
 @onready var camera_rig: Node3D = $CameraRig
 
@@ -45,7 +54,9 @@ var _tree_meshes: Array = []
 func _ready() -> void:
 	_data = JSON.parse_string(FileAccess.get_file_as_string(CITY_PATH))
 	_size = int(_data.size)
-	_road = int(_data.road)
+	for road: float in _data.roads:
+		_roads.append(int(road))
+	_center = int(_data.center)
 	_tile = float(_data.tile)
 	_rng.seed = int(_data.seed)
 	_build_ground()
@@ -54,10 +65,14 @@ func _ready() -> void:
 	_build_districts()
 	_build_markers()
 	_build_highlights()
-	camera_rig.target = _tile_center(_road, _road)
+	camera_rig.target = _tile_center(_center, _center)
 
 
 func _process(delta: float) -> void:
+	# Подписи держат одинаковый размер на экране при любом приближении камеры.
+	var tag_size: float = TAG_PIXEL_SIZE * camera_rig.camera.size / TAG_BASE_ZOOM
+	for tag: Label3D in _tags:
+		tag.pixel_size = tag_size
 	# Маркер «ты здесь» висит над героем на тротуаре.
 	if _player_marker != null and GameState.session != null:
 		var anchor: Vector3 = _ground_anchors.get(GameState.session.district, Vector3.ZERO)
@@ -119,9 +134,9 @@ func _set_hovered(district: String) -> void:
 
 
 func district_at_tile(c: int, r: int) -> String:
-	if c < 0 or r < 0 or c >= _size or r >= _size or c == _road or r == _road:
+	if c < 0 or r < 0 or c >= _size or r >= _size or _roads.has(c) or _roads.has(r):
 		return ""
-	var quadrant := ("n" if r < _road else "s") + ("w" if c < _road else "e")
+	var quadrant := ("n" if r < _center else "s") + ("w" if c < _center else "e")
 	for district: String in _data.quadrants:
 		if _data.quadrants[district] == quadrant:
 			return district
@@ -132,8 +147,8 @@ func tile_size() -> float:
 	return _tile
 
 
-func road_index() -> int:
-	return _road
+func road_indices() -> Array[int]:
+	return _roads
 
 
 func grid_size() -> int:
@@ -147,13 +162,24 @@ func district_ground_anchor(district: String) -> Vector3:
 
 ## Тротуар у ближайшей улицы перед клеткой (главные здания стоят вплотную к улице).
 func _sidewalk_in_front(c: int, r: int) -> Vector3:
-	var pos := _tile_center(c, r)
-	var toward := Vector3.ZERO
-	if absi(r - _road) == 1:
-		toward.z = signf(_road - r)
-	else:
-		toward.x = signf(_road - c)
-	return pos + toward * (_tile / 2.0 + 0.15) + Vector3(0, 0.06, 0)
+	return _tile_center(c, r) + _toward_road(c, r) * (_tile / 2.0 + 0.15) + Vector3(0, 0.06, 0)
+
+
+## Направление от клетки к ближайшей улице (по одной оси).
+func _toward_road(c: int, r: int) -> Vector3:
+	var best_row := _nearest_road(r)
+	var best_col := _nearest_road(c)
+	if absi(best_row - r) <= absi(best_col - c):
+		return Vector3(0, 0, signf(best_row - r))
+	return Vector3(signf(best_col - c), 0, 0)
+
+
+func _nearest_road(i: int) -> int:
+	var best := _roads[0]
+	for road in _roads:
+		if absi(road - i) < absi(best - i):
+			best = road
+	return best
 
 
 ## Точка на экране над главным зданием района (для карточки).
@@ -200,19 +226,30 @@ func _build_ground() -> void:
 	add_child(ground)
 
 
+## Улицы: перекрёстки, рядом с ними — пешеходные переходы, между ними — прямые куски.
 func _build_roads() -> void:
-	for i in _size:
-		if i == _road:
-			_place(KAY + "road_junction.gltf", _tile_center(_road, _road))
-			continue
-		var crossing := i == _road - 1 or i == _road + 1
-		var model := KAY + ("road_straight_crossing.gltf" if crossing else "road_straight.gltf")
-		_place(model, _tile_center(_road, i))
-		_place(model, _tile_center(i, _road), 90.0)
-		# Фонари по обе стороны дорог, через клетку.
-		if i % 2 == 0:
-			_add_streetlight(_tile_center(_road, i) + Vector3(_tile * 0.42, 0, 0), 90.0)
-			_add_streetlight(_tile_center(i, _road) + Vector3(0, 0, -_tile * 0.42), 0.0)
+	for r in _size:
+		for c in _size:
+			var on_col := _roads.has(c)
+			var on_row := _roads.has(r)
+			if not on_col and not on_row:
+				continue
+			var pos := _tile_center(c, r)
+			if on_col and on_row:
+				_place(KAY + "road_junction.gltf", pos)
+				continue
+			# Вдоль столбца улица идёт по Z, вдоль ряда — по X.
+			var along := r if on_col else c
+			var crossing := _roads.has(along - 1) or _roads.has(along + 1)
+			var model := KAY + ("road_straight_crossing.gltf" if crossing else "road_straight.gltf")
+			_place(model, pos, 0.0 if on_col else 90.0)
+			# Фонари через клетку, по очереди на разных сторонах улицы.
+			if along % 2 == 0 and not crossing:
+				var side := 1.0 if along % 4 == 0 else -1.0
+				if on_col:
+					_add_streetlight(pos + Vector3(side * _tile * 0.42, 0, 0), 90.0 * side)
+				else:
+					_add_streetlight(pos + Vector3(0, 0, side * _tile * 0.42), 90.0 - 90.0 * side)
 
 
 func _add_streetlight(pos: Vector3, rot_deg: float) -> void:
@@ -243,7 +280,7 @@ func _build_pois() -> void:
 		_add_hit_box(pos, maxf(height, 1.0) + 0.8, poi.district)
 		if poi.has("neon"):
 			var neon := OmniLight3D.new()
-			neon.position = pos + Vector3(0, 0.6, _tile * 0.6)
+			neon.position = pos + _toward_road(int(poi.tile[0]), int(poi.tile[1])) * _tile * 0.6 + Vector3(0, 0.6, 0)
 			neon.light_color = Color(poi.neon[0], poi.neon[1], poi.neon[2])
 			neon.omni_range = 4.0
 			neon.light_energy = 0.0
@@ -251,38 +288,63 @@ func _build_pois() -> void:
 			neon_lights.append(neon)
 
 
+## Кварталы: часть клеток — дома (доля = density стиля района), остальное — открытые места.
 func _build_districts() -> void:
 	var taken := {}
 	for poi: Dictionary in _data.pois:
 		taken[Vector2i(int(poi.tile[0]), int(poi.tile[1]))] = true
+	var pond := {}
+	for tile: Array in _data.pond:
+		pond[Vector2i(int(tile[0]), int(tile[1]))] = true
 	for r in _size:
 		for c in _size:
 			var district := district_at_tile(c, r)
 			if district == "" or taken.has(Vector2i(c, r)):
 				continue
 			var pos := _tile_center(c, r)
-			if district == "forest":
-				_build_forest_tile(pos)
-				_add_hit_box(pos, 1.5, district)
+			if pond.has(Vector2i(c, r)):
+				_build_pond_tile(pos)
+				_add_hit_box(pos, 0.3, district)
 				continue
 			var style: Dictionary = _data.styles[district]
-			# Немного пустых площадок, чтобы кварталы дышали.
-			if _rng.randf() < 0.12:
-				_place(KAY + "base.gltf", pos)
-				_place(KAY + ["bench.gltf", "dumpster.gltf", "watertower.gltf"][_rng.randi() % 3], pos, _rng.randi_range(0, 3) * 90.0, 1.5)
-				_add_hit_box(pos, 0.6, district)
+			if _rng.randf() >= float(style.density):
+				_add_hit_box(pos, _build_open_tile(pos, district, c, r), district)
 				continue
 			if style.on_base:
 				_place(KAY + "base.gltf", pos)
 			var model: String = style.models[_rng.randi() % style.models.size()]
 			# Здания смотрят фасадом на ближайшую улицу.
-			var rot := 0.0
-			if absi(r - _road) <= absi(c - _road):
-				rot = 180.0 if r > _road else 0.0
-			else:
-				rot = -90.0 if c > _road else 90.0
+			var facing := _toward_road(c, r)
+			var rot := rad_to_deg(atan2(facing.x, facing.z))
 			var node := _place(MODELS + model, pos, rot, float(style.scale))
 			_add_hit_box(pos, _height_of(node) if node != null else 1.0, district)
+
+
+## Открытая клетка: площадь, сквер или парковка (в лесопарке — луг с деревьями).
+## Возвращает высоту для «коробки» клика.
+func _build_open_tile(pos: Vector3, district: String, c: int, r: int) -> float:
+	if district == "forest":
+		_build_park_tile(pos, _rng.randi_range(1, 4))
+		return 1.5
+	var weights: Dictionary = _data.open_space
+	var roll := _rng.randf()
+	if roll < float(weights.plaza):
+		_place(KAY + "base.gltf", pos)
+		var facing := _toward_road(c, r)
+		_place(KAY + "bench.gltf", pos - facing * 0.4, rad_to_deg(atan2(facing.x, facing.z)), 1.6)
+		_add_tree(pos + Vector3(0.55, 0, 0.55), 0.8)
+		_add_tree(pos + Vector3(-0.55, 0, -0.55), 0.7)
+		return 0.8
+	if roll < float(weights.plaza) + float(weights.park):
+		_build_park_tile(pos, _rng.randi_range(1, 2))
+		return 1.2
+	# Парковка: пара машин бок о бок.
+	_place(KAY + "base.gltf", pos)
+	var cars := ["car_sedan.gltf", "car_hatchback.gltf", "car_stationwagon.gltf", "car_taxi.gltf"]
+	for x in [-0.4, 0.4]:
+		if _rng.randf() < 0.8:
+			_place(KAY + cars[_rng.randi() % cars.size()], pos + Vector3(x, 0.05, 0), 0.0 if _rng.randf() < 0.5 else 180.0)
+	return 0.5
 
 
 ## Невидимая «коробка» клетки для клика: вся клетка от земли до верха здания.
@@ -293,11 +355,11 @@ func _add_hit_box(pos: Vector3, height: float, district: String) -> void:
 
 ## Подсветка земли каждого района (видна в просветах между домами и на краях).
 func _build_highlights() -> void:
-	var span := _road * _tile
+	var span := _center * _tile
 	for district: String in _data.quadrants:
 		var quadrant: String = _data.quadrants[district]
-		var first_c := 0 if quadrant.ends_with("w") else _road + 1
-		var first_r := 0 if quadrant.begins_with("n") else _road + 1
+		var first_c := 0 if quadrant.ends_with("w") else _center + 1
+		var first_r := 0 if quadrant.begins_with("n") else _center + 1
 		var plane := PlaneMesh.new()
 		plane.size = Vector2(span, span)
 		var quad := MeshInstance3D.new()
@@ -312,17 +374,34 @@ func _build_highlights() -> void:
 		_highlights[district] = quad
 
 
-func _build_forest_tile(pos: Vector3) -> void:
-	var grass := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(_tile, _tile)
-	grass.mesh = plane
-	grass.position = pos + Vector3(0, 0.01, 0)
-	grass.material_override = _flat_material(Color(0.36, 0.62, 0.38))
-	add_child(grass)
-	for i in _rng.randi_range(2, 3):
+## Газон с деревьями.
+func _build_park_tile(pos: Vector3, trees: int) -> void:
+	_add_flat(pos, Color(0.36, 0.62, 0.38))
+	for i in trees:
 		var offset := Vector3(_rng.randf_range(-0.65, 0.65), 0, _rng.randf_range(-0.65, 0.65))
 		_add_tree(pos + offset, _rng.randf_range(0.8, 1.3))
+
+
+## Пруд: вода с травяной каймой.
+func _build_pond_tile(pos: Vector3) -> void:
+	_add_flat(pos, Color(0.36, 0.62, 0.38))
+	var water := _add_flat(pos + Vector3(0, 0.01, 0), Color(0.35, 0.62, 0.85))
+	water.scale = Vector3(1.02, 1, 1.02)
+	var mat: StandardMaterial3D = water.material_override
+	mat.roughness = 0.15
+	mat.metallic_specular = 0.8
+
+
+## Плоская цветная клетка (газон, вода).
+func _add_flat(pos: Vector3, color: Color) -> MeshInstance3D:
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(_tile, _tile)
+	var node := MeshInstance3D.new()
+	node.mesh = plane
+	node.position = pos + Vector3(0, 0.01, 0)
+	node.material_override = _flat_material(color)
+	add_child(node)
+	return node
 
 
 ## Круглое дерево: ствол и шар-крона (в паках деревьев нет, позже можно сделать в Blender).
@@ -394,6 +473,7 @@ func _add_name_tag(key: String, pos: Vector3) -> Label3D:
 	tag.outline_modulate = Color(0.05, 0.06, 0.1, 0.85)
 	tag.no_depth_test = true
 	add_child(tag)
+	_tags.append(tag)
 	return tag
 
 
@@ -405,8 +485,13 @@ func _height_of(node: Node3D) -> float:
 	return top
 
 
+## Материал одного цвета; одинаковые цвета делят один материал (газоны, вода, деревья).
 func _flat_material(color: Color) -> StandardMaterial3D:
+	var key := color.to_html()
+	if _materials.has(key):
+		return _materials[key]
 	var mat := StandardMaterial3D.new()
+	_materials[key] = mat
 	mat.albedo_color = color
 	mat.roughness = 0.9
 	if color.a < 1.0:

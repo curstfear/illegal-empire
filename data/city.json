@@ -1,6 +1,7 @@
 {
-	"size": 11,
-	"road": 5,
+	"size": 23,
+	"roads": [5, 11, 17],
+	"center": 11,
 	"tile": 2.0,
 	"seed": 7,
 	"quadrants": {
@@ -13,41 +14,43 @@
 		"market": {
 			"models": ["kaykit_city/building_A.gltf", "kaykit_city/building_B.gltf", "kaykit_city/building_C.gltf",
 				"kaykit_city/building_D.gltf", "kaykit_city/building_E.gltf", "kaykit_city/building_F.gltf"],
-			"scale": 1.0, "on_base": false
+			"scale": 1.0, "on_base": false, "density": 0.5
 		},
 		"station": {
 			"models": ["kenney_city_commercial/building-skyscraper-a.glb", "kenney_city_commercial/building-skyscraper-b.glb",
 				"kenney_city_commercial/building-skyscraper-c.glb", "kenney_city_commercial/building-skyscraper-e.glb",
 				"kenney_city_commercial/building-l.glb", "kenney_city_commercial/building-m.glb"],
-			"scale": 1.35, "on_base": true
+			"scale": 1.35, "on_base": true, "density": 0.55
 		},
 		"clubs": {
 			"models": ["kenney_city_commercial/building-a.glb", "kenney_city_commercial/building-b.glb",
 				"kenney_city_commercial/building-c.glb", "kenney_city_commercial/building-d.glb",
 				"kenney_city_commercial/building-h.glb", "kaykit_city/building_G.gltf", "kaykit_city/building_H.gltf"],
-			"scale": 1.5, "on_base": true
+			"scale": 1.5, "on_base": true, "density": 0.45
 		},
 		"forest": {
 			"models": [],
-			"scale": 1.0, "on_base": false
+			"scale": 1.0, "on_base": false, "density": 0.0
 		}
 	},
+	"open_space": { "plaza": 0.35, "park": 0.4, "parking": 0.25 },
+	"pond": [[14, 14], [15, 14], [14, 15], [15, 15], [20, 20], [21, 20]],
 	"pois": [
-		{ "id": "market_hall", "district": "market", "name_key": "POI_MARKET_HALL", "tile": [3, 4], "main": true,
+		{ "id": "market_hall", "district": "market", "name_key": "POI_MARKET_HALL", "tile": [9, 10], "main": true,
 			"model": "kenney_city_commercial/building-n.glb", "scale": 0.85, "rot": 0 },
-		{ "id": "bank", "district": "market", "name_key": "POI_BANK", "tile": [1, 4],
+		{ "id": "bank", "district": "market", "name_key": "POI_BANK", "tile": [7, 10],
 			"model": "kenney_city_commercial/building-l.glb", "scale": 1.4, "rot": 0 },
-		{ "id": "stall", "district": "market", "name_key": "POI_STALL", "tile": [4, 3],
+		{ "id": "stall", "district": "market", "name_key": "POI_STALL", "tile": [10, 8],
 			"model": "kenney_city_commercial/detail-parasol-a.glb", "scale": 2.5, "rot": 0 },
-		{ "id": "station", "district": "station", "name_key": "POI_STATION", "tile": [7, 4], "main": true,
+		{ "id": "station", "district": "station", "name_key": "POI_STATION", "tile": [13, 10], "main": true,
 			"model": "kenney_city_commercial/building-j.glb", "scale": 0.95, "rot": 0 },
-		{ "id": "shark", "district": "station", "name_key": "POI_SHARK", "tile": [9, 4],
+		{ "id": "shark", "district": "station", "name_key": "POI_SHARK", "tile": [15, 10],
 			"model": "kaykit_city/building_H.gltf", "scale": 1.0, "rot": 0 },
-		{ "id": "club", "district": "clubs", "name_key": "POI_CLUB", "tile": [3, 6], "main": true,
+		{ "id": "club", "district": "clubs", "name_key": "POI_CLUB", "tile": [9, 12], "main": true,
 			"model": "kenney_city_commercial/building-k.glb", "scale": 0.95, "rot": 180, "neon": [0.95, 0.2, 0.55] },
-		{ "id": "home", "district": "clubs", "name_key": "POI_HOME", "tile": [1, 6],
+		{ "id": "home", "district": "clubs", "name_key": "POI_HOME", "tile": [7, 12],
 			"model": "kaykit_city/building_A.gltf", "scale": 1.0, "rot": 180 },
-		{ "id": "forest_gate", "district": "forest", "name_key": "POI_FOREST", "tile": [7, 6], "main": true,
+		{ "id": "forest_gate", "district": "forest", "name_key": "POI_FOREST", "tile": [13, 12], "main": true,
 			"model": "kaykit_city/bench.gltf", "scale": 3.0, "rot": 0 }
 	]
 }

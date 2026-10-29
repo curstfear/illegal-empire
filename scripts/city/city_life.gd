@@ -1,6 +1,6 @@
 extends Node3D
 ## Жизнь на улицах: машины по полосам, прохожие-чудики по тротуарам, полиция, герой.
-## Двигаются по двум главным улицам туда-обратно; доехав до края — появляются с другой стороны.
+## Двигаются по улицам сетки туда-обратно; доехав до края — появляются с другой стороны.
 ## Днём людно, ночью пусто. Полиции больше, когда растёт розыск и во время облавы.
 
 const KAY := "res://assets/models/kaykit_city/"
@@ -12,8 +12,8 @@ const PEOPLE_COLORS: Array[Color] = [
 const HERO_COLOR := Color(0.91, 0.23, 0.27)
 const POLICE_COLOR := Color(0.18, 0.28, 0.62)
 
-const CARS := 8
-const PEOPLE := 22
+const CARS := 20
+const PEOPLE := 56
 const POLICE_CARS_MAX := 4
 const POLICE_WALKERS_MAX := 4
 ## Смещение полос и тротуаров от середины улицы (в метрах; улица шириной 2).
@@ -31,7 +31,8 @@ var _hero: Chudik
 var _rng := RandomNumberGenerator.new()
 var _min: float
 var _max: float
-var _road_pos: float
+## Где проходят улицы (координата середины улицы).
+var _road_positions: Array[float] = []
 
 
 func _ready() -> void:
@@ -41,7 +42,8 @@ func _ready() -> void:
 		await city.ready
 	_rng.seed = 11
 	var tile: float = city.tile_size()
-	_road_pos = city.road_index() * tile
+	for road: int in city.road_indices():
+		_road_positions.append(road * tile)
 	_min = -tile / 2.0
 	_max = (city.grid_size() - 0.5) * tile
 	for i in CARS:
@@ -142,14 +144,15 @@ func _spawn_person(color: Color, is_police: bool, kind: String) -> void:
 			"speed": WALK_SPEED * _rng.randf_range(0.8, 1.25), "kind": kind })
 
 
-## Случайное место на одной из двух улиц: ось, направление и стартовая точка.
+## Случайное место на одной из улиц: ось, направление и стартовая точка.
 ## Правостороннее движение: полоса зависит от направления.
 func _random_lane(offset: float) -> Dictionary:
 	var axis := "x" if _rng.randf() < 0.5 else "z"
 	var dir := 1.0 if _rng.randf() < 0.5 else -1.0
 	var along := _rng.randf_range(_min, _max)
 	var side := offset * dir
-	var pos := Vector3(along, 0.06, _road_pos + side) if axis == "x" else Vector3(_road_pos - side, 0.06, along)
+	var road: float = _road_positions[_rng.randi() % _road_positions.size()]
+	var pos := Vector3(along, 0.06, road + side) if axis == "x" else Vector3(road - side, 0.06, along)
 	return { "axis": axis, "dir": dir, "position": pos }
 
 

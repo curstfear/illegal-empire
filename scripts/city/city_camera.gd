@@ -5,7 +5,7 @@ extends Node3D
 ## Клавиатура: WASD / стрелки — двигать, Q / E — повернуть на 90°, + / − — приближение.
 
 const ZOOM_MIN := 8.0
-const ZOOM_MAX := 34.0
+const ZOOM_MAX := 64.0
 const PAN_SPEED := 14.0
 ## Сдвиг картинки вбок в долях высоты кадра (под правую панель).
 const SCREEN_SHIFT := 0.24
@@ -21,7 +21,7 @@ var target := Vector3.ZERO:
 		target = value
 		position = value
 
-var _zoom := 26.0
+var _zoom := 34.0
 var _yaw := 45.0
 ## Перетаскивание: какая кнопка зажата, где нажали и началось ли движение.
 var _drag_button := MOUSE_BUTTON_NONE
