@@ -1,16 +1,18 @@
 extends Control
-## Экран партии (прототип): верхняя панель, районы, рынок, журнал,
-## ростовщик, банк, окно проверки полиции.
+## Экран партии (прототип): верхняя панель, районы, рынок, дела района,
+## вкладки «Деньги / Ларёк / Навыки», журнал, окно проверки полиции.
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const COLOR_UP := Color(0.45, 0.9, 0.55)
 const COLOR_DOWN := Color(0.95, 0.4, 0.42)
+const COLOR_DIRTY := Color(0.85, 0.7, 0.35)
 const RISK_COLORS: Array[Color] = [Color(0.45, 0.9, 0.55), Color(0.95, 0.85, 0.4), Color(0.95, 0.6, 0.3), Color(0.95, 0.35, 0.35)]
 const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HIGH"]
 
 @onready var _day_label: Label = %DayLabel
 @onready var _time_label: Label = %TimeLabel
+@onready var _energy_label: Label = %EnergyLabel
 @onready var _clean_label: Label = %CleanLabel
 @onready var _dirty_label: Label = %DirtyLabel
 @onready var _debt_label: Label = %DebtLabel
@@ -23,7 +25,9 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 @onready var _travel_hint: Label = %TravelHint
 @onready var _market_title: Label = %MarketTitle
 @onready var _market_grid: GridContainer = %MarketGrid
-@onready var _log_text: RichTextLabel = %LogText
+@onready var _activities_title: Label = %ActivitiesTitle
+@onready var _activities_grid: GridContainer = %ActivitiesGrid
+@onready var _tabs: TabContainer = %Tabs
 @onready var _debt_hint: Label = %DebtHint
 @onready var _pay_due_button: Button = %PayDueButton
 @onready var _pay_all_button: Button = %PayAllButton
@@ -34,6 +38,11 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 @onready var _withdraw_button: Button = %WithdrawButton
 @onready var _loan_button: Button = %LoanButton
 @onready var _repay_button: Button = %RepayButton
+@onready var _stall_info: Label = %StallInfo
+@onready var _buy_stall_button: Button = %BuyStallButton
+@onready var _stall_grid: GridContainer = %StallGrid
+@onready var _skills_grid: GridContainer = %SkillsGrid
+@onready var _log_text: RichTextLabel = %LogText
 @onready var _end_day_button: Button = %EndDayButton
 @onready var _lay_low_button: Button = %LayLowButton
 @onready var _save_button: Button = %SaveButton
@@ -52,6 +61,12 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 var _rows: Dictionary = {}
 ## Кнопки районов по id района.
 var _district_buttons: Dictionary = {}
+## Кнопки дел текущего района по id дела.
+var _activity_buttons: Dictionary = {}
+## Строки ларька по id товара: { "stock": Label, "button": Button }.
+var _stall_rows: Dictionary = {}
+## Строки навыков по id: { "name": Label, "bar": ProgressBar, "effect": Label }.
+var _skill_rows: Dictionary = {}
 
 
 func _ready() -> void:
@@ -60,6 +75,14 @@ func _ready() -> void:
 	var s := GameState.session
 	_build_districts()
 	_build_market()
+	_build_stall()
+	_build_skills()
+	_tabs.set_tab_title(0, tr("TAB_MONEY"))
+	_tabs.set_tab_title(1, tr("TAB_STALL"))
+	_tabs.set_tab_title(2, tr("TAB_SKILLS"))
+	for button: Button in [_pay_due_button, _pay_all_button, _borrow_button, _deposit_button, _withdraw_button,
+			_loan_button, _repay_button, _buy_stall_button]:
+		_make_small(button)
 	_pause_button.pressed.connect(func() -> void: Clock.paused = not Clock.paused)
 	for value: int in _speed_buttons:
 		_speed_buttons[value].pressed.connect(Clock.set_speed.bind(value))
@@ -70,6 +93,7 @@ func _ready() -> void:
 	_withdraw_button.pressed.connect(GameState.withdraw_deposit)
 	_loan_button.pressed.connect(GameState.take_bank_loan)
 	_repay_button.pressed.connect(GameState.repay_bank_loan)
+	_buy_stall_button.pressed.connect(GameState.buy_stall)
 	_end_day_button.pressed.connect(Clock.finish_day)
 	_lay_low_button.pressed.connect(GameState.lay_low)
 	_save_button.pressed.connect(_on_save_pressed)
@@ -86,6 +110,7 @@ func _ready() -> void:
 	_debt_hint.text = tr("DEBT_HINT") % roundi(s.balance.weekly_interest * 100)
 	_borrow_button.text = tr("BTN_BORROW") % [_format_money(s.balance.shark_loan_step),
 			_format_money(roundi(s.balance.shark_loan_step * (1.0 + s.balance.shark_loan_fee)))]
+	_buy_stall_button.text = tr("BTN_BUY_STALL") % _format_money(s.balance.stall_price)
 	_travel_hint.text = tr("TRAVEL_HINT") % int(s.balance.travel_hours)
 	_add_log_entry(GameState.intro)
 	_refresh()
@@ -95,6 +120,9 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var minutes := Clock.minutes_of_day()
 	_time_label.text = "%02d:%02d" % [minutes / 60, minutes % 60]
+	# Часы идут, и дело может перестать помещаться в остаток дня.
+	for id: String in _activity_buttons:
+		_activity_buttons[id].disabled = not GameState.can_do_activity(id)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -114,12 +142,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+# --- Построение ---
+
 func _build_districts() -> void:
 	for district: Dictionary in GameState.session.market.districts:
 		var button := Button.new()
 		button.text = district.name_key
 		button.toggle_mode = true
-		button.add_theme_font_size_override("font_size", 18)
+		button.add_theme_font_size_override("font_size", 17)
+		_make_small(button)
 		button.pressed.connect(func() -> void:
 			GameState.travel(district.id)
 			_refresh())
@@ -130,53 +161,141 @@ func _build_districts() -> void:
 
 func _build_market() -> void:
 	for header: String in ["COL_GOOD", "COL_RISK", "COL_BUY", "COL_SELL", "COL_OWNED", "", "", "", ""]:
-		var label := Label.new()
-		label.text = header
-		label.modulate = Color(1, 1, 1, 0.55)
-		label.add_theme_font_size_override("font_size", 16)
-		_market_grid.add_child(label)
+		_header_label(_market_grid, header)
 	for good: Dictionary in GameState.session.market.goods:
 		var id: String = good.id
 		var risk := GameState.session.market.risk_level(id)
 		var row := {
-			"name": _add_label(good.name_key, 190),
-			"risk": _add_label(RISK_KEYS[risk], 80),
-			"buy": _add_label("", 100),
-			"sell": _add_label("", 70),
-			"owned": _add_label("", 170),
-			"buy_one": _add_button("+1", GameState.buy.bind(id, 1)),
-			"buy_max": _add_button("BTN_BUY_MAX", func() -> void: GameState.buy(id, GameState.session.max_affordable(id))),
-			"sell_one": _add_button("−1", GameState.sell.bind(id, 1)),
-			"sell_all": _add_button("BTN_SELL_ALL", func() -> void: GameState.sell(id, GameState.session.inventory[id])),
+			"name": _add_label(_market_grid, good.name_key, 180),
+			"risk": _add_label(_market_grid, RISK_KEYS[risk], 76),
+			"buy": _add_label(_market_grid, "", 96),
+			"sell": _add_label(_market_grid, "", 66),
+			"owned": _add_label(_market_grid, "", 160),
+			"buy_one": _add_button(_market_grid, "+1", GameState.buy.bind(id, 1)),
+			"buy_max": _add_button(_market_grid, "", func() -> void: GameState.buy(id, GameState.session.max_affordable(id))),
+			"sell_one": _add_button(_market_grid, "−1", GameState.sell.bind(id, 1)),
+			"sell_all": _add_button(_market_grid, "BTN_SELL_ALL", func() -> void: GameState.sell(id, GameState.session.inventory[id])),
 		}
 		row.risk.add_theme_color_override("font_color", RISK_COLORS[risk])
-		row.risk.add_theme_font_size_override("font_size", 15)
-		for key: String in ["buy", "sell", "owned"]:
+		row.risk.add_theme_font_size_override("font_size", 14)
+		for key: String in ["buy", "sell", "owned", "buy_max"]:
 			row[key].auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		_rows[id] = row
 
 
-func _add_label(text: String, min_width: float) -> Label:
+## Дела района строятся заново при каждом обновлении: район, оплата и сбор зависят от состояния.
+func _build_activities() -> void:
+	var s := GameState.session
+	_activity_buttons.clear()
+	for child in _activities_grid.get_children():
+		_activities_grid.remove_child(child)
+		child.queue_free()
+	for activity: Dictionary in s.local_activities():
+		var id: String = activity.id
+		var name_label := _add_label(_activities_grid, activity.name_key, 300)
+		if not activity.legal:
+			name_label.add_theme_color_override("font_color", COLOR_DIRTY)
+		var hours := _add_label(_activities_grid, tr("ACT_HOURS") % int(activity.hours), 50)
+		var energy := _add_label(_activities_grid, tr("ACT_ENERGY") % int(activity.energy), 90)
+		var result := _add_label(_activities_grid, "", 170)
+		for label: Label in [hours, energy, result]:
+			label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			label.add_theme_font_size_override("font_size", 16)
+		if activity.kind == "job":
+			var key := "ACT_PAY_CLEAN" if activity.legal else "ACT_PAY_DIRTY"
+			result.text = tr(key) % _format_money(s.activity_pay(activity))
+		else:
+			var range_ := s.activity_yield(activity)
+			result.text = tr("ACT_YIELD") % [range_[0], range_[1]]
+		if not activity.legal:
+			result.text += "  " + tr("ACT_RISKY")
+			result.add_theme_color_override("font_color", COLOR_DIRTY)
+		_activity_buttons[id] = _add_button(_activities_grid, "BTN_DO", GameState.do_activity.bind(id))
+
+
+func _build_stall() -> void:
+	for id: String in GameState.session.stall.stock:
+		var good := GameState.session.market.get_good(id)
+		_add_label(_stall_grid, good.name_key, 150)
+		var stock := _add_label(_stall_grid, "", 150)
+		stock.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		stock.add_theme_font_size_override("font_size", 16)
+		var button := _add_button(_stall_grid, "", GameState.stock_stall.bind(id))
+		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_stall_rows[id] = { "stock": stock, "button": button }
+
+
+func _build_skills() -> void:
+	for id in Skills.IDS:
+		var name_label := _add_label(_skills_grid, "", 150)
+		name_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(80, 10)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bar.max_value = 1.0
+		bar.show_percentage = false
+		var back := StyleBoxFlat.new()
+		back.bg_color = Color(1, 1, 1, 0.1)
+		back.set_corner_radius_all(4)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Color(0.91, 0.23, 0.27, 0.9)
+		fill.set_corner_radius_all(4)
+		bar.add_theme_stylebox_override("background", back)
+		bar.add_theme_stylebox_override("fill", fill)
+		_skills_grid.add_child(bar)
+		var effect := _add_label(_skills_grid, "", 160)
+		effect.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		effect.add_theme_font_size_override("font_size", 14)
+		effect.modulate = Color(1, 1, 1, 0.7)
+		_skill_rows[id] = { "name": name_label, "bar": bar, "effect": effect }
+
+
+func _header_label(grid: GridContainer, text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.modulate = Color(1, 1, 1, 0.55)
+	label.add_theme_font_size_override("font_size", 15)
+	grid.add_child(label)
+
+
+func _add_label(grid: GridContainer, text: String, min_width: float) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.custom_minimum_size.x = min_width
-	label.add_theme_font_size_override("font_size", 19)
-	_market_grid.add_child(label)
+	label.add_theme_font_size_override("font_size", 18)
+	grid.add_child(label)
 	return label
 
 
-func _add_button(text: String, action: Callable) -> Button:
+func _add_button(grid: GridContainer, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.add_theme_font_size_override("font_size", 15)
+	_make_small(button)
 	button.pressed.connect(action)
-	_market_grid.add_child(button)
+	grid.add_child(button)
 	return button
 
+
+## Компактная кнопка: те же стили темы, но меньше отступы.
+func _make_small(button: Button) -> void:
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		var style: StyleBox = get_theme_stylebox(state, "Button").duplicate()
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		style.content_margin_top = 5
+		style.content_margin_bottom = 5
+		button.add_theme_stylebox_override(state, style)
+	if not button.has_theme_font_size_override("font_size"):
+		button.add_theme_font_size_override("font_size", 16)
+
+
+# --- Обновление ---
 
 func _refresh() -> void:
 	var s := GameState.session
 	_day_label.text = tr("HUD_DAY") % s.day
+	_energy_label.text = tr("HUD_ENERGY") % s.energy
 	_clean_label.text = tr("HUD_CLEAN") % _format_money(s.clean)
 	_dirty_label.text = tr("HUD_DIRTY") % _format_money(s.dirty)
 	_debt_label.text = tr("HUD_DEBT") % _format_money(s.debt)
@@ -192,8 +311,16 @@ func _refresh() -> void:
 		var button: Button = _district_buttons[id]
 		button.set_pressed_no_signal(id == s.district)
 		button.disabled = not s.can_act() and id != s.district
-	_market_title.text = tr("MARKET_TITLE") % tr(s.market.get_district(s.district).name_key)
+	var district_name := tr(s.market.get_district(s.district).name_key)
+	if s.has_market():
+		_market_title.text = tr("MARKET_TITLE") % district_name
+	else:
+		_market_title.text = tr("MARKET_NONE") % district_name
+	_market_grid.visible = s.has_market()
 	_refresh_market()
+
+	_build_activities()
+	_activities_title.text = tr("ACTIVITIES_TITLE") % district_name
 
 	var can_act := s.can_act()
 	_pay_due_button.disabled = not can_act or s.payment_left() == 0 or s.money < s.payment_left()
@@ -212,6 +339,8 @@ func _refresh() -> void:
 	_end_day_button.disabled = not can_act
 	_lay_low_button.disabled = not can_act
 	_save_button.disabled = not can_act
+	_refresh_stall()
+	_refresh_skills()
 	_refresh_check()
 
 
@@ -226,12 +355,58 @@ func _refresh_market() -> void:
 		row.buy.modulate = COLOR_UP if price > before else (COLOR_DOWN if price < before else Color.WHITE)
 		row.sell.text = "$%s" % _format_money(s.sell_price(id))
 		var owned: int = s.inventory[id]
-		row.owned.text = tr("OWNED_AVG") % [owned, _format_money(s.average_cost(id))] if owned > 0 else "—"
-		var affordable := can_act and s.max_affordable(id) > 0
+		if owned == 0:
+			row.owned.text = "—"
+		elif s.average_cost(id) == 0:
+			row.owned.text = tr("OWNED_FREE") % owned
+		else:
+			row.owned.text = tr("OWNED_AVG") % [owned, _format_money(s.average_cost(id))]
+		# «На все»: сколько штук выйдет и почём в среднем — крупная закупка сама поднимает цену.
+		var count := s.max_affordable(id)
+		row.buy_max.text = tr("BTN_BUY_MAX_N") % count
+		if count > 0:
+			var total := s.market.quote_buy(s.district, id, count)
+			row.buy_max.tooltip_text = tr("BUY_MAX_HINT") % [count, _format_money(total / count), _format_money(total)]
+		else:
+			row.buy_max.tooltip_text = ""
+		var affordable := can_act and count > 0
 		row.buy_one.disabled = not affordable
 		row.buy_max.disabled = not affordable
 		row.sell_one.disabled = not can_act or owned < 1
 		row.sell_all.disabled = not can_act or owned < 1
+
+
+func _refresh_stall() -> void:
+	var s := GameState.session
+	_buy_stall_button.visible = not s.stall.owned
+	_buy_stall_button.disabled = not s.can_buy_stall()
+	_stall_info.text = tr("STALL_OWNED" if s.stall.owned else "STALL_INFO") % _format_money(s.balance.stall_daily_fee)
+	_stall_grid.visible = s.stall.owned
+	for id: String in _stall_rows:
+		var row: Dictionary = _stall_rows[id]
+		row.stock.text = tr("STALL_STOCK") % [s.stall.stock[id], int(s.market.get_good(id).stall_daily)]
+		row.button.text = tr("BTN_STOCK") % s.inventory[id]
+		row.button.disabled = not s.can_stock_stall(id)
+
+
+func _refresh_skills() -> void:
+	var skills := GameState.session.skills
+	var b := GameState.session.balance
+	for id: String in _skill_rows:
+		var row: Dictionary = _skill_rows[id]
+		var lvl := skills.level(id)
+		row.name.text = tr("SKILL_LEVEL") % [tr("SKILL_" + id.to_upper()), lvl]
+		row.bar.value = skills.progress(id)
+		match id:
+			"trade":
+				row.effect.text = tr("SKILL_TRADE_EFFECT") % roundi(lvl * b.trade_bonus_per_level * 100)
+			"charisma":
+				row.effect.text = tr("SKILL_CHARISMA_EFFECT") % [roundi(lvl * b.charisma_pay_per_level * 100),
+						roundi(lvl * b.charisma_bribe_per_level * 100)]
+			"stealth":
+				row.effect.text = tr("SKILL_STEALTH_EFFECT") % roundi(lvl * b.stealth_heat_per_level * 100)
+			"craft":
+				row.effect.text = tr("SKILL_CRAFT_EFFECT") % roundi(lvl * b.craft_yield_per_level * 100)
 
 
 func _refresh_event_label() -> void:
@@ -260,6 +435,8 @@ func _refresh_speed_buttons() -> void:
 	for value: int in _speed_buttons:
 		_speed_buttons[value].set_pressed_no_signal(not Clock.paused and Clock.speed == value)
 
+
+# --- События экрана ---
 
 func _on_reported(report: Array) -> void:
 	for entry: Array in report:

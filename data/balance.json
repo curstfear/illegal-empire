@@ -41,5 +41,23 @@
 	"shark_loan_fee": 0.2,
 
 	"event_chance": 0.6,
-	"rumor_chance": 0.7
+	"rumor_chance": 0.7,
+
+	"energy_max": 100,
+	"activity_bust_heat": 10,
+	"activity_arrest_heat": 60,
+
+	"skill_max": 10,
+	"skill_xp_step": 20,
+	"xp_trade_per_dollars": 50,
+	"xp_activity": 3,
+	"xp_bribe": 2,
+	"trade_bonus_per_level": 0.02,
+	"charisma_pay_per_level": 0.05,
+	"charisma_bribe_per_level": 0.04,
+	"stealth_heat_per_level": 0.05,
+	"craft_yield_per_level": 0.1,
+
+	"stall_price": 400,
+	"stall_daily_fee": 5
 }

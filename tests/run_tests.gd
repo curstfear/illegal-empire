@@ -24,15 +24,21 @@ func _init() -> void:
 	_test_bank()
 	_test_shark_loan()
 	_test_events()
+	_test_jobs()
+	_test_shady_job()
+	_test_gathering()
+	_test_skills()
+	_test_stall()
 	_test_save_and_load()
 	_report_balance_bot()
+	_report_honest_bots()
 	print("\nИтог: %d прошло, %d упало" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
 
 func _new_session(seed_value: int = 42) -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
-			GameData.load_districts(), GameData.load_events(), seed_value)
+			GameData.load_districts(), GameData.load_events(), GameData.load_activities(), seed_value)
 
 
 ## Сессия без случайных проверок полиции — для тестов торговли.
@@ -271,6 +277,85 @@ func _test_events() -> void:
 	_check(seen > 15 and seen < 45, "события случаются часто, но не каждый день (%d из 50)" % seen)
 
 
+func _test_jobs() -> void:
+	var s := _calm_session()
+	_check(not s.can_do_activity("loader"), "грузчиком можно работать только на вокзале")
+	s.travel("station")
+	var reports := s.do_activity("loader")
+	_check(s.clean == 200 and s.clean_earned == 80 and s.energy == 50, "грузчик: +$80 чистыми, −50 сил")
+	_check(reports.size() >= 1 and reports[0][0] == "LOG_JOB_DONE", "в журнал пишется, что работа сделана")
+	s.do_activity("loader")
+	_check(not s.can_do_activity("loader") and s.energy == 0, "сил не осталось — работать нельзя")
+	s.end_day()
+	_check(s.energy == 100, "за ночь силы восстановились")
+
+
+func _test_shady_job() -> void:
+	var s := _calm_session()
+	s.do_activity("shady_parcel")
+	_check(s.dirty == 120 and s.police.heat.market > 0.0, "левая посылка: +$120 грязными и розыск")
+	var busted := 0
+	var arrested := 0
+	for seed_value in range(1, 101):
+		var r := _new_session(seed_value)
+		r.police.heat.market = 40.0
+		var report := r.do_activity("shady_parcel")
+		if report[0][0] == "LOG_ACTIVITY_BUSTED" and r.dirty == 0:
+			busted += 1
+		var hot := _new_session(seed_value)
+		hot.police.heat.market = 100.0
+		if hot.do_activity("shady_parcel")[0][0] == "LOG_ARRESTED" and hot.day == 3:
+			arrested += 1
+	_check(busted > 10, "при розыске левые дела срываются, денег нет (%d из 100)" % busted)
+	_check(arrested > 20, "при 3+ звёздах провал = арест на 2 дня (%d из 100)" % arrested)
+
+
+func _test_gathering() -> void:
+	var s := _calm_session()
+	s.travel("forest")
+	_check(not s.has_market() and not s.buy("mushrooms", 1), "в лесопарке нет рынка")
+	s.do_activity("pick_mushrooms")
+	_check(s.inventory.mushrooms >= 4 and s.inventory.mushrooms <= 10, "собрал 4–10 грибов (%d)" % s.inventory.mushrooms)
+	_check(s.average_cost("mushrooms") == 0, "собранное ничего не стоило")
+	s.do_activity("pick_moon_moss")
+	_check(s.police.heat.forest > 0.0, "сбор «Лунного мха» даёт розыск")
+
+
+func _test_skills() -> void:
+	var s := _calm_session()
+	_check(s.skills.level("charisma") == 0, "навыки с нуля")
+	s.skills.add_xp("charisma", 20)
+	_check(s.skills.level("charisma") == 1, "20 опыта — уровень 1")
+	s.skills.add_xp("charisma", 39)
+	_check(s.skills.level("charisma") == 1 and s.skills.progress("charisma") > 0.9, "до 2-го уровня нужно ещё 40")
+	s.skills.add_xp("charisma", 1)
+	_check(s.skills.level("charisma") == 2, "60 опыта — уровень 2")
+	_check(s.activity_pay(s.get_activity("courier")) == 44, "Харизма 2: курьер платит $44 вместо $40")
+	var price := s.sell_price("phones")
+	s.skills.add_xp("trade", 1000)
+	_check(s.sell_price("phones") > price, "Торговля поднимает цену продажи")
+	s.skills.add_xp("stealth", 100000)
+	_check(s.skills.level("stealth") == 10, "навык не выше 10")
+
+
+func _test_stall() -> void:
+	var s := _calm_session()
+	_check(not s.can_buy_stall(), "на ларёк ($400) не хватает")
+	s.clean = 1000
+	_check(s.buy_stall() and s.clean == 600, "купили ларёк за $400 чистыми")
+	s.inventory.mushrooms = 20
+	s.inventory.phones = 2
+	_check(not s.stock_stall("phones"), "краденые телефоны в ларёк не положишь")
+	s.travel("clubs")
+	_check(not s.stock_stall("mushrooms"), "выкладывать можно только на рынке")
+	s.travel("market")
+	_check(s.stock_stall("mushrooms") and s.stall.stock.mushrooms == 20 and s.inventory.mushrooms == 0, "выложили 20 грибов")
+	var clean_before := s.clean
+	s.end_day()
+	_check(s.stall.stock.mushrooms == 5, "за день ларёк продал 15 грибов, осталось 5")
+	_check(s.clean > clean_before - 12 - 5, "ларёк принёс чистые деньги (минус аренда и место)")
+
+
 func _test_save_and_load() -> void:
 	var s := _calm_session()
 	s.buy("cigarettes", 2)
@@ -278,6 +363,13 @@ func _test_save_and_load() -> void:
 	s.end_day()
 	s.end_day()
 	s.bank.deposit = 77
+	s.skills.add_xp("craft", 33)
+	s.clean = 1000
+	s.buy_stall()
+	s.travel("market")
+	s.inventory.herbs = 4
+	s.stock_stall("herbs")
+	s.energy = 42
 	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
 	var loaded := _calm_session(7)
 	loaded.load_dict(data)
@@ -329,6 +421,54 @@ func _report_balance_bot() -> void:
 			s.end_day()
 	print("\nБаланс (бот, %d партий): набрал $1 500 за 14 дней в %d%% партий, в среднем $%d, проверок полиции в среднем %.1f"
 			% [runs, wins * 100 / runs, total_money / runs, float(checks) / runs])
+
+
+## Замер баланса этапа 3: два честных бота и один «левый» для сравнения.
+## «Работяга» (worker): каждый день грузчик на вокзале + курьер на рынке.
+## «Ларёчник» (stall): утром собирает травы и грибы в лесопарке, днём курьер,
+## как накопит — покупает ларёк и выкладывает туда собранное.
+## «Левый» (shady): то же, что работяга, но берёт левые подработки.
+## Выигрыш = к концу 14-го дня внесён платёж $1 500.
+func _report_honest_bots() -> void:
+	var runs := 300
+	for bot in ["worker", "stall", "shady"]:
+		var wins := 0
+		var total_paid := 0
+		var total_left := 0
+		for seed_value in range(1, runs + 1):
+			var s := _new_session(seed_value)
+			for day in 14:
+				if bot == "worker":
+					s.travel("station")
+					s.do_activity("loader")
+					s.travel("market")
+					s.do_activity("courier")
+				elif bot == "shady":
+					s.travel("station")
+					s.do_activity("shady_wagon")
+					s.travel("market")
+					s.do_activity("shady_parcel")
+				else:
+					s.travel("forest")
+					s.do_activity("pick_herbs")
+					s.do_activity("pick_mushrooms")
+					s.travel("market")
+					if not s.stall.owned and s.clean >= 450:
+						s.buy_stall()
+					for id in ["herbs", "mushrooms"]:
+						if s.stall.owned:
+							s.stock_stall(id)
+						else:
+							s.sell(id, s.inventory[id])
+					s.do_activity("courier")
+				s.pay(mini(s.payment_left(), s.money - 20))
+				s.end_day()
+			if s.status == GameSession.Status.PLAYING and s.next_payment_day > 14:
+				wins += 1
+			total_paid += s.paid_this_period if s.next_payment_day == 14 else 1500
+			total_left += s.money + s.bank.deposit
+		print("Баланс (честный бот «%s», %d партий): внёс $1 500 к сроку в %d%% партий, в среднем внесено $%d, осталось $%d"
+				% [bot, runs, wins * 100 / runs, total_paid / runs, total_left / runs])
 
 
 ## Обычная цена товара в районе (без дневных колебаний).

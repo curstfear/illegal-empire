@@ -26,7 +26,8 @@ COL_BUY,Buy,Купить
 COL_SELL,Sell,Продать
 COL_OWNED,You have,У тебя
 OWNED_AVG,%d (paid $%s each),%d (брал по $%s)
-BTN_BUY_MAX,Buy max,На все
+BTN_BUY_MAX_N,Buy max (%d),На все (%d)
+BUY_MAX_HINT,"%d pcs at ~$%s each, $%s total. Each next one costs more.","%d шт. по ~$%s, всего $%s. Каждая следующая дороже."
 BTN_SELL_ALL,Sell all,Продать всё
 DEBT_TITLE,Loan shark,Ростовщик
 DEBT_HINT,+%d%% interest every 7 days. Miss a payment and it's over.,+%d%% каждые 7 дней. Не заплатишь вовремя — конец.
@@ -101,3 +102,49 @@ EVENT_STATION_PATROL,extra patrols at the station,усиленный патру�
 RUMOR_STATION_PATROL,extra patrols at the station tomorrow,завтра на вокзале усилят патрули
 EVENT_POLICE_DRILL,police are busy with drills,полиция на учениях
 RUMOR_POLICE_DRILL,police have drills tomorrow,завтра у полиции учения
+GOOD_HERBS,Medicinal herbs,Лечебные травы
+DISTRICT_FOREST,Forest park,Лесопарк
+HUD_ENERGY,Energy: %d,Силы: %d
+MARKET_NONE,%s — no market here. You can gather below.,%s — здесь нет рынка. Можно собирать (ниже).
+ACTIVITIES_TITLE,Things to do — %s,Дела — %s
+ACT_HOURS,%d h,%d ч
+ACT_ENERGY,−%d energy,−%d сил
+ACT_PAY_CLEAN,$%s clean,$%s чистыми
+ACT_PAY_DIRTY,$%s dirty,$%s грязными
+ACT_YIELD,%d–%d pcs,%d–%d шт.
+ACT_RISKY,(risky),(риск)
+BTN_DO,Do it,Делать
+ACT_COURIER,Courier: deliver food,Курьер: развезти еду
+ACT_SHADY_PARCEL,"Deliver a parcel, no questions","Отвезти посылку, не спрашивая"
+ACT_LOADER,Loader at the freight yard,Грузчик на товарном дворе
+ACT_SHADY_WAGON,"Unload a ""special"" wagon",Разгрузить «левый» вагон
+ACT_FLYERS,Hand out club flyers,Раздавать флаеры клуба
+ACT_DEALER_CARDS,Hand out a dealer's cards,Раздавать «визитки» дилера
+ACT_PICK_MUSHROOMS,Pick mushrooms,Собирать грибы
+ACT_PICK_HERBS,Gather herbs,Собирать травы
+ACT_PICK_MOON_MOSS,"Look for wild ""Moon Moss""",Искать дикий «Лунный мох»
+LOG_JOB_DONE,Done: %s. Paid $%s.,Сделано: %s. Заплатили $%s.
+LOG_GATHERED,Gathered %d: %s.,Собрано %d: %s.
+LOG_ACTIVITY_BUSTED,"%s — it went wrong, cops spooked you. No pay.","%s — сорвалось, спугнула полиция. Денег нет."
+LOG_SKILL_UP,Skill up! %s is now level %d.,Навык вырос! %s — уровень %d.
+LOG_STALL_BOUGHT,You bought a stall at the market.,Ты купил ларёк на рынке.
+LOG_STALL_SOLD,Your stall sold goods: $%s clean and $%s dirty.,Ларёк продал товар: $%s чистыми и $%s грязными.
+TAB_MONEY,Money,Деньги
+TAB_STALL,Stall,Ларёк
+TAB_SKILLS,Skills,Навыки
+BTN_BUY_STALL,Buy a stall ($%s clean),Купить ларёк ($%s чистыми)
+STALL_INFO,"A stall at the market sells your goods by itself every day at the full market price. Mushrooms and herbs openly, bootleg cigarettes under the counter. Spot fee: $%s a day.","Ларёк на рынке сам продаёт твой товар каждый день по полной цене рынка. Грибы и травы — открыто, левые сигареты — из-под прилавка. Место: $%s в день."
+STALL_OWNED,"Your stall sells by itself every day. You can stock it only while at the market. Spot fee: $%s a day.","Ларёк продаёт сам, каждый день. Выкладывать товар можно, только стоя на рынке. Место: $%s в день."
+STALL_STOCK,in stall: %d (up to %d/day),в ларьке: %d (до %d/день)
+BTN_STOCK,Stock all (%d),Выложить (%d)
+SKILL_TRADE,Trade,Торговля
+SKILL_CHARISMA,Charisma,Харизма
+SKILL_STEALTH,Stealth,Скрытность
+SKILL_CRAFT,Craft,Ремесло
+SKILL_LEVEL,%s · lvl %d,%s · ур. %d
+SKILL_TRADE_EFFECT,+%d%% sell price,+%d%% к цене продажи
+SKILL_CHARISMA_EFFECT,"+%d%% pay, −%d%% bribes","+%d%% к оплате, −%d%% к взяткам"
+SKILL_STEALTH_EFFECT,−%d%% heat,−%d%% розыска
+SKILL_CRAFT_EFFECT,+%d%% gathering,+%d%% к сбору
+LOG_STALL_SOLD_CLEAN,Your stall sold goods for $%s clean.,Ларёк продал товар на $%s чистыми.
+OWNED_FREE,%d (gathered),%d (своё)

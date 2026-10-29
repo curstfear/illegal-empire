@@ -1,0 +1,20 @@
+[
+	{ "id": "courier", "name_key": "ACT_COURIER", "district": "market", "kind": "job", "hours": 4, "energy": 30,
+		"pay": 40, "legal": true, "heat": 0, "skill": "charisma" },
+	{ "id": "shady_parcel", "name_key": "ACT_SHADY_PARCEL", "district": "market", "kind": "job", "hours": 3, "energy": 20,
+		"pay": 120, "legal": false, "heat": 8, "skill": "stealth" },
+	{ "id": "loader", "name_key": "ACT_LOADER", "district": "station", "kind": "job", "hours": 6, "energy": 50,
+		"pay": 80, "legal": true, "heat": 0, "skill": "charisma" },
+	{ "id": "shady_wagon", "name_key": "ACT_SHADY_WAGON", "district": "station", "kind": "job", "hours": 5, "energy": 45,
+		"pay": 170, "legal": false, "heat": 10, "skill": "stealth" },
+	{ "id": "flyers", "name_key": "ACT_FLYERS", "district": "clubs", "kind": "job", "hours": 3, "energy": 15,
+		"pay": 30, "legal": true, "heat": 0, "skill": "charisma" },
+	{ "id": "dealer_cards", "name_key": "ACT_DEALER_CARDS", "district": "clubs", "kind": "job", "hours": 3, "energy": 15,
+		"pay": 70, "legal": false, "heat": 6, "skill": "charisma" },
+	{ "id": "pick_mushrooms", "name_key": "ACT_PICK_MUSHROOMS", "district": "forest", "kind": "gather", "hours": 3, "energy": 25,
+		"good": "mushrooms", "yield_min": 4, "yield_max": 10, "legal": true, "heat": 0, "skill": "craft" },
+	{ "id": "pick_herbs", "name_key": "ACT_PICK_HERBS", "district": "forest", "kind": "gather", "hours": 3, "energy": 25,
+		"good": "herbs", "yield_min": 2, "yield_max": 6, "legal": true, "heat": 0, "skill": "craft" },
+	{ "id": "pick_moon_moss", "name_key": "ACT_PICK_MOON_MOSS", "district": "forest", "kind": "gather", "hours": 4, "energy": 35,
+		"good": "moon_moss", "yield_min": 1, "yield_max": 3, "legal": false, "heat": 6, "skill": "craft" }
+]

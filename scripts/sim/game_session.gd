@@ -1,13 +1,13 @@
 class_name GameSession
 extends RefCounted
 ## Одна партия: деньги (чистые и грязные), долги, карман с товаром, день, район,
-## рынок, розыск, события и банк.
+## рынок, розыск, события, банк, силы, навыки, подработки, сбор и ларёк.
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
 enum Status { PLAYING, LOST, WON }
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const START_DISTRICT := "market"
 
 var balance: Dictionary
@@ -15,10 +15,16 @@ var market: Market
 var police: Police
 var events: EventDeck
 var bank: Bank
+var skills: Skills
+var stall: Stall
+## Подработки и сбор (data/activities.json).
+var activities: Array = []
 var rng := RandomNumberGenerator.new()
 
 var day: int = 1
 var district: String = START_DISTRICT
+## Силы: тратятся на подработки и сбор, за ночь восстанавливаются.
+var energy: int
 ## Чистые — от легальной торговли, грязные — от нелегальной.
 var clean: int
 var dirty: int
@@ -41,12 +47,17 @@ var money: int:
 		return clean + dirty
 
 
-func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list: Array, seed_value: int = 0) -> void:
+func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list: Array,
+		activity_list: Array, seed_value: int = 0) -> void:
 	balance = balance_data
 	market = Market.new(goods, districts, balance)
 	police = Police.new(districts, balance)
 	events = EventDeck.new(event_list, balance)
 	bank = Bank.new(balance)
+	skills = Skills.new(balance)
+	stall = Stall.new(goods)
+	activities = activity_list
+	energy = balance.energy_max
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:
@@ -71,8 +82,18 @@ func buy_price(id: String) -> int:
 	return market.buy_price(district, id)
 
 
+## Сколько дадут за 1 штуку (с учётом Торговли).
 func sell_price(id: String) -> int:
-	return market.sell_price(district, id)
+	return roundi(market.sell_price(district, id) * skills.sell_multiplier())
+
+
+## Сколько дадут за amount штук подряд (с учётом Торговли и насыщения).
+func quote_sell(id: String, amount: int) -> int:
+	return roundi(market.quote_sell(district, id, amount) * skills.sell_multiplier())
+
+
+func has_market() -> bool:
+	return market.get_district(district).has_market
 
 
 ## Сколько штук можно купить на все деньги.
@@ -81,7 +102,7 @@ func max_affordable(id: String) -> int:
 
 
 func buy(id: String, amount: int) -> bool:
-	if not can_act() or amount <= 0:
+	if not can_act() or not has_market() or amount <= 0:
 		return false
 	var cost := market.quote_buy(district, id, amount)
 	if cost > money:
@@ -95,19 +116,28 @@ func buy(id: String, amount: int) -> bool:
 
 
 func sell(id: String, amount: int) -> bool:
-	if not can_act() or amount <= 0 or amount > inventory[id]:
+	if not can_act() or not has_market() or amount <= 0 or amount > inventory[id]:
 		return false
-	var revenue := market.quote_sell(district, id, amount)
-	spent_on[id] -= roundi(float(spent_on[id]) * amount / inventory[id])
-	inventory[id] -= amount
+	var revenue := quote_sell(id, amount)
+	_remove_from_inventory(id, amount)
 	market.apply_trade(district, id, -amount)
-	if market.get_good(id).legal:
-		clean += revenue
-		clean_earned += revenue
-	else:
-		dirty += revenue
+	_earn(revenue, market.get_good(id).legal)
+	skills.add_xp("trade", ceili(float(revenue) / balance.xp_trade_per_dollars))
 	_after_deal(id, amount)
 	return true
+
+
+func _remove_from_inventory(id: String, amount: int) -> void:
+	spent_on[id] -= roundi(float(spent_on[id]) * amount / inventory[id])
+	inventory[id] -= amount
+
+
+func _earn(amount: int, is_clean: bool) -> void:
+	if is_clean:
+		clean += amount
+		clean_earned += amount
+	else:
+		dirty += amount
 
 
 ## Средняя цена, по которой куплен товар в кармане (0, если пусто).
@@ -134,6 +164,131 @@ func travel(to_district: String) -> bool:
 	return true
 
 
+# --- Дела: подработки и сбор ---
+
+func get_activity(id: String) -> Dictionary:
+	for activity: Dictionary in activities:
+		if activity.id == id:
+			return activity
+	return {}
+
+
+## Дела, доступные в текущем районе.
+func local_activities() -> Array:
+	return activities.filter(func(a: Dictionary) -> bool: return a.district == district)
+
+
+## Сколько заплатят за подработку (с учётом Харизмы).
+func activity_pay(activity: Dictionary) -> int:
+	return roundi(activity.pay * skills.pay_multiplier())
+
+
+## Сколько примерно соберёшь: [от, до] (с учётом Ремесла).
+func activity_yield(activity: Dictionary) -> Array:
+	var mult := skills.yield_multiplier()
+	return [roundi(activity.yield_min * mult), roundi(activity.yield_max * mult)]
+
+
+## Можно ли взяться за дело. Хватит ли часов в дне — решают часы (GameState).
+func can_do_activity(id: String) -> bool:
+	var activity := get_activity(id)
+	return can_act() and not activity.is_empty() and activity.district == district \
+			and energy >= int(activity.energy)
+
+
+## Сделать дело. Нелегальное может сорваться, если заметит полиция,
+## а при большом розыске провал заканчивается арестом.
+func do_activity(id: String) -> Array:
+	if not can_do_activity(id):
+		return []
+	var activity := get_activity(id)
+	energy -= int(activity.energy)
+	var level_before := skills.level(activity.skill)
+	skills.add_xp(activity.skill, int(balance.xp_activity))
+	var report: Array = []
+	if not activity.legal:
+		_add_heat(activity.heat)
+		if _police_noticed():
+			if police.heat[district] >= float(balance.activity_arrest_heat):
+				return arrest()
+			police.add_heat(district, balance.activity_bust_heat)
+			return [["LOG_ACTIVITY_BUSTED", [activity.name_key]]]
+	if activity.kind == "job":
+		var pay := activity_pay(activity)
+		_earn(pay, activity.legal)
+		report.append(["LOG_JOB_DONE", [activity.name_key, pay]])
+	else:
+		var range_ := activity_yield(activity)
+		var amount := rng.randi_range(range_[0], range_[1])
+		inventory[activity.good] += amount
+		report.append(["LOG_GATHERED", [amount, market.get_good(activity.good).name_key]])
+	if skills.level(activity.skill) > level_before:
+		report.append(["LOG_SKILL_UP", ["SKILL_" + activity.skill.to_upper(), skills.level(activity.skill)]])
+	return report
+
+
+# --- Ларёк ---
+
+func can_buy_stall() -> bool:
+	return can_act() and not stall.owned and clean >= int(balance.stall_price)
+
+
+## Ларёк покупается только на чистые деньги.
+func buy_stall() -> bool:
+	if not can_buy_stall():
+		return false
+	clean -= int(balance.stall_price)
+	stall.owned = true
+	return true
+
+
+## Выложить в ларёк весь товар этого вида из кармана. Только стоя на рынке.
+func can_stock_stall(id: String) -> bool:
+	return can_act() and stall.owned and district == Stall.DISTRICT and stall.accepts(id) and inventory[id] > 0
+
+
+func stock_stall(id: String) -> bool:
+	if not can_stock_stall(id):
+		return false
+	stall.stock[id] += inventory[id]
+	_remove_from_inventory(id, inventory[id])
+	return true
+
+
+## Ночью ларёк подводит итог дня: продажи по полной цене рынка, плата за место.
+func _run_stall() -> Array:
+	if not stall.owned:
+		return []
+	var report: Array = []
+	var total_clean := 0
+	var total_dirty := 0
+	for id: String in stall.stock:
+		var good := market.get_good(id)
+		var sold := mini(stall.stock[id], int(good.stall_daily))
+		if sold == 0:
+			continue
+		# Ларёк продаёт без наценки перекупщика, но насыщение рынка действует.
+		var revenue := roundi(market.quote_sell(Stall.DISTRICT, id, sold) / balance.sell_spread)
+		stall.stock[id] -= sold
+		market.apply_trade(Stall.DISTRICT, id, -sold)
+		if good.legal:
+			total_clean += revenue
+		else:
+			total_dirty += revenue
+			police.add_heat(Stall.DISTRICT, good.heat * sold * skills.heat_multiplier())
+	_earn(total_clean, true)
+	_earn(total_dirty, false)
+	if total_dirty > 0:
+		report.append(["LOG_STALL_SOLD", [total_clean, total_dirty]])
+	elif total_clean > 0:
+		report.append(["LOG_STALL_SOLD_CLEAN", [total_clean]])
+	var fee: int = balance.stall_daily_fee
+	var from_clean := mini(fee, clean)
+	clean -= from_clean
+	debt += fee - from_clean
+	return report
+
+
 # --- Полиция ---
 
 ## После нелегальной сделки растёт розыск и может начаться проверка.
@@ -141,12 +296,24 @@ func _after_deal(id: String, amount: int) -> void:
 	var good := market.get_good(id)
 	if good.legal:
 		return
-	police.add_heat(district, good.heat * amount)
+	_add_heat(good.heat * amount)
 	if illegal_goods_value() == 0:
 		return
+	if _police_noticed():
+		var bribe_value: float = (balance.bribe_base + illegal_goods_value() * balance.bribe_share) * skills.bribe_multiplier()
+		pending_check = { "bribe": roundi(bribe_value) }
+
+
+## Розыск в текущем районе с учётом Скрытности. Скрытность растёт от риска.
+func _add_heat(amount: float) -> void:
+	police.add_heat(district, amount * skills.heat_multiplier())
+	skills.add_xp("stealth", ceili(amount))
+
+
+## Бросок: заметила ли полиция (по розыску района, силе полиции и событию).
+func _police_noticed() -> bool:
 	var multiplier: float = market.get_district(district).police * market.event_police(district)
-	if rng.randf() < police.check_chance(district, multiplier):
-		pending_check = { "bribe": roundi(balance.bribe_base + illegal_goods_value() * balance.bribe_share) }
+	return rng.randf() < police.check_chance(district, multiplier)
 
 
 func flee_chance() -> float:
@@ -162,6 +329,7 @@ func bribe() -> Array:
 		return []
 	_spend(pending_check.bribe)
 	police.add_heat(district, balance.bribe_heat)
+	skills.add_xp("charisma", int(balance.xp_bribe))
 	var report := [["LOG_BRIBED", [pending_check.bribe]]]
 	pending_check = {}
 	return report
@@ -296,12 +464,13 @@ func lay_low() -> Array:
 	return [["LOG_LAY_LOW", []]]
 
 
-## Закрыть день: аренда, проценты, проверка платежа, новые цены, события.
+## Закрыть день: ларёк, аренда, проценты, проверка платежа, новые цены, события, сон.
 func end_day() -> Array:
 	var report: Array = []
 	if status != Status.PLAYING:
 		return report
 	pending_check = {}
+	report.append_array(_run_stall())
 	report.append_array(_pay_rent())
 	if day % 7 == 0:
 		var interest := roundi(debt * float(balance.weekly_interest))
@@ -322,6 +491,7 @@ func end_day() -> Array:
 	market.roll_day(rng, events.today)
 	report.insert(0, ["LOG_DAY_ENDED", [day]])
 	day += 1
+	energy = balance.energy_max
 	if not events.today.is_empty():
 		report.append(["LOG_EVENT", [events.today.text_key]])
 	return report
@@ -356,6 +526,9 @@ func to_dict() -> Dictionary:
 		"version": SAVE_VERSION,
 		"day": day,
 		"district": district,
+		"energy": energy,
+		"skills": skills.to_dict(),
+		"stall": stall.to_dict(),
 		"clean": clean,
 		"dirty": dirty,
 		"clean_earned": clean_earned,
@@ -377,6 +550,9 @@ func to_dict() -> Dictionary:
 func load_dict(data: Dictionary) -> void:
 	day = int(data.day)
 	district = data.district
+	energy = int(data.energy)
+	skills.load_dict(data.skills)
+	stall.load_dict(data.stall)
 	clean = int(data.clean)
 	dirty = int(data.dirty)
 	clean_earned = int(data.clean_earned)

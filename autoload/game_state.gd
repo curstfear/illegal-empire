@@ -53,6 +53,31 @@ func travel(district: String) -> void:
 		Clock.advance_hours(session.balance.travel_hours)
 
 
+## Подработка или сбор: занимает часы, и до конца дня их должно хватить.
+func can_do_activity(id: String) -> bool:
+	return session.can_do_activity(id) and Clock.hours_left() >= float(session.get_activity(id).hours)
+
+
+func do_activity(id: String) -> void:
+	if not can_do_activity(id):
+		return
+	var report := session.do_activity(id)
+	reported.emit(report)
+	changed.emit()
+	Clock.advance_hours(session.get_activity(id).hours)
+
+
+func buy_stall() -> void:
+	if session.buy_stall():
+		reported.emit([["LOG_STALL_BOUGHT", []]])
+		changed.emit()
+
+
+func stock_stall(id: String) -> void:
+	if session.stock_stall(id):
+		changed.emit()
+
+
 func pay(amount: int) -> void:
 	if session.pay(amount) > 0:
 		changed.emit()
@@ -135,4 +160,4 @@ func _check_finished() -> bool:
 
 func _make_session() -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
-			GameData.load_districts(), GameData.load_events())
+			GameData.load_districts(), GameData.load_events(), GameData.load_activities())
