@@ -14,17 +14,44 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("1_start.png"))
 
+	# Сделки, переезд, пара дней — без случайных проверок, чтобы прогон был предсказуемым.
+	var s := GameState.session
+	var check_base: float = s.balance.check_base
+	s.balance.check_base = 0.0
 	GameState.buy("mushrooms", 5)
-	GameState.buy("cigarettes", 1)
+	GameState.borrow_from_shark()
+	GameState.buy("cigarettes", 4)
 	Clock.finish_day()
+	GameState.travel("clubs")
+	GameState.sell("cigarettes", 2)
 	await _frames(10)
-	_shot(out_dir.path_join("2_after_day.png"))
+	_shot(out_dir.path_join("2_trading.png"))
+	s.balance.check_base = check_base
 
-	for i in 13:
+	# Проверка полиции.
+	s.pending_check = { "bribe": 90 }
+	GameState.changed.emit()
+	await _frames(10)
+	_shot(out_dir.path_join("3_check.png"))
+
+	GameState.resolve_check("surrender")
+	await _frames(10)
+	print("после сдачи товара: проверка закрыта = ", s.pending_check.is_empty(), ", сигарет = ", s.inventory.cigarettes)
+
+	# Побег, который точно не удался → арест.
+	GameState.buy("cigarettes", 1)
+	s.pending_check = { "bribe": 90 }
+	s.balance.flee_chance = -1.0
+	var day_before := s.day
+	GameState.resolve_check("flee")
+	await _frames(10)
+	_shot(out_dir.path_join("3b_arrest.png"))
+	print("арест: дней прошло = ", s.day - day_before, ", часы на паузе = ", Clock.paused, ", время ", Clock.minutes_of_day())
+
+	for i in 14:
 		Clock.finish_day()
 	await _frames(10)
-	_shot(out_dir.path_join("3_lost.png"))
-	# Автосохранение было в конце 13-го дня, проигрыш не сохраняется.
+	_shot(out_dir.path_join("4_lost.png"))
 	print("continue: ", GameState.continue_game(), ", day ", GameState.session.day, ", status ", GameState.session.status)
 	get_tree().quit()
 

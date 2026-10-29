@@ -13,12 +13,14 @@ GOOD_MOON_MOSS,"""Moon Moss""",«Лунный мох»
 GOOD_PHONES,Stolen phones,Краденые телефоны
 GOOD_BLUE_DUST,"""Blue Dust""",«Синяя пыль»
 HUD_DAY,Day %d,День %d
-HUD_MONEY,Cash: $%s,Деньги: $%s
+HUD_CLEAN,Clean: $%s,Чистые: $%s
+HUD_DIRTY,Dirty: $%s,Грязные: $%s
+HUD_HEAT,Heat: %s,Розыск: %s
 HUD_DEBT,Debt: $%s,Долг: $%s
 HUD_PAYMENT_DUE,Loan shark wants $%s more by the end of day %d,Ростовщик ждёт ещё $%s до конца дня %d
 HUD_PAYMENT_DONE,Payment made. Next one is due by the end of day %d,Платёж внесён. Следующий — к концу дня %d
 HUD_PAUSE,Pause,Пауза
-MARKET_TITLE,Street market,Уличный рынок
+MARKET_TITLE,Market — %s,Рынок — %s
 COL_GOOD,Goods,Товар
 COL_BUY,Buy,Купить
 COL_SELL,Sell,Продать
@@ -45,3 +47,57 @@ END_LOST_TITLE,Game over,Игра окончена
 END_LOST_TEXT,You missed the payment. The loan shark took everything.,Ты не заплатил вовремя. Ростовщик забрал всё.
 END_WON_TITLE,Free at last,Свобода
 END_WON_TEXT,You paid off the whole debt in %d days.,Ты выплатил весь долг за %d дн.
+COL_RISK,Risk,Риск
+RISK_LEGAL,legal,легально
+RISK_LOW,low,низкий
+RISK_MID,medium,средний
+RISK_HIGH,high,высокий
+DISTRICT_TITLE,District:,Район:
+DISTRICT_MARKET,Market square,Рынок
+DISTRICT_STATION,Train station,Вокзал
+DISTRICT_CLUBS,Club street,Клубы
+TRAVEL_HINT,Moving takes %d hours,Переезд занимает %d ч
+BTN_BORROW,"Borrow $%s (you'll owe $%s)","Занять $%s (вернуть $%s)"
+BANK_TITLE,Bank,Банк
+BANK_INFO,Savings: $%s · Loan: $%s,Вклад: $%s · Кредит: $%s
+BANK_HINT,Takes clean money only. Police can't touch savings. You can borrow $%s now.,Только чистые деньги. Вклад полиция не тронет. Сейчас дадут в кредит $%s.
+BANK_HINT_HEAT,The bank won't lend to someone the police are after.,Банк не даёт кредит тем, кого ищет полиция.
+BTN_DEPOSIT,Deposit clean,Положить чистые
+BTN_WITHDRAW,Withdraw,Снять
+BTN_TAKE_LOAN,Loan $%s,Кредит $%s
+BTN_REPAY_LOAN,Repay loan,Вернуть кредит
+BTN_LAY_LOW,Lay low,Залечь на дно
+BTN_LAY_LOW_HINT,Skip the rest of the day without deals. Heat drops faster.,Пропустить остаток дня без сделок. Розыск спадает быстрее.
+CHECK_TITLE,Police!,Проверка!
+CHECK_TEXT,"Cops stopped you in %s. You're carrying goods worth $%s.","Полиция остановила тебя: %s. При тебе товара на $%s."
+CHECK_BRIBE,Bribe them ($%s),Откупиться ($%s)
+CHECK_SURRENDER,Hand over the goods,Сдать товар
+CHECK_FLEE,Run (%d%% chance),Бежать (шанс %d%%)
+EVENT_TODAY,Today: %s,Сегодня: %s
+RUMOR,Rumor: %s,Слух: %s
+LOG_TRAVEL,You moved to: %s.,Ты перебрался: %s.
+LOG_BRIBED,You paid the cops $%s. They looked away.,Ты сунул полиции $%s. Они отвернулись.
+LOG_SURRENDERED,You handed over the goods. They let you go.,Ты сдал товар. Тебя отпустили.
+LOG_FLED,You got away! But now they know your face.,Ты убежал! Но тебя запомнили.
+LOG_ARRESTED,"Arrested! Goods taken, fine $%s. %d days behind bars.","Арест! Товар забрали, штраф $%s. %d дн. за решёткой."
+LOG_LAY_LOW,You laid low for the rest of the day.,Ты залёг на дно до утра.
+LOG_RENT_DIRTY,Rent paid with dirty cash. The landlord noticed.,Аренду заплатил грязными. Хозяин это заметил.
+LOG_RENT_DEBT,No money for rent. The loan shark covered it: +$%s debt.,Нечем платить за комнату. Ростовщик заплатил: +$%s к долгу.
+LOG_BANK_INTEREST,Bank loan interest: +$%s,Проценты по кредиту банка: +$%s
+LOG_SHARK_LOAN,You borrowed $%s from the loan shark.,Ты занял у ростовщика $%s.
+LOG_BANK_LOAN,The bank gave you a $%s loan.,Банк выдал кредит $%s.
+LOG_EVENT,Today: %s,Сегодня: %s
+EVENT_CITY_RAID,police sweep across the city,облава по всему городу
+RUMOR_CITY_RAID,tomorrow cops sweep the whole city,завтра облава по всему городу
+EVENT_CLUB_PARTY,big party on club street,большая вечеринка в клубах
+RUMOR_CLUB_PARTY,big party at the clubs tomorrow,завтра большая вечеринка в клубах
+EVENT_CIG_SHORTAGE,cigarette shortage,перебои с сигаретами
+RUMOR_CIG_SHORTAGE,cigarettes will run short tomorrow,завтра будут перебои с сигаретами
+EVENT_PHONE_BATCH,a big batch of phones at the station,на вокзале большая партия телефонов
+RUMOR_PHONE_BATCH,a phone batch arrives at the station tomorrow,завтра на вокзал привезут партию телефонов
+EVENT_MUSHROOM_SEASON,mushroom season — prices dropped,сезон грибов — цены упали
+RUMOR_MUSHROOM_SEASON,mushroom pickers are coming back tomorrow,завтра грибники вернутся с урожаем
+EVENT_STATION_PATROL,extra patrols at the station,усиленный патруль на вокзале
+RUMOR_STATION_PATROL,extra patrols at the station tomorrow,завтра на вокзале усилят патрули
+EVENT_POLICE_DRILL,police are busy with drills,полиция на учениях
+RUMOR_POLICE_DRILL,police have drills tomorrow,завтра у полиции учения

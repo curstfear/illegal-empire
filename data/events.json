@@ -1,0 +1,16 @@
+[
+	{ "id": "city_raid", "text_key": "EVENT_CITY_RAID", "rumor_key": "RUMOR_CITY_RAID", "weight": 2, "district": "", "police": 2.0,
+		"prices": { "cigarettes": 1.3, "moon_moss": 1.3, "phones": 1.3, "blue_dust": 1.3 } },
+	{ "id": "club_party", "text_key": "EVENT_CLUB_PARTY", "rumor_key": "RUMOR_CLUB_PARTY", "weight": 2, "district": "clubs", "police": 1.0,
+		"prices": { "moon_moss": 1.5, "blue_dust": 1.5 } },
+	{ "id": "cig_shortage", "text_key": "EVENT_CIG_SHORTAGE", "rumor_key": "RUMOR_CIG_SHORTAGE", "weight": 2, "district": "", "police": 1.0,
+		"prices": { "cigarettes": 1.6 } },
+	{ "id": "phone_batch", "text_key": "EVENT_PHONE_BATCH", "rumor_key": "RUMOR_PHONE_BATCH", "weight": 2, "district": "station", "police": 1.0,
+		"prices": { "phones": 0.6 } },
+	{ "id": "mushroom_season", "text_key": "EVENT_MUSHROOM_SEASON", "rumor_key": "RUMOR_MUSHROOM_SEASON", "weight": 2, "district": "", "police": 1.0,
+		"prices": { "mushrooms": 0.6 } },
+	{ "id": "station_patrol", "text_key": "EVENT_STATION_PATROL", "rumor_key": "RUMOR_STATION_PATROL", "weight": 2, "district": "station", "police": 2.5,
+		"prices": {} },
+	{ "id": "police_drill", "text_key": "EVENT_POLICE_DRILL", "rumor_key": "RUMOR_POLICE_DRILL", "weight": 1, "district": "", "police": 0.4,
+		"prices": {} }
+]

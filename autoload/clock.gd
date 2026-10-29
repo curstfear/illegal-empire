@@ -41,6 +41,13 @@ func set_speed(value: int) -> void:
 	paused = false
 
 
+## Промотать время (переезд). Если день кончился — закрываем его.
+func advance_hours(hours: float) -> void:
+	elapsed += hours / 24.0 * _day_length
+	if elapsed >= _day_length:
+		finish_day()
+
+
 ## Закончить день сразу (кнопка «Закончить день»).
 func finish_day() -> void:
 	elapsed = 0.0

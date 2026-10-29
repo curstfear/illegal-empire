@@ -4,8 +4,9 @@ extends Node
 const SAVE_PATH := "user://save_1.json"
 
 
+## Есть ли сохранение, которое эта версия игры умеет загрузить.
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return not _read().is_empty()
 
 
 func save_game(data: Dictionary) -> bool:
@@ -18,10 +19,16 @@ func save_game(data: Dictionary) -> bool:
 
 
 func load_game() -> Dictionary:
-	if not has_save():
+	var data := _read()
+	if data.is_empty():
+		push_error("Сохранения нет, оно повреждено или от другой версии")
+	return data
+
+
+func _read() -> Dictionary:
+	if not FileAccess.file_exists(SAVE_PATH):
 		return {}
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if not data is Dictionary or int(data.get("version", 0)) != GameSession.SAVE_VERSION:
-		push_error("Сохранение повреждено или от другой версии")
 		return {}
 	return data

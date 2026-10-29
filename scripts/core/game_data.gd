@@ -3,6 +3,8 @@ class_name GameData
 
 const BALANCE_PATH := "res://data/balance.json"
 const GOODS_PATH := "res://data/goods.json"
+const DISTRICTS_PATH := "res://data/districts.json"
+const EVENTS_PATH := "res://data/events.json"
 
 
 static func load_balance() -> Dictionary:
@@ -11,6 +13,14 @@ static func load_balance() -> Dictionary:
 
 static func load_goods() -> Array:
 	return _load_json(GOODS_PATH)
+
+
+static func load_districts() -> Array:
+	return _load_json(DISTRICTS_PATH)
+
+
+static func load_events() -> Array:
+	return _load_json(EVENTS_PATH)
 
 
 static func _load_json(path: String) -> Variant:

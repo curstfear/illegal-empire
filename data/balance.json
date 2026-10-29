@@ -8,5 +8,38 @@
 	"sell_spread": 0.95,
 	"price_reversion": 0.5,
 	"min_price_factor": 0.5,
-	"max_price_factor": 1.8
+	"max_price_factor": 1.8,
+
+	"pressure_per_depth": 0.3,
+	"pressure_limit": 0.6,
+	"pressure_kept_overnight": 0.4,
+	"travel_hours": 2,
+	"rent_per_day": 12,
+
+	"heat_decay": 12,
+	"lay_low_decay": 35,
+	"heat_max": 100,
+	"dirty_rent_heat": 5,
+	"check_base": 0.02,
+	"check_per_heat": 0.004,
+	"check_max": 0.6,
+	"bribe_base": 50,
+	"bribe_share": 0.25,
+	"bribe_heat": 5,
+	"surrender_heat_drop": 10,
+	"flee_chance": 0.55,
+	"flee_chance_per_heat": 0.003,
+	"flee_heat": 15,
+	"arrest_days": 2,
+	"arrest_dirty_fine": 0.5,
+	"arrest_heat": 40,
+
+	"bank_max_heat": 40,
+	"bank_loan_share": 0.5,
+	"bank_weekly_interest": 0.005,
+	"shark_loan_step": 500,
+	"shark_loan_fee": 0.2,
+
+	"event_chance": 0.6,
+	"rumor_chance": 0.7
 }

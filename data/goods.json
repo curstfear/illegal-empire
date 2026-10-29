@@ -1,7 +1,7 @@
 [
-	{ "id": "mushrooms", "name_key": "GOOD_MUSHROOMS", "base_price": 8, "volatility": 0.225 },
-	{ "id": "cigarettes", "name_key": "GOOD_CIGARETTES", "base_price": 30, "volatility": 0.3 },
-	{ "id": "moon_moss", "name_key": "GOOD_MOON_MOSS", "base_price": 70, "volatility": 0.45 },
-	{ "id": "phones", "name_key": "GOOD_PHONES", "base_price": 200, "volatility": 0.375 },
-	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525 }
+	{ "id": "mushrooms", "name_key": "GOOD_MUSHROOMS", "base_price": 8, "volatility": 0.225, "legal": true, "heat": 0.0, "depth": 60 },
+	{ "id": "cigarettes", "name_key": "GOOD_CIGARETTES", "base_price": 30, "volatility": 0.3, "legal": false, "heat": 0.4, "depth": 30 },
+	{ "id": "moon_moss", "name_key": "GOOD_MOON_MOSS", "base_price": 70, "volatility": 0.45, "legal": false, "heat": 1.2, "depth": 15 },
+	{ "id": "phones", "name_key": "GOOD_PHONES", "base_price": 200, "volatility": 0.375, "legal": false, "heat": 2.5, "depth": 8 },
+	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525, "legal": false, "heat": 5.0, "depth": 4 }
 ]
