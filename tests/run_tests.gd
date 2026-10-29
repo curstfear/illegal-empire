@@ -29,6 +29,7 @@ func _init() -> void:
 	_test_gathering()
 	_test_skills()
 	_test_stall()
+	_test_history()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -354,6 +355,26 @@ func _test_stall() -> void:
 	s.end_day()
 	_check(s.stall.stock.mushrooms == 5, "за день ларёк продал 15 грибов, осталось 5")
 	_check(s.clean > clean_before - 12 - 5, "ларёк принёс чистые деньги (минус аренда и место)")
+
+
+func _test_history() -> void:
+	var s := _calm_session()
+	_check(s.market.price_series("market", "phones").size() == 1, "в первый день на графике одна точка — сегодня")
+	var yesterday := s.buy_price("phones")
+	s.end_day()
+	var series := s.market.price_series("market", "phones")
+	_check(series.size() == 2 and series[0] == yesterday, "после дня — вчерашняя цена и сегодняшняя")
+	for i in 20:
+		s.clean = 1000
+		s.paid_this_period = 1500
+		s.end_day()
+	_check(s.market.price_series("market", "phones").size() == 14, "график хранит не больше 14 дней")
+	_check(s.money_series().size() == 14 and s.heat_series().size() == 14, "история денег и розыска — тоже 14 дней")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session(7)
+	loaded.load_dict(data)
+	_check(loaded.market.price_series("market", "phones") == s.market.price_series("market", "phones"),
+			"история цен сохраняется и загружается")
 
 
 func _test_save_and_load() -> void:

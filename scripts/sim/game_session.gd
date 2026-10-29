@@ -41,6 +41,9 @@ var inventory: Dictionary = {}
 var spent_on: Dictionary = {}
 ## Идёт проверка полиции: { "bribe": сумма }. Пока не решена, торговать нельзя.
 var pending_check: Dictionary = {}
+## Итоги прошлых дней для графиков: все деньги (с вкладом) и самый большой розыск.
+var money_history: Array = []
+var heat_history: Array = []
 
 var money: int:
 	get:
@@ -70,6 +73,28 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 		inventory[good.id] = 0
 		spent_on[good.id] = 0
 	events.roll(rng)
+
+
+## Все деньги: чистые, грязные и вклад в банке.
+func net_money() -> int:
+	return money + bank.deposit
+
+
+## Ряды для графиков: прошлые дни и сейчас (старые слева).
+func money_series() -> Array:
+	return money_history + [net_money()]
+
+
+func heat_series() -> Array:
+	return heat_history + [police.max_heat()]
+
+
+func _remember_day() -> void:
+	money_history.append(net_money())
+	heat_history.append(police.max_heat())
+	if money_history.size() > Market.HISTORY_DAYS - 1:
+		money_history.pop_front()
+		heat_history.pop_front()
 
 
 func can_act() -> bool:
@@ -486,6 +511,7 @@ func end_day() -> Array:
 		report.append(["LOG_PAYMENT_OK", []])
 		next_payment_day += int(balance.payment_interval_days)
 		paid_this_period = 0
+	_remember_day()
 	police.decay(balance.heat_decay)
 	events.roll(rng)
 	market.roll_day(rng, events.today)
@@ -539,6 +565,8 @@ func to_dict() -> Dictionary:
 		"inventory": inventory.duplicate(),
 		"spent_on": spent_on.duplicate(),
 		"pending_check": pending_check.duplicate(),
+		"money_history": money_history.duplicate(),
+		"heat_history": heat_history.duplicate(),
 		"rng_state": str(rng.state),
 		"market": market.to_dict(),
 		"police": police.to_dict(),
@@ -566,6 +594,8 @@ func load_dict(data: Dictionary) -> void:
 	pending_check = {}
 	if not data.pending_check.is_empty():
 		pending_check = { "bribe": int(data.pending_check.bribe) }
+	money_history = data.get("money_history", []).map(func(v: Variant) -> int: return int(v))
+	heat_history = data.get("heat_history", []).map(func(v: Variant) -> float: return float(v))
 	rng.state = int(data.rng_state)
 	police.load_dict(data.police)
 	events.load_dict(data.events)

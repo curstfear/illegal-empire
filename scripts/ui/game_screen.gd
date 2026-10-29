@@ -64,6 +64,9 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 
 ## 3D-город (ставит сцена игры). Нужен, чтобы держать карточку над зданием.
 var city: Node3D
+## Мини-графики верхней панели: все деньги и розыск за последние дни.
+var _money_chart := Sparkline.new(Vector2(64, 26))
+var _heat_chart := Sparkline.new(Vector2(64, 26))
 ## Район, чья карточка открыта ("" — закрыта).
 var _card_district: String = ""
 ## Узлы строк рынка по id товара: { "buy": Label, "sell": Label, ... }.
@@ -80,6 +83,7 @@ func _ready() -> void:
 	if GameState.session == null:
 		GameState.new_game()
 	var s := GameState.session
+	_build_top_bar()
 	_build_market()
 	_build_stall()
 	_build_skills()
@@ -194,18 +198,79 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # --- Построение ---
 
+## Верхняя панель как в референсах: у каждого показателя иконка, подпись сверху, крупное число;
+## у денег и розыска — мини-график за последние дни.
+func _build_top_bar() -> void:
+	# День: подпись «День N» сверху, время крупно.
+	_wrap_kpi(_time_label, "day", _day_label)
+	_wrap_kpi(_energy_label, "energy", _caption("KPI_ENERGY"))
+	_wrap_kpi(_clean_label, "clean", _caption("KPI_CLEAN"))
+	_wrap_kpi(_dirty_label, "dirty", _caption("KPI_DIRTY"), _money_chart)
+	_wrap_kpi(_debt_label, "debt", _caption("KPI_DEBT"))
+	_wrap_kpi(_heat_label, "heat", _caption("KPI_HEAT"), _heat_chart)
+	_money_chart.color = Color(0.45, 0.9, 0.55)
+	_money_chart.tooltip_text = "KPI_MONEY_CHART"
+	_heat_chart.color = Color(0.55, 0.7, 1.0)
+
+
+## Заменить подпись-значение на блок [иконка | подпись над значением | график].
+func _wrap_kpi(value: Label, icon: String, caption: Label, chart: Sparkline = null) -> void:
+	var row: HBoxContainer = value.get_parent()
+	# Подпись может быть соседом в той же строке (день) — сначала убираем её, потом берём место.
+	if caption.get_parent() != null:
+		caption.get_parent().remove_child(caption)
+	var index := value.get_index()
+	var block := HBoxContainer.new()
+	block.add_theme_constant_override("separation", 8)
+	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	block.add_child(GameIcon.new(icon, 24.0))
+	var texts := VBoxContainer.new()
+	texts.add_theme_constant_override("separation", -4)
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.add_theme_font_size_override("font_size", 13)
+	caption.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	texts.add_child(caption)
+	row.remove_child(value)
+	value.add_theme_font_size_override("font_size", 21)
+	texts.add_child(value)
+	block.add_child(texts)
+	if chart != null:
+		chart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		block.add_child(chart)
+	row.add_child(block)
+	row.move_child(block, index)
+
+
+func _caption(key: String) -> Label:
+	var label := Label.new()
+	label.text = key
+	return label
+
+
 func _build_market() -> void:
-	for header: String in ["COL_GOOD", "COL_RISK", "COL_BUY", "COL_SELL", "COL_OWNED", "", "", "", ""]:
+	_market_grid.columns = 10
+	for header: String in ["COL_GOOD", "COL_RISK", "COL_BUY", "COL_CHART", "COL_SELL", "COL_OWNED", "", "", "", ""]:
 		_header_label(_market_grid, header)
 	for good: Dictionary in GameState.session.market.goods:
 		var id: String = good.id
 		var risk := GameState.session.market.risk_level(id)
+		# Название с иконкой товара.
+		var name_cell := HBoxContainer.new()
+		name_cell.add_theme_constant_override("separation", 8)
+		name_cell.add_child(GameIcon.new(id, 22.0))
+		var name_label := Label.new()
+		name_label.text = good.name_key
+		name_label.add_theme_font_size_override("font_size", 18)
+		name_cell.add_child(name_label)
+		name_cell.custom_minimum_size.x = 190
+		_market_grid.add_child(name_cell)
 		var row := {
-			"name": _add_label(_market_grid, good.name_key, 180),
+			"name": name_label,
 			"risk": _add_label(_market_grid, RISK_KEYS[risk], 76),
 			"buy": _add_label(_market_grid, "", 96),
+			"chart": _add_chart(_market_grid),
 			"sell": _add_label(_market_grid, "", 66),
-			"owned": _add_label(_market_grid, "", 160),
+			"owned": _add_label(_market_grid, "", 104),
 			"buy_one": _add_button(_market_grid, "+1", GameState.buy.bind(id, 1)),
 			"buy_max": _add_button(_market_grid, "", func() -> void: GameState.buy(id, GameState.session.max_affordable(id))),
 			"sell_one": _add_button(_market_grid, "−1", GameState.sell.bind(id, 1)),
@@ -254,8 +319,12 @@ func _build_activities() -> void:
 func _build_stall() -> void:
 	for id: String in GameState.session.stall.stock:
 		var good := GameState.session.market.get_good(id)
-		_add_label(_stall_grid, good.name_key, 150)
-		var stock := _add_label(_stall_grid, "", 150)
+		var stall_name := _add_label(_stall_grid, good.name_key, 120)
+		stall_name.add_theme_font_size_override("font_size", 16)
+		stall_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var stock := _add_label(_stall_grid, "", 120)
+		stock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		stock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		stock.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		stock.add_theme_font_size_override("font_size", 16)
 		var button := _add_button(_stall_grid, "", GameState.stock_stall.bind(id))
@@ -286,6 +355,13 @@ func _build_skills() -> void:
 		effect.add_theme_font_size_override("font_size", 14)
 		effect.modulate = Color(1, 1, 1, 0.7)
 		_skill_rows[id] = { "name": name_label, "bar": bar, "effect": effect }
+
+
+func _add_chart(grid: GridContainer) -> Sparkline:
+	var chart := Sparkline.new(Vector2(76, 26))
+	chart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	grid.add_child(chart)
+	return chart
 
 
 func _header_label(grid: GridContainer, text: String) -> void:
@@ -333,12 +409,14 @@ func _make_small(button: Button) -> void:
 func _refresh() -> void:
 	var s := GameState.session
 	_day_label.text = tr("HUD_DAY") % s.day
-	_energy_label.text = tr("HUD_ENERGY") % s.energy
-	_clean_label.text = tr("HUD_CLEAN") % _format_money(s.clean)
-	_dirty_label.text = tr("HUD_DIRTY") % _format_money(s.dirty)
-	_debt_label.text = tr("HUD_DEBT") % _format_money(s.debt)
+	_energy_label.text = "%d / %d" % [s.energy, int(s.balance.energy_max)]
+	_clean_label.text = "$" + _format_money(s.clean)
+	_dirty_label.text = "$" + _format_money(s.dirty)
+	_debt_label.text = "$" + _format_money(s.debt)
 	var stars := s.police.stars(s.district)
-	_heat_label.text = tr("HUD_HEAT") % ("★".repeat(stars) + "☆".repeat(5 - stars))
+	_heat_label.text = "★".repeat(stars) + "☆".repeat(5 - stars)
+	_money_chart.set_values(s.money_series())
+	_heat_chart.set_values(s.heat_series())
 	if s.payment_left() > 0:
 		_payment_label.text = tr("HUD_PAYMENT_DUE") % [_format_money(s.payment_left()), s.next_payment_day]
 	else:
@@ -402,6 +480,14 @@ func _refresh_market() -> void:
 		var before: int = s.market.previous_prices[s.district][id]
 		row.buy.text = "$%s %s" % [_format_money(price), "▲" if price > before else ("▼" if price < before else "")]
 		row.buy.modulate = COLOR_UP if price > before else (COLOR_DOWN if price < before else Color.WHITE)
+		# График за 14 дней: зелёный — сейчас дешевле среднего (выгодно брать), оранжевый — дороже.
+		var series := s.market.price_series(s.district, id)
+		var average := 0.0
+		for value: int in series:
+			average += value
+		average /= series.size()
+		row.chart.color = Color(0.45, 0.9, 0.55) if price <= average else Color(0.95, 0.6, 0.3)
+		row.chart.set_values(series)
 		row.sell.text = "$%s" % _format_money(s.sell_price(id))
 		var owned: int = s.inventory[id]
 		if owned == 0:

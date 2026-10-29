@@ -15,6 +15,10 @@ var pressure: Dictionary = {}
 var previous_prices: Dictionary = {}
 ## Влияние сегодняшнего события (пусто — события нет).
 var event: Dictionary = {}
+## Цены прошлых дней для графиков: { район: { товар: [цена вечером дня, …] } }, не длиннее HISTORY_DAYS.
+var history: Dictionary = {}
+
+const HISTORY_DAYS := 14
 
 var _balance: Dictionary
 
@@ -27,9 +31,18 @@ func _init(goods_list: Array, district_list: Array, balance: Dictionary) -> void
 		factors[good.id] = 1.0
 	for district: Dictionary in districts:
 		pressure[district.id] = {}
+		history[district.id] = {}
 		for good: Dictionary in goods:
 			pressure[district.id][good.id] = 0.0
+			history[district.id][good.id] = []
 	_remember_prices()
+
+
+## Цены за прошлые дни и сегодняшняя — для графика (старые слева).
+func price_series(district: String, id: String) -> Array:
+	var series: Array = history[district][id].duplicate()
+	series.append(buy_price(district, id))
+	return series
 
 
 func get_good(id: String) -> Dictionary:
@@ -108,6 +121,12 @@ func risk_level(id: String) -> int:
 ## Ночь: запоминаем вчерашние цены, ставим событие нового дня, цены гуляют, давление спадает.
 func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
 	_remember_prices()
+	for district: String in history:
+		for id: String in history[district]:
+			var days: Array = history[district][id]
+			days.append(previous_prices[district][id])
+			if days.size() > HISTORY_DAYS - 1:
+				days.pop_front()
 	event = new_event
 	for good: Dictionary in goods:
 		var factor: float = factors[good.id]
@@ -154,6 +173,7 @@ func to_dict() -> Dictionary:
 		"factors": factors.duplicate(),
 		"pressure": pressure.duplicate(true),
 		"previous_prices": previous_prices.duplicate(true),
+		"history": history.duplicate(true),
 	}
 
 
@@ -168,3 +188,11 @@ func load_dict(data: Dictionary) -> void:
 			if pressure[district].has(id):
 				pressure[district][id] = float(data.pressure[district][id])
 				previous_prices[district][id] = int(data.previous_prices[district][id])
+	# Истории нет в старых сохранениях — тогда графики начнутся с пустого.
+	var saved_history: Dictionary = data.get("history", {})
+	for district: String in saved_history:
+		if not history.has(district):
+			continue
+		for id: String in saved_history[district]:
+			if history[district].has(id):
+				history[district][id] = saved_history[district][id].map(func(v: Variant) -> int: return int(v))

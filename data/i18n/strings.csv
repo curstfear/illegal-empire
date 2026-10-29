@@ -160,3 +160,10 @@ BTN_TRAVEL_HERE,Go here (%d h),Перейти сюда (%d ч)
 BTN_OPEN_MARKET,Open the market,Открыть рынок
 CARD_YOU_ARE_HERE,You are here,Ты здесь
 CONTROLS_HINT,"Click a district · two fingers: move · pinch: zoom · Q/E rotate · Space pause","Клик по району · два пальца — двигать · щипок — ближе/дальше · Q/E поворот · Пробел — пауза"
+KPI_ENERGY,Energy,Силы
+KPI_CLEAN,Clean cash,Чистые
+KPI_DIRTY,Dirty cash,Грязные
+KPI_DEBT,Debt,Долг
+KPI_HEAT,Heat here,Розыск здесь
+KPI_MONEY_CHART,All your money (incl. savings) over the last days,Все твои деньги (с вкладом) за последние дни
+COL_CHART,Price · 14 days,Цена · 14 дней

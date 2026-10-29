@@ -34,6 +34,12 @@ func _ready() -> void:
 	_shot(out_dir.path_join("3_forest.png"))
 	print("лес: район ", s.district, ", грибов ", s.inventory.mushrooms, ", время ", Clock.minutes_of_day())
 
+	# Несколько дней торговли, чтобы на графиках была история.
+	for i in 6:
+		s.clean += 60
+		GameState.buy("herbs", 2)
+		Clock.finish_day()
+
 	# Рынок: окно рынка и вкладка ларька.
 	screen.open_card("market")
 	screen.get_node("%CardTravelButton").pressed.emit()

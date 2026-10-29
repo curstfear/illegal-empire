@@ -472,7 +472,7 @@ layout_mode = 0
 offset_left = 24.0
 offset_top = 132.0
 offset_right = 1060.0
-offset_bottom = 520.0
+offset_bottom = 300.0
 
 [node name="Box" type="VBoxContainer" parent="MarketWindow"]
 layout_mode = 2
