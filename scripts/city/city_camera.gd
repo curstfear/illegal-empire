@@ -7,8 +7,8 @@ extends Node3D
 const ZOOM_MIN := 8.0
 const ZOOM_MAX := 64.0
 const PAN_SPEED := 14.0
-## Сдвиг картинки вбок в долях высоты кадра (под правую панель).
-const SCREEN_SHIFT := 0.24
+## Сдвиг картинки вбок в долях высоты кадра (под правую панель); меняет интерфейс.
+var screen_shift := 0.03
 ## Насколько сильно жесты трекпада двигают и приближают.
 const GESTURE_PAN := 0.25
 const GESTURE_ZOOM := 1.0
@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	# Справа панель интерфейса: сдвигаем картинку влево, чтобы город был в центре свободного места.
-	camera.h_offset = camera.size * SCREEN_SHIFT
+	camera.h_offset = lerpf(camera.h_offset, camera.size * screen_shift, 0.15)
 	var move := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
 		move.x -= 1

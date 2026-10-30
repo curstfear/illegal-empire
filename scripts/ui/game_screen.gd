@@ -4,10 +4,21 @@ extends Control
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
-const COLOR_UP := Color(0.45, 0.9, 0.55)
-const COLOR_DOWN := Color(0.95, 0.4, 0.42)
-const COLOR_DIRTY := Color(0.85, 0.7, 0.35)
-const RISK_COLORS: Array[Color] = [Color(0.45, 0.9, 0.55), Color(0.95, 0.85, 0.4), Color(0.95, 0.6, 0.3), Color(0.95, 0.35, 0.35)]
+const GLASS_SHADER := preload("res://scenes/ui/glass.gdshader")
+## Вкладки выезжающей панели справа и подписи их кнопок.
+const SIDE_TABS: Array[String] = ["TAB_MONEY", "TAB_STALL", "TAB_SKILLS", "TAB_LOG"]
+## Всплывающие сообщения: сколько держится и сколько сразу на экране.
+const TOAST_SECONDS := 6.0
+const TOASTS_MAX := 4
+## Сдвиг города вбок (доля высоты кадра): с открытой панелью и с закрытой.
+const SCREEN_SHIFT_DRAWER := 0.22
+const SCREEN_SHIFT_CLOSED := 0.03
+const COLOR_UP := Color(0.1, 0.58, 0.3)
+const COLOR_DOWN := Color(0.82, 0.16, 0.2)
+const COLOR_DIRTY := Color(0.68, 0.42, 0.02)
+## Обычный цвет текста на светлом стекле.
+const COLOR_TEXT := Color(0.12, 0.13, 0.19)
+const RISK_COLORS: Array[Color] = [Color(0.1, 0.58, 0.3), Color(0.7, 0.55, 0.0), Color(0.85, 0.42, 0.05), Color(0.82, 0.16, 0.2)]
 const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HIGH"]
 
 @onready var _day_label: Label = %DayLabel
@@ -33,6 +44,9 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 @onready var _market_close_button: Button = %MarketCloseButton
 @onready var _market_grid: GridContainer = %MarketGrid
 @onready var _tabs: TabContainer = %Tabs
+@onready var _right: VBoxContainer = %Right
+@onready var _side_buttons: VBoxContainer = %SideButtons
+@onready var _toasts: VBoxContainer = %Toasts
 @onready var _debt_hint: Label = %DebtHint
 @onready var _pay_due_button: Button = %PayDueButton
 @onready var _pay_all_button: Button = %PayAllButton
@@ -66,6 +80,8 @@ const RISK_KEYS: Array[String] = ["RISK_LEGAL", "RISK_LOW", "RISK_MID", "RISK_HI
 var city: Node3D
 ## Мини-графики верхней панели: все деньги и розыск за последние дни.
 var _money_chart := Sparkline.new(Vector2(64, 26))
+## Общий материал стекла для всех стеклянных панелей и плашек.
+var _glass := ShaderMaterial.new()
 var _heat_chart := Sparkline.new(Vector2(64, 26))
 ## Район, чья карточка открыта ("" — закрыта).
 var _card_district: String = ""
@@ -83,16 +99,19 @@ func _ready() -> void:
 	if GameState.session == null:
 		GameState.new_game()
 	var s := GameState.session
+	_apply_glass()
 	_build_top_bar()
 	_build_market()
 	_build_stall()
 	_build_skills()
-	_tabs.set_tab_title(0, tr("TAB_MONEY"))
-	_tabs.set_tab_title(1, tr("TAB_STALL"))
-	_tabs.set_tab_title(2, tr("TAB_SKILLS"))
+	_build_side_buttons()
 	for button: Button in [_pay_due_button, _pay_all_button, _borrow_button, _deposit_button, _withdraw_button,
 			_loan_button, _repay_button, _buy_stall_button, _card_close_button, _card_travel_button,
-			_card_market_button, _market_close_button]:
+			_card_market_button, _market_close_button, _end_day_button, _lay_low_button, _save_button,
+			_menu_button]:
+		_make_small(button)
+	for button: Button in _speed_buttons.values() + [_pause_button, %RotateLeftButton, %RotateRightButton,
+			%ZoomOutButton, %ZoomInButton]:
 		_make_small(button)
 	_card_close_button.pressed.connect(close_card)
 	_card_travel_button.pressed.connect(func() -> void:
@@ -151,6 +170,8 @@ func _process(_delta: float) -> void:
 
 ## Открыть карточку района над его главным зданием.
 func open_card(district: String) -> void:
+	if district != _card_district or not _card.visible:
+		Audio.ui("open")
 	_card_district = district
 	_card.visible = true
 	_market_window.visible = false
@@ -174,8 +195,9 @@ func _place_card() -> void:
 	var anchor: Vector2 = city.anchor_screen_position(_card_district)
 	var pos := anchor - Vector2(_card.size.x / 2.0, _card.size.y + 24.0)
 	var screen := get_viewport_rect().size
-	pos.x = clampf(pos.x, 16.0, screen.x - _card.size.x - 470.0)
-	pos.y = clampf(pos.y, 120.0, screen.y - _card.size.y - 80.0)
+	var right_reserve := 470.0 if _right.visible else 110.0
+	pos.x = clampf(pos.x, 16.0, screen.x - _card.size.x - right_reserve)
+	pos.y = clampf(pos.y, 160.0, screen.y - _card.size.y - 80.0)
 	_card.position = pos
 
 
@@ -198,6 +220,47 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # --- Построение ---
 
+## Матовое стекло (размытый город под панелью) для главных панелей, как в референсах.
+func _apply_glass() -> void:
+	_glass.shader = GLASS_SHADER
+	var glass := _glass
+	for panel: Control in [$Margin/Layout/TopBar, %Drawer, _card, _market_window]:
+		panel.material = glass
+	# Подписи прямо над городом — на маленьких стеклянных плашках, без обводки.
+	for label: Label in [_payment_label, _event_label, $Margin/Layout/BottomBar/ControlsHint]:
+		_glass_pill(label, glass)
+
+
+func _glass_pill(label: Label, glass: Material) -> void:
+	var pill := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.WHITE
+	style.set_corner_radius_all(16)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	pill.add_theme_stylebox_override("panel", style)
+	pill.material = glass
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Растягиваемая однострочная подпись: место берём, но сама плашка — по тексту и прижата вправо.
+	# С переносом слов так нельзя: без ширины текст сложится в столбик по букве.
+	if label.size_flags_horizontal & Control.SIZE_EXPAND and label.autowrap_mode == TextServer.AUTOWRAP_OFF:
+		pill.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_SHRINK_END
+	else:
+		pill.size_flags_horizontal = label.size_flags_horizontal
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.add_theme_constant_override("outline_size", 0)
+	# Пустую подпись (нет события) прячем вместе с плашкой.
+	label.draw.connect(func() -> void: pill.visible = label.text != "")
+	var parent := label.get_parent()
+	var index := label.get_index()
+	parent.remove_child(label)
+	pill.add_child(label)
+	parent.add_child(pill)
+	parent.move_child(pill, index)
+
+
 ## Верхняя панель как в референсах: у каждого показателя иконка, подпись сверху, крупное число;
 ## у денег и розыска — мини-график за последние дни.
 func _build_top_bar() -> void:
@@ -208,9 +271,9 @@ func _build_top_bar() -> void:
 	_wrap_kpi(_dirty_label, "dirty", _caption("KPI_DIRTY"), _money_chart)
 	_wrap_kpi(_debt_label, "debt", _caption("KPI_DEBT"))
 	_wrap_kpi(_heat_label, "heat", _caption("KPI_HEAT"), _heat_chart)
-	_money_chart.color = Color(0.45, 0.9, 0.55)
+	_money_chart.color = Color(0.1, 0.58, 0.3)
 	_money_chart.tooltip_text = "KPI_MONEY_CHART"
-	_heat_chart.color = Color(0.55, 0.7, 1.0)
+	_heat_chart.color = Color(0.25, 0.4, 0.85)
 
 
 ## Заменить подпись-значение на блок [иконка | подпись над значением | график].
@@ -228,7 +291,7 @@ func _wrap_kpi(value: Label, icon: String, caption: Label, chart: Sparkline = nu
 	texts.add_theme_constant_override("separation", -4)
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	caption.add_theme_font_size_override("font_size", 13)
-	caption.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	caption.add_theme_color_override("font_color", Color(COLOR_TEXT, 0.55))
 	texts.add_child(caption)
 	row.remove_child(value)
 	value.add_theme_font_size_override("font_size", 21)
@@ -262,15 +325,15 @@ func _build_market() -> void:
 		name_label.text = good.name_key
 		name_label.add_theme_font_size_override("font_size", 18)
 		name_cell.add_child(name_label)
-		name_cell.custom_minimum_size.x = 190
+		name_cell.custom_minimum_size.x = 176
 		_market_grid.add_child(name_cell)
 		var row := {
 			"name": name_label,
-			"risk": _add_label(_market_grid, RISK_KEYS[risk], 76),
-			"buy": _add_label(_market_grid, "", 96),
+			"risk": _add_label(_market_grid, RISK_KEYS[risk], 64),
+			"buy": _add_label(_market_grid, "", 84),
 			"chart": _add_chart(_market_grid),
-			"sell": _add_label(_market_grid, "", 66),
-			"owned": _add_label(_market_grid, "", 104),
+			"sell": _add_label(_market_grid, "", 56),
+			"owned": _add_label(_market_grid, "", 84),
 			"buy_one": _add_button(_market_grid, "+1", GameState.buy.bind(id, 1)),
 			"buy_max": _add_button(_market_grid, "", func() -> void: GameState.buy(id, GameState.session.max_affordable(id))),
 			"sell_one": _add_button(_market_grid, "−1", GameState.sell.bind(id, 1)),
@@ -342,7 +405,7 @@ func _build_skills() -> void:
 		bar.max_value = 1.0
 		bar.show_percentage = false
 		var back := StyleBoxFlat.new()
-		back.bg_color = Color(1, 1, 1, 0.1)
+		back.bg_color = Color(COLOR_TEXT, 0.1)
 		back.set_corner_radius_all(4)
 		var fill := StyleBoxFlat.new()
 		fill.bg_color = Color(0.91, 0.23, 0.27, 0.9)
@@ -358,7 +421,7 @@ func _build_skills() -> void:
 
 
 func _add_chart(grid: GridContainer) -> Sparkline:
-	var chart := Sparkline.new(Vector2(76, 26))
+	var chart := Sparkline.new(Vector2(68, 24))
 	chart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	grid.add_child(chart)
 	return chart
@@ -479,14 +542,14 @@ func _refresh_market() -> void:
 		var price := s.buy_price(id)
 		var before: int = s.market.previous_prices[s.district][id]
 		row.buy.text = "$%s %s" % [_format_money(price), "▲" if price > before else ("▼" if price < before else "")]
-		row.buy.modulate = COLOR_UP if price > before else (COLOR_DOWN if price < before else Color.WHITE)
+		row.buy.add_theme_color_override("font_color", COLOR_UP if price > before else (COLOR_DOWN if price < before else COLOR_TEXT))
 		# График за 14 дней: зелёный — сейчас дешевле среднего (выгодно брать), оранжевый — дороже.
 		var series := s.market.price_series(s.district, id)
 		var average := 0.0
 		for value: int in series:
 			average += value
 		average /= series.size()
-		row.chart.color = Color(0.45, 0.9, 0.55) if price <= average else Color(0.95, 0.6, 0.3)
+		row.chart.color = Color(0.1, 0.58, 0.3) if price <= average else Color(0.88, 0.45, 0.05)
 		row.chart.set_values(series)
 		row.sell.text = "$%s" % _format_money(s.sell_price(id))
 		var owned: int = s.inventory[id]
@@ -602,6 +665,65 @@ func _go_to_menu() -> void:
 
 func _add_log(text: String) -> void:
 	_log_text.append_text("• %s\n" % text)
+	_show_toast(text)
+
+
+## Короткое сообщение внизу слева: всплывает и через несколько секунд тает.
+## Полная история — во вкладке «Журнал».
+func _show_toast(text: String) -> void:
+	var pill := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.WHITE
+	style.set_corner_radius_all(18)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	pill.add_theme_stylebox_override("panel", style)
+	pill.material = _glass
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var label := Label.new()
+	label.text = text
+	label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.x = 0
+	label.add_theme_font_size_override("font_size", 15)
+	pill.add_child(label)
+	pill.custom_minimum_size.x = minf(440.0, label.get_theme_font("font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 36.0)
+	_toasts.add_child(pill)
+	while _toasts.get_child_count() > TOASTS_MAX:
+		_toasts.get_child(0).queue_free()
+		_toasts.remove_child(_toasts.get_child(0))
+	var tween := pill.create_tween()
+	tween.tween_interval(TOAST_SECONDS)
+	tween.tween_property(pill, "modulate:a", 0.0, 0.6)
+	tween.tween_callback(pill.queue_free)
+
+
+## Кнопки у правого края: открывают и закрывают выезжающую панель с нужной вкладкой.
+func _build_side_buttons() -> void:
+	for i in SIDE_TABS.size():
+		var button := Button.new()
+		button.text = SIDE_TABS[i]
+		button.toggle_mode = true
+		button.add_theme_font_size_override("font_size", 16)
+		_make_small(button)
+		button.pressed.connect(open_drawer.bind(i))
+		_side_buttons.add_child(button)
+
+
+## Открыть панель на вкладке (0 деньги, 1 ларёк, 2 навыки, 3 журнал); та же вкладка ещё раз — закрыть.
+func open_drawer(tab: int) -> void:
+	var closing := _right.visible and _tabs.current_tab == tab
+	_right.visible = not closing
+	if not closing:
+		_tabs.current_tab = tab
+	for i in _side_buttons.get_child_count():
+		_side_buttons.get_child(i).set_pressed_no_signal(_right.visible and i == tab)
+	# Город центрируется на свободное место: с открытой панелью — левее.
+	if city != null:
+		city.camera_rig.screen_shift = SCREEN_SHIFT_DRAWER if _right.visible else SCREEN_SHIFT_CLOSED
 
 
 ## Запись из логики: [ключ_перевода, аргументы].

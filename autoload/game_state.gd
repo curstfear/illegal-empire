@@ -43,6 +43,7 @@ func buy(id: String, amount: int) -> void:
 
 func sell(id: String, amount: int) -> void:
 	if session.sell(id, amount):
+		Audio.coin()
 		_after_deal()
 
 
@@ -62,6 +63,16 @@ func do_activity(id: String) -> void:
 	if not can_do_activity(id):
 		return
 	var report := session.do_activity(id)
+	# Звук по итогу: заплатили — монеты, собрал — «готово», сорвалось или арест — ошибка и сирена.
+	match report[0][0] if not report.is_empty() else "":
+		"LOG_JOB_DONE":
+			Audio.coin()
+		"LOG_GATHERED":
+			Audio.ui("confirmation")
+		"LOG_ACTIVITY_BUSTED":
+			Audio.ui("error")
+		"LOG_ARRESTED":
+			Audio.siren()
 	reported.emit(report)
 	changed.emit()
 	Clock.advance_hours(session.get_activity(id).hours)
@@ -118,6 +129,8 @@ func resolve_check(choice: String) -> void:
 	var report: Array = session.call(choice)
 	if report.is_empty():
 		return
+	if report[0][0] == "LOG_ARRESTED":
+		Audio.siren()
 	reported.emit(report)
 	if session.day != day_before:
 		Clock.elapsed = 0.0
@@ -147,6 +160,7 @@ func end_day() -> void:
 func _after_deal() -> void:
 	if not session.pending_check.is_empty():
 		Clock.paused = true
+		Audio.siren()
 	changed.emit()
 
 

@@ -46,7 +46,7 @@ func _ready() -> void:
 	screen.get_node("%CardMarketButton").pressed.emit()
 	s.clean += 400
 	GameState.buy_stall()
-	screen.get_node("%Tabs").current_tab = 1
+	screen.open_drawer(1)
 	await _frames(10)
 	_shot(out_dir.path_join("4_market_window.png"))
 
@@ -54,7 +54,7 @@ func _ready() -> void:
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")
 	screen.get_node("%CardTravelButton").pressed.emit()
-	screen.get_node("%Tabs").current_tab = 0
+	screen.open_drawer(1)
 	Clock.elapsed = 0.72 * 90.0
 	Clock.paused = true
 	await _frames(15)

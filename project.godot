@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="IllegalEmpire"
-config/version="0.3.0"
+config/version="0.4.0"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 SaveSystem="*res://autoload/save_system.gd"
 GameState="*res://autoload/game_state.gd"
 Clock="*res://autoload/clock.gd"
+Audio="*res://autoload/audio.gd"
 
 [display]
 

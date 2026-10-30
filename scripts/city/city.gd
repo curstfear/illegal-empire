@@ -222,7 +222,7 @@ func _build_ground() -> void:
 	plane.size = Vector2(extent + 400.0, extent + 400.0)
 	ground.mesh = plane
 	ground.position = Vector3(extent / 2.0 - _tile / 2.0, -0.02, extent / 2.0 - _tile / 2.0)
-	ground.material_override = _flat_material(Color(0.42, 0.45, 0.52))
+	ground.material_override = _flat_material(Color(0.8, 0.82, 0.87))
 	add_child(ground)
 
 

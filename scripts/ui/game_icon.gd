@@ -35,9 +35,10 @@ func _draw() -> void:
 				c + Vector2(-s * 0.1, s * 0.48), c + Vector2(s * 0.3, -s * 0.08), c + Vector2(s * 0.02, -s * 0.08)])
 			draw_colored_polygon(bolt, Color(0.4, 0.85, 0.95))
 		"day":
-			draw_arc(c, s * 0.42, 0, TAU, 32, Color(0.95, 0.95, 1.0), s * 0.09, true)
-			draw_line(c, c + Vector2(0, -s * 0.26), Color(0.95, 0.95, 1.0), s * 0.09, true)
-			draw_line(c, c + Vector2(s * 0.2, 0), Color(0.95, 0.95, 1.0), s * 0.09, true)
+			var ink := Color(0.16, 0.18, 0.26)
+			draw_arc(c, s * 0.42, 0, TAU, 32, ink, s * 0.09, true)
+			draw_line(c, c + Vector2(0, -s * 0.26), ink, s * 0.09, true)
+			draw_line(c, c + Vector2(s * 0.2, 0), ink, s * 0.09, true)
 		"mushrooms":
 			draw_rect(Rect2(c + Vector2(-s * 0.1, -s * 0.02), Vector2(s * 0.2, s * 0.42)), Color(0.95, 0.9, 0.8))
 			_half_disc(c + Vector2(0, s * 0.02), s * 0.42, Color(0.85, 0.35, 0.3))
