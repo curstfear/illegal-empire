@@ -3,7 +3,8 @@ extends RefCounted
 ## Банды города: у каждой босс с характером, люди, общак, отношение к тебе (−100…100)
 ## и влияние в районах. Влияние — очки 0–100 на район, сумма в районе не больше 100;
 ## «player» — твоё влияние, остаток — ничья земля. Хозяин района — у кого больше всех влияния (и не меньше порога).
-## Требования и предложения банд ждут ответа игрока несколько дней.
+## Требования и предложения банд ждут ответа игрока несколько дней. С бандой можно заключить договор
+## (ненападение, налог за мир, перемирие, союз) — пока он действует, она тебя не трогает.
 ## Деньги игрока и случайности считает GameSession — здесь только состояние и правила.
 
 const PLAYER := "player"
@@ -24,6 +25,10 @@ var known_level: Dictionary = {}
 var offers: Array = []
 ## Сколько ты наторговал нелегального в каждом районе с прошлой ночи (банды требуют с этого долю). Не сохраняется.
 var turf_sales: Dictionary = {}
+## Договоры по id банды: { kind, until (последний день; 0 — бессрочно), paid_day (день следующего платежа налога) }.
+var treaties: Dictionary = {}
+## День последней встречи с боссом по id банды (встречаться можно раз в день).
+var met_day: Dictionary = {}
 
 var _next_offer_id := 1
 
@@ -142,9 +147,25 @@ func level(id: String) -> String:
 
 
 ## Насколько опасно в районе для твоих перевозок: от отношения хозяина района (ничья или твоя земля — немного).
+## С кем договор — тот засад не устраивает.
 func hostility(district: String) -> float:
 	var host := gang_owner(district)
+	if host != "" and has_treaty(host):
+		return 0.0
 	return float(_balance.gang_hostility[level(host) if host != "" else "none"])
+
+
+func treaty(id: String) -> Dictionary:
+	return treaties.get(id, {})
+
+
+func has_treaty(id: String) -> bool:
+	return treaties.has(id)
+
+
+## Номер уровня отношения: 0 — дружба … 3 — вражда (для условий договоров).
+func level_rank(id: String) -> int:
+	return LEVELS.find(level(id))
 
 
 ## Случайное действие враждебной банды по весам характера босса (только из allowed).
@@ -220,7 +241,8 @@ func night(rng: RandomNumberGenerator) -> Array:
 
 func to_dict() -> Dictionary:
 	return { "state": state.duplicate(true), "influence": influence.duplicate(true), "known_level": known_level.duplicate(),
-			"offers": offers.duplicate(true), "next_offer_id": _next_offer_id }
+			"offers": offers.duplicate(true), "next_offer_id": _next_offer_id, "treaties": treaties.duplicate(true),
+			"met_day": met_day.duplicate() }
 
 
 func load_dict(data: Dictionary) -> void:
@@ -234,6 +256,13 @@ func load_dict(data: Dictionary) -> void:
 		offers.append({ "id": int(offer.id), "gang": String(offer.gang), "kind": String(offer.kind), "amount": int(offer.amount),
 				"good": String(offer.good), "units": int(offer.units), "expires": int(offer.expires) })
 	_next_offer_id = int(data.get("next_offer_id", 1))
+	treaties = {}
+	for id: String in data.get("treaties", {}):
+		var t: Dictionary = data.treaties[id]
+		treaties[id] = { "kind": String(t.kind), "until": int(t.until), "paid_day": int(t.get("paid_day", 0)) }
+	met_day = {}
+	for id: String in data.get("met_day", {}):
+		met_day[id] = int(data.met_day[id])
 	for id: String in data.get("known_level", {}):
 		known_level[id] = String(data.known_level[id])
 	for district: String in data.get("influence", {}):

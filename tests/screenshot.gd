@@ -172,6 +172,17 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("4j_crew_wounded.png"))
 
+	# Дипломатия: договор с Путейцами, встреча с Базарными; вкладка «Банды» прокручена к бандам.
+	s.clean += 2000
+	GameState.sign_treaty("rails", "peace_tax")
+	GameState.meet("bazaar")
+	screen.open_tab("gangs")
+	await _frames(5)
+	var gangs_scroll: ScrollContainer = screen.get_node("%Tabs").get_child(3)
+	gangs_scroll.scroll_vertical = 120
+	await _frames(10)
+	_shot(out_dir.path_join("4k_diplomacy.png"))
+
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")

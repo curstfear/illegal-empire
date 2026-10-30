@@ -1528,7 +1528,7 @@ func _refresh_gangs() -> void:
 		if s.fight_district(gang.id) != "":
 			var fight := Button.new()
 			fight.text = tr("BTN_FIGHT")
-			fight.tooltip_text = tr("BTN_FIGHT_TIP")
+			fight.tooltip_text = tr("BTN_FIGHT_TIP") + ("\n" + tr("BTN_FIGHT_BETRAY_TIP") if gangs.has_treaty(gang.id) else "")
 			fight.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 			_make_small(fight, 8)
 			fight.add_theme_font_size_override("font_size", 10)
@@ -1544,8 +1544,11 @@ func _refresh_gangs() -> void:
 				+ (tr("GANG_TURF") % ", ".join(turf) if not turf.is_empty() else tr("GANG_NO_TURF")), 10, LEVEL_COLORS[level]))
 		if st.revenge:
 			texts.add_child(_small_label(tr("GANG_REVENGE"), 10, COLOR_DOWN))
+		if gangs.has_treaty(gang.id):
+			texts.add_child(_small_label(_treaty_text(gang.id), 10, COLOR_ACCENT))
 		row.add_child(texts)
 		_gangs_list.add_child(row)
+		_gangs_list.add_child(_diplomacy_row(gang.id))
 	_gangs_list.add_child(HSeparator.new())
 	_gangs_list.add_child(_small_label(tr("GANGS_INFLUENCE").to_upper(), 10, COLOR_MUTED))
 	for district: Dictionary in s.market.districts:
@@ -1675,6 +1678,53 @@ func _fight_button(text: String, action: Callable) -> Button:
 	button.pressed.connect(action)
 	_fight_box.add_child(button)
 	return button
+
+
+func _treaty_text(gang_id: String) -> String:
+	var s := GameState.session
+	var t := s.gangs.treaty(gang_id)
+	var name := tr(s.balance.treaties[t.kind].name_key)
+	if t.kind == "peace_tax":
+		return tr("GANG_TREATY_TAX") % [name, _format_money(s.treaty_cost(gang_id, "peace_tax")), int(t.paid_day)]
+	if int(t.until) > 0:
+		return tr("GANG_TREATY_UNTIL") % [name, int(t.until)]
+	return tr("GANG_TREATY") % name
+
+
+## Кнопки дипломатии под бандой: встреча, договоры (что сейчас можно) или «Разорвать договор».
+func _diplomacy_row(gang_id: String) -> HFlowContainer:
+	var s := GameState.session
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 4)
+	row.add_theme_constant_override("v_separation", 4)
+	row.add_child(_indent())
+	_diplomacy_button(row, tr("BTN_MEET") % _format_money(int(s.balance.meet_gift)), tr("BTN_MEET_TIP"),
+			not GameState.can_meet(gang_id), GameState.meet.bind(gang_id))
+	if s.gangs.has_treaty(gang_id):
+		_diplomacy_button(row, tr("BTN_TREATY_CANCEL"), tr("BTN_TREATY_CANCEL_TIP"), not s.can_act(),
+				GameState.cancel_treaty.bind(gang_id))
+		return row
+	for kind: String in s.balance.treaties:
+		if not s.treaty_allowed(gang_id, kind):
+			continue
+		var name := tr(s.balance.treaties[kind].name_key)
+		var cost := s.treaty_cost(gang_id, kind)
+		var text := tr("BTN_TREATY_COST") % [name, _format_money(cost)] if cost > 0 else tr("BTN_TREATY") % name
+		_diplomacy_button(row, text, tr(String(s.balance.treaties[kind].name_key) + "_TIP"), not s.can_sign(gang_id, kind),
+				GameState.sign_treaty.bind(gang_id, kind))
+	return row
+
+
+func _diplomacy_button(row: Control, text: String, tip: String, disabled: bool, action: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.tooltip_text = tip
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(button, 6)
+	button.add_theme_font_size_override("font_size", 10)
+	button.disabled = disabled
+	button.pressed.connect(action)
+	row.add_child(button)
 
 
 ## Строка требования или предложения банды: что хотят, до какого дня, кнопки «да» и «нет».

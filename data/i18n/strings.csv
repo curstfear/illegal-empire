@@ -559,3 +559,30 @@ LOG_FIGHT_WOUNDED,%s was wounded and is out for %d day(s).,%s ранен и вы
 LOG_FIGHT_TOOK,You pushed %s out of part of %s.,Ты потеснил банду %s в районе %s.
 LOG_FIGHT_TRIBUTE,%s paid you a ransom: $%s.,Банда %s заплатила выкуп: $%s.
 LOG_FIGHT_MERCY,You let %s go. They will remember that.,Ты отпустил банду %s. Они это запомнят.
+TREATY_NONAGGRESSION,non-aggression pact,ненападение
+TREATY_PEACE_TAX,peace tax,налог за мир
+TREATY_TRUCE,truce,перемирие
+TREATY_ALLIANCE,alliance,союз
+TREATY_NONAGGRESSION_TIP,14 days they leave you alone. Needs attitude of −10 or better. Free.,14 дней не трогают тебя. Нужно отношение не хуже −10. Бесплатно.
+TREATY_PEACE_TAX_TIP,You pay every week; they leave you alone and do not mind your trade on their turf. Can't pay — they get even.,Платишь каждую неделю; не трогают и не злятся на твою торговлю на их земле. Не хватит денег — отомстят.
+TREATY_TRUCE_TIP,Stops a war for 5 days. Only with rivals or enemies. One payment.,Останавливает войну на 5 дней. Только с соперниками или врагами. Платишь разово.
+TREATY_ALLIANCE_TIP,"21 days: they leave you alone, do not mind your trade and help in fights with other gangs (30% of their strength). Friends only.","21 день: не трогают, не злятся на торговлю и помогают в разборках с другими бандами (30% своей силы). Только с друзьями."
+BTN_MEET,Meet ($%s),Встреча ($%s)
+BTN_MEET_TIP,2 hours and a gift: attitude improves (Charisma helps). Enemies may set a trap. Once a day.,2 часа и подарок: отношение лучше (помогает Харизма). Враги могут устроить ловушку. Раз в день.
+BTN_TREATY,%s,%s
+BTN_TREATY_COST,%s ($%s),%s ($%s)
+BTN_TREATY_CANCEL,Break pact,Разорвать договор
+BTN_TREATY_CANCEL_TIP,Stopping the peace tax costs a little goodwill; breaking other pacts early is betrayal and every gang will remember it.,"Перестать платить налог — небольшая обида; досрочно разорвать другой договор — предательство, это запомнят все банды."
+GANG_TREATY,Pact: %s,Договор: %s
+GANG_TREATY_UNTIL,"Pact: %s, until day %d","Договор: %s, до дня %d"
+GANG_TREATY_TAX,"Pact: %s, $%s on day %d","Договор: %s, $%s в день %d"
+BTN_FIGHT_BETRAY_TIP,"You have a pact with them: attacking breaks it, and every gang will remember.","С ними договор: нападение его разорвёт, и это запомнят все банды."
+LOG_MEET_DONE,Met %s of %s: attitude +%d.,Встреча с боссом %s (%s): отношение +%d.
+LOG_MEET_TRAP,The meeting with %s was a trap — you barely got away.,Встреча с бандой %s оказалась ловушкой — еле ушёл.
+LOG_TREATY_SIGNED,Pact with %s: %s.,Договор с бандой %s: %s.
+LOG_TREATY_CANCELLED,You stopped paying %s the peace tax.,Ты перестал платить банде %s налог за мир.
+LOG_TREATY_BROKEN_BY_YOU,You broke your pact with %s (%s). Every gang heard about it.,Ты нарушил договор с бандой %s (%s). Об этом узнали все банды.
+LOG_TREATY_ENDED,The pact with %s is over: %s.,Договор с бандой %s закончился: %s.
+LOG_TREATY_BETRAYED,%s (boss %s) broke the %s. Expect an attack.,%s (босс %s) нарушили договор: %s. Жди налёта.
+LOG_TAX_PAID,Peace tax paid to %s: $%s.,Налог за мир банде %s: $%s.
+LOG_TAX_MISSED,Not enough money for the peace tax: the pact with %s is off and they want revenge.,"Не хватило денег на налог за мир: договор с бандой %s сорван, они хотят мести."

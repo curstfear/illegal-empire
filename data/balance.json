@@ -259,5 +259,29 @@
 	"fight_mercy_influence": 5,
 	"defense_fighter_per_skill": 15,
 	"defender_wound_lost": 0.3,
-	"defender_wound_won": 0.1
+	"defender_wound_won": 0.1,
+
+	"meet_hours": 2,
+	"meet_gift": 150,
+	"meet_relation": 8,
+	"meet_charisma_per_level": 0.1,
+	"meet_trap_chance": 0.3,
+	"meet_trap_energy": 30,
+	"xp_meet": 3,
+	"treaties": {
+		"nonaggression": { "name_key": "TREATY_NONAGGRESSION", "days": 14, "min_relation": -10 },
+		"peace_tax": { "name_key": "TREATY_PEACE_TAX", "days": 0, "tax_per_strength": 4 },
+		"truce": { "name_key": "TREATY_TRUCE", "days": 5, "cost_per_strength": 6, "max_level": "rival" },
+		"alliance": { "name_key": "TREATY_ALLIANCE", "days": 21, "min_level": "friend" }
+	},
+	"treaty_sign_relation": 5,
+	"tax_missed_relation": 30,
+	"ally_power_share": 0.3,
+	"ally_win_relation": 5,
+	"break_relation": 40,
+	"break_others_relation": 10,
+	"cancel_relation": 15,
+	"betray_weak_mult": 2.0,
+	"betray_weak_ratio": 0.5,
+	"betray_low_relation": 0.0
 }

@@ -7,7 +7,8 @@ extends RefCounted
 ## лояльность, страх, усталость, рост, предательство), перевозки (в том числе на рынок)
 ## и банды (хозяева районов, отношение к тебе, твоё влияние; ночью требуют долю, сбивают цены,
 ## нападают на здания и перевозки, переманивают людей, предлагают сделки; разборки с ними — бойцы, снаряжение,
-## раненые и погибшие, отчёт о бое и выбор последствий).
+## раненые и погибшие, отчёт о бое и выбор последствий; дипломатия — встречи с боссами, договоры
+## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -1603,7 +1604,7 @@ func _gang_notice(where: String, value: int) -> void:
 	var hundreds := float(value) / 100.0
 	gangs.turf_sales[where] = int(gangs.turf_sales.get(where, 0)) + value
 	for id: String in gangs.influence[where].keys():
-		if id != Gangs.PLAYER:
+		if id != Gangs.PLAYER and gangs.treaty(id).get("kind", "") not in ["peace_tax", "alliance"]:
 			gangs.change_relation(id, -hundreds * float(balance.gang_relation_per_100)
 					* float(gangs.temper(id).anger) * gangs.share(where, id) / 100.0)
 	gangs.player_gain(where, hundreds * float(balance.player_influence_per_100))
@@ -1625,6 +1626,7 @@ func _run_gangs() -> Array:
 			gangs.change_relation(host, -float(balance.gang_relation_property) * float(gangs.temper(host).anger))
 		gangs.player_gain(where, float(balance.player_influence_property))
 	report.append_array(_expire_offers())
+	report.append_array(_run_treaties())
 	report.append_array(gangs.night(rng))
 	for gang: Dictionary in gangs.defs:
 		report.append_array(_gang_turn(gang.id))
@@ -1656,6 +1658,11 @@ func _expire_offers() -> Array:
 func _gang_turn(id: String) -> Array:
 	var st: Dictionary = gangs.state[id]
 	var level := gangs.level(id)
+	# По договору банда не трогает: только предлагает сделки.
+	if gangs.has_treaty(id):
+		if rng.randf() < float(balance.gang_deal_chance[level]) and gangs.offer_from(id).is_empty():
+			return _gang_deal(id)
+		return []
 	if st.revenge:
 		st.revenge = false
 		var revenge := _gang_attack(id, true)
@@ -1812,16 +1819,25 @@ func fight_defense(gang_id: String) -> float:
 
 
 ## Сила с учётом тактики: хитростью — слабее, но с разведчиком без потерь в силе.
-func fight_power(tactic: String) -> float:
+func fight_power(tactic: String, target: String = "") -> float:
 	var info: Dictionary = balance.fight_tactics[tactic]
 	var mult := float(info.power)
 	if info.has("scout_power") and crew.best_skill("scout") > 0:
 		mult = float(info.scout_power)
-	return crew_power() * mult
+	return crew_power() * mult + ally_power(target)
+
+
+## Союзники помогают в разборке против других банд частью своей силы.
+func ally_power(target: String) -> float:
+	var power := 0.0
+	for gang: Dictionary in gangs.defs:
+		if gang.id != target and gangs.treaty(gang.id).get("kind", "") == "alliance":
+			power += gangs.strength(gang.id) * float(balance.ally_power_share)
+	return power
 
 
 func fight_chance(gang_id: String, tactic: String) -> float:
-	var power := fight_power(tactic)
+	var power := fight_power(tactic, gang_id)
 	var defense := fight_defense(gang_id)
 	return power / (power + defense) if power + defense > 0.0 else 0.0
 
@@ -1840,7 +1856,9 @@ func fight(gang_id: String, tactic: String) -> Array:
 	var info: Dictionary = balance.fight_tactics[tactic]
 	var where := fight_district(gang_id)
 	var spread := float(balance.fight_roll_spread)
-	var power := fight_power(tactic)
+	var power := fight_power(tactic, gang_id)
+	# Напал на того, с кем договор, — это предательство: договор разорван, остальные банды запомнят.
+	var betrayal: Array = _break_treaty(gang_id, float(balance.break_relation)) if gangs.has_treaty(gang_id) else []
 	var defense := fight_defense(gang_id)
 	var win := power * rng.randf_range(1.0 - spread, 1.0 + spread) > defense * rng.randf_range(1.0 - spread, 1.0 + spread)
 	energy -= int(balance.fight_energy)
@@ -1871,11 +1889,154 @@ func fight(gang_id: String, tactic: String) -> Array:
 	fight_result = { "gang": gang_id, "district": where, "tactic": tactic, "win": win, "power": roundi(power),
 			"defense": roundi(defense), "wounded": wounded, "dead": dead, "gang_losses": gang_losses, "heat": roundi(heat) }
 	var gang := gangs.get_def(gang_id)
-	var report: Array = [["LOG_FIGHT_WON" if win else "LOG_FIGHT_LOST", [gang.name_key, market.get_district(where).name_key]]]
+	var report: Array = betrayal
+	report.append(["LOG_FIGHT_WON" if win else "LOG_FIGHT_LOST", [gang.name_key, market.get_district(where).name_key]])
+	if win:
+		for ally: Dictionary in gangs.defs:
+			if ally.id != gang_id and gangs.treaty(ally.id).get("kind", "") == "alliance":
+				gangs.change_relation(ally.id, float(balance.ally_win_relation))
 	for nick: String in dead:
 		report.append(["LOG_FIGHT_DIED", [nick]])
 	for nick: String in wounded:
 		report.append(["LOG_FIGHT_WOUNDED_DAYS", [nick]])
+	return report
+
+
+# --- Дипломатия ---
+
+func can_meet(gang_id: String) -> bool:
+	return can_act() and money >= int(balance.meet_gift) and int(gangs.met_day.get(gang_id, 0)) != day
+
+
+## Встреча с боссом: подарок, отношение лучше (Харизма помогает). Враги могут устроить ловушку — тогда тебя
+## помнут (минус силы), подарок пропал.
+func meet(gang_id: String) -> Array:
+	if not can_meet(gang_id):
+		return []
+	gangs.met_day[gang_id] = day
+	_spend(int(balance.meet_gift))
+	gangs.state[gang_id].cash = int(gangs.state[gang_id].cash) + int(balance.meet_gift)
+	var gang := gangs.get_def(gang_id)
+	if gangs.level(gang_id) == "enemy" and rng.randf() < float(balance.meet_trap_chance):
+		energy = maxi(0, energy - int(balance.meet_trap_energy))
+		return [["LOG_MEET_TRAP", [gang.name_key]]]
+	var gain := float(balance.meet_relation) * (1.0 + skills.level("charisma") * float(balance.meet_charisma_per_level))
+	gangs.change_relation(gang_id, gain)
+	skills.add_xp("charisma", int(balance.xp_meet))
+	return [["LOG_MEET_DONE", [gang.boss_key, gang.name_key, roundi(gain)]]]
+
+
+## Стоимость договора: налог за мир — в неделю, перемирие — разово (от силы банды); остальные бесплатны.
+func treaty_cost(gang_id: String, kind: String) -> int:
+	var info: Dictionary = balance.treaties[kind]
+	if info.has("tax_per_strength"):
+		return gangs.strength(gang_id) * int(info.tax_per_strength)
+	if info.has("cost_per_strength"):
+		return gangs.strength(gang_id) * int(info.cost_per_strength)
+	return 0
+
+
+## Согласна ли банда: ненападение — если отношение не хуже порога, союз — только с друзьями,
+## перемирие — только когда воюете (соперники или враги), налог за мир берут всегда.
+func treaty_allowed(gang_id: String, kind: String) -> bool:
+	var info: Dictionary = balance.treaties[kind]
+	if info.has("min_relation") and gangs.relation(gang_id) < float(info.min_relation):
+		return false
+	if info.has("min_level") and gangs.level_rank(gang_id) > Gangs.LEVELS.find(info.min_level):
+		return false
+	if info.has("max_level") and gangs.level_rank(gang_id) < Gangs.LEVELS.find(info.max_level):
+		return false
+	return true
+
+
+func can_sign(gang_id: String, kind: String) -> bool:
+	return can_act() and balance.treaties.has(kind) and not gangs.has_treaty(gang_id) \
+			and treaty_allowed(gang_id, kind) and money >= treaty_cost(gang_id, kind)
+
+
+## Заключить договор. Налог за мир платится сразу за первую неделю, перемирие — разово.
+func sign_treaty(gang_id: String, kind: String) -> Array:
+	if not can_sign(gang_id, kind):
+		return []
+	var cost := treaty_cost(gang_id, kind)
+	_spend(cost)
+	gangs.state[gang_id].cash = int(gangs.state[gang_id].cash) + cost
+	var days := int(balance.treaties[kind].days)
+	gangs.treaties[gang_id] = { "kind": kind, "until": day + days if days > 0 else 0,
+			"paid_day": day + 7 if kind == "peace_tax" else 0 }
+	gangs.state[gang_id].revenge = false
+	gangs.change_relation(gang_id, float(balance.treaty_sign_relation))
+	# Требования этой банды по договору снимаются.
+	for offer: Dictionary in gangs.offers.duplicate():
+		if offer.gang == gang_id and offer.kind == "demand":
+			gangs.offers.erase(offer)
+	return [["LOG_TREATY_SIGNED", [gangs.get_def(gang_id).name_key, balance.treaties[kind].name_key]]]
+
+
+## Разорвать договор самому: налог за мир — просто перестать платить (небольшая обида),
+## остальные досрочно — предательство (остальные банды тоже запомнят).
+func cancel_treaty(gang_id: String) -> Array:
+	if not can_act() or not gangs.has_treaty(gang_id):
+		return []
+	if gangs.treaty(gang_id).kind == "peace_tax":
+		gangs.treaties.erase(gang_id)
+		gangs.change_relation(gang_id, -float(balance.cancel_relation))
+		return [["LOG_TREATY_CANCELLED", [gangs.get_def(gang_id).name_key]]]
+	return _break_treaty(gang_id, float(balance.cancel_relation) * 2.0)
+
+
+## Ты нарушил договор: обида банды и твоя слава «нарушает слово» у остальных.
+func _break_treaty(gang_id: String, relation_drop: float) -> Array:
+	var kind: String = gangs.treaty(gang_id).kind
+	gangs.treaties.erase(gang_id)
+	gangs.change_relation(gang_id, -relation_drop)
+	for gang: Dictionary in gangs.defs:
+		if gang.id != gang_id:
+			gangs.change_relation(gang.id, -float(balance.break_others_relation))
+	return [["LOG_TREATY_BROKEN_BY_YOU", [gangs.get_def(gang_id).name_key, balance.treaties[kind].name_key]]]
+
+
+## Шанс, что банда сама нарушит договор этой ночью: от характера босса, выше при плохом отношении
+## и если ты заметно слабее неё.
+func gang_betray_chance(gang_id: String) -> float:
+	var chance := float(gangs.temper(gang_id).betray)
+	if gangs.relation(gang_id) < float(balance.betray_low_relation):
+		chance *= 2.0
+	if crew_power() + ally_power(gang_id) < gangs.strength(gang_id) * float(balance.betray_weak_ratio):
+		chance *= float(balance.betray_weak_mult)
+	return minf(1.0, chance)
+
+
+## Ночь для договоров: налог за мир (не хватило денег — договор сорван, банда мстит), сроки,
+## предательство банд (договор кончается, и той же ночью — налёт).
+func _run_treaties() -> Array:
+	var report: Array = []
+	for gang: Dictionary in gangs.defs:
+		var id: String = gang.id
+		if not gangs.has_treaty(id):
+			continue
+		var t: Dictionary = gangs.treaty(id)
+		if t.kind == "peace_tax" and int(t.paid_day) <= day:
+			var tax := treaty_cost(id, "peace_tax")
+			if money < tax:
+				gangs.treaties.erase(id)
+				gangs.change_relation(id, -float(balance.tax_missed_relation))
+				gangs.state[id].revenge = true
+				report.append(["LOG_TAX_MISSED", [gang.name_key]])
+				continue
+			_spend(tax)
+			gangs.state[id].cash = int(gangs.state[id].cash) + tax
+			t.paid_day = int(t.paid_day) + 7
+			report.append(["LOG_TAX_PAID", [gang.name_key, tax]])
+		if int(t.until) > 0 and int(t.until) <= day:
+			gangs.treaties.erase(id)
+			report.append(["LOG_TREATY_ENDED", [gang.name_key, balance.treaties[t.kind].name_key]])
+			continue
+		if rng.randf() < gang_betray_chance(id):
+			gangs.treaties.erase(id)
+			gangs.state[id].revenge = true
+			gangs.change_relation(id, -float(balance.break_others_relation))
+			report.append(["LOG_TREATY_BETRAYED", [gang.name_key, gang.boss_key, balance.treaties[t.kind].name_key]])
 	return report
 
 

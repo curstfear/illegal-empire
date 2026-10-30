@@ -334,6 +334,35 @@ func choose_fight_outcome(option: String) -> void:
 		Clock.advance_hours(session.balance.fight_hours)
 
 
+func can_meet(gang_id: String) -> bool:
+	return session.can_meet(gang_id) and Clock.hours_left() >= float(session.balance.meet_hours)
+
+
+func meet(gang_id: String) -> void:
+	if not can_meet(gang_id):
+		return
+	var report := session.meet(gang_id)
+	Audio.ui("error" if report[0][0] == "LOG_MEET_TRAP" else "confirmation")
+	reported.emit(report)
+	changed.emit()
+	Clock.advance_hours(session.balance.meet_hours)
+
+
+func sign_treaty(gang_id: String, kind: String) -> void:
+	var report := session.sign_treaty(gang_id, kind)
+	if not report.is_empty():
+		Audio.ui("confirmation")
+		reported.emit(report)
+		changed.emit()
+
+
+func cancel_treaty(gang_id: String) -> void:
+	var report := session.cancel_treaty(gang_id)
+	if not report.is_empty():
+		reported.emit(report)
+		changed.emit()
+
+
 func resolve_check(choice: String) -> void:
 	var day_before := session.day
 	var report: Array = session.call(choice)

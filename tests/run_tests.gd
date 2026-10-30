@@ -69,6 +69,10 @@ func _init() -> void:
 	_test_fight_win_outcomes()
 	_test_fight_loss_and_wounds()
 	_test_fight_defense_and_save()
+	_test_meetings()
+	_test_treaties()
+	_test_peace_tax()
+	_test_treaty_betrayal()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1482,6 +1486,117 @@ func _test_fight_defense_and_save() -> void:
 	loaded.load_dict(data)
 	_check(loaded.gear == 1 and int(loaded.crew.get_person(fighter).wounded) == int(s.crew.get_person(fighter).wounded),
 			"снаряжение и раны сохраняются")
+
+
+func _test_meetings() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.clean = 2000
+	var relation := s.gangs.relation("rails")
+	var report := s.meet("rails")
+	_check(_has(report, "LOG_MEET_DONE") and s.gangs.relation("rails") > relation, "встреча с боссом улучшает отношение")
+	_check(s.clean == 2000 - int(s.balance.meet_gift), "встреча — подарок")
+	_check(not s.can_meet("rails"), "второй раз за день не встретиться")
+	s.gangs.change_relation("neon", -100.0)
+	s.balance.meet_trap_chance = 1.0
+	var energy := s.energy
+	report = s.meet("neon")
+	_check(_has(report, "LOG_MEET_TRAP") and s.energy < energy and s.gangs.relation("neon") == -100.0, "враги: встреча-ловушка")
+
+
+func _test_treaties() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.next_payment_day = 1000
+	s.clean = 20000
+	_check(not s.treaty_allowed("neon", "alliance"), "союз — только с друзьями")
+	_check(not s.treaty_allowed("neon", "truce"), "перемирие — только в войне")
+	_check(s.sign_treaty("rails", "nonaggression").size() == 1 and s.gangs.has_treaty("rails"), "ненападение с Путейцами")
+	_check(not s.can_sign("rails", "truce"), "второй договор с той же бандой нельзя")
+	s.gangs.change_relation("rails", -100.0)
+	s.balance.gang_act_chance.enemy = 1.0
+	s.clean = 20000
+	s.buy_property("station_warehouse")
+	s.properties.add_stock("station_warehouse", "phones", 10)
+	var report := s._gang_turn("rails")
+	_check(report.is_empty(), "по договору банда не трогает даже во вражде")
+	_check(s.gangs.hostility("station") == 0.0, "по договору засад нет")
+	for temper: String in s.gangs.tempers:
+		s.gangs.tempers[temper].betray = 0.0
+	# Договор защищает 14 ночей и заканчивается в начале 15-й.
+	for i in int(s.balance.treaties.nonaggression.days) + 1:
+		s.end_day()
+	_check(not s.gangs.has_treaty("rails"), "ненападение кончается через 14 дней")
+	# Перемирие во вражде, союз с друзьями помогает в драке.
+	s.gangs.change_relation("neon", -100.0)
+	_check(s.sign_treaty("neon", "truce").size() == 1 and s.clean < 20000, "перемирие за плату")
+	s.gangs.change_relation("bazaar", 100.0)
+	s.crew.roll_candidates(s.rng, 3)
+	s.hire(_candidate(s, "fighter", "loyal", 3))
+	var alone := s.fight_power("head_on", "rails")
+	s.sign_treaty("bazaar", "alliance")
+	_check(s.fight_power("head_on", "rails") > alone, "союзник помогает в разборке")
+	_check(is_equal_approx(s.fight_power("head_on", "bazaar"), alone), "против самого союзника помощи нет")
+	# Напал на союзника — предательство.
+	var others := s.gangs.relation("neon")
+	report = s.fight("bazaar", "head_on")
+	_check(_has(report, "LOG_TREATY_BROKEN_BY_YOU") and not s.gangs.has_treaty("bazaar"), "напал на союзника — договор разорван")
+	_check(s.gangs.relation("neon") < others, "о предательстве узнали другие банды")
+
+
+func _test_peace_tax() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.next_payment_day = 1000
+	s.clean = 5000
+	var tax := s.treaty_cost("neon", "peace_tax")
+	s.sign_treaty("neon", "peace_tax")
+	_check(s.clean == 5000 - tax, "налог за мир: первая неделя сразу")
+	s.travel("clubs")
+	s.inventory.blue_dust = 10
+	var relation := s.gangs.relation("neon")
+	s.sell("blue_dust", 10)
+	_check(s.gangs.relation("neon") == relation, "с налогом банда не злится на торговлю")
+	for temper: String in s.gangs.tempers:
+		s.gangs.tempers[temper].betray = 0.0
+	s.clean = tax + 500
+	s.dirty = 0
+	var report: Array = []
+	for i in 8:
+		report.append_array(s.end_day())
+	_check(_has(report, "LOG_TAX_PAID") and s.gangs.has_treaty("neon"), "через неделю — снова налог")
+	s.clean = 0
+	s.dirty = 0
+	report = []
+	for i in 7:
+		report.append_array(s.end_day())
+	_check(_has(report, "LOG_TAX_MISSED") and not s.gangs.has_treaty("neon"), "нечем платить — договор сорван")
+	var t := _calm_session()
+	t.clean = 5000
+	t.sign_treaty("neon", "peace_tax")
+	relation = t.gangs.relation("neon")
+	t.cancel_treaty("neon")
+	_check(not t.gangs.has_treaty("neon") and t.gangs.relation("neon") < relation, "перестал платить сам — небольшая обида")
+
+
+func _test_treaty_betrayal() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.sign_treaty("rails", "nonaggression")
+	var calm := s.gang_betray_chance("rails")
+	_check(calm > 0.0, "банда может нарушить договор")
+	s.gangs.change_relation("rails", -50.0)
+	_check(s.gang_betray_chance("rails") > calm, "при плохом отношении — чаще")
+	s.gangs.treaties.erase("rails")
+	s.sign_treaty("neon", "nonaggression")
+	s.balance.betray_weak_mult = 1.0
+	s.gangs.temper("neon").betray = 1.0
+	var report := s.end_day()
+	_check(_has(report, "LOG_TREATY_BETRAYED") and not s.gangs.has_treaty("neon"), "банда нарушила договор")
+	var u := _calm_session()
+	u.sign_treaty("rails", "nonaggression")
+	var cancel := u.cancel_treaty("rails")
+	_check(_has(cancel, "LOG_TREATY_BROKEN_BY_YOU"), "досрочно разорвал ненападение — предательство")
 
 
 func _test_save_and_load() -> void:
