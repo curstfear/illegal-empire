@@ -84,6 +84,7 @@ func _init() -> void:
 	_test_city_stats()
 	_test_documents()
 	_test_customs()
+	_test_city_content()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1888,6 +1889,39 @@ func _test_customs() -> void:
 	var loaded := _calm_session()
 	loaded.load_dict(data)
 	_check(loaded.documents.has_passport() and loaded.smuggle_case and loaded.documents.visas.has("usa"), "документы сохраняются")
+
+
+func _test_city_content() -> void:
+	var s := _calm_session()
+	var roads := [6, 14, 22]
+	for city: Dictionary in s.world.cities:
+		var ids: Array = s.world.districts_of(city.id).map(func(d: Dictionary) -> String: return d.id)
+		var jobs := s.activities.filter(func(a: Dictionary) -> bool: return ids.has(a.district))
+		_check(jobs.any(func(a: Dictionary) -> bool: return a.legal) and jobs.any(func(a: Dictionary) -> bool: return not a.legal),
+				"%s: есть честное и «левое» дело" % city.id)
+		var props := s.properties.defs.filter(func(p: Dictionary) -> bool: return ids.has(p.district))
+		var kinds := {}
+		for p: Dictionary in props:
+			kinds[p.kind] = true
+		_check(kinds.size() == 3, "%s: продаются склад, лаборатория и прикрытие" % city.id)
+		var layout: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(city.layout))
+		var taken := {}
+		for poi: Dictionary in layout.pois:
+			taken[Vector2i(int(poi.tile[0]), int(poi.tile[1]))] = true
+		for p: Dictionary in props:
+			taken[Vector2i(int(p.tile[0]), int(p.tile[1]))] = true
+		var bad: Array = layout.pond.filter(func(t: Array) -> bool:
+			return roads.has(int(t[0])) or roads.has(int(t[1])) or taken.has(Vector2i(int(t[0]), int(t[1]))))
+		_check(bad.is_empty(), "%s: вода не на дорогах и не под зданиями" % city.id)
+		if city.id != s.world.home:
+			_check(layout.has("lighting") and layout.has("colors"), "%s: свой свет и цвета" % city.id)
+	_check(s.properties.get_def("mia_front").buy_price > s.properties.get_def("ist_front").buy_price, "в Майами здания дороже, чем в Стамбуле")
+	s.clean = 5000
+	s.documents.passport = "real"
+	s.fly("amsterdam")
+	_check(s.local_activities().size() == 2, "в Амстердаме на Каналах есть подработки")
+	s.travel("ams_park")
+	_check(s.do_activity("ams_herbs").size() > 0 and s.inventory.herbs > 0, "в Вонделпарке можно собирать травы")
 
 
 func _test_world_save() -> void:

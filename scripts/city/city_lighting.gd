@@ -1,6 +1,7 @@
 extends Node
 ## Свет города по игровым часам: утро, день, вечер, ночь.
-## Ночью включаются фонари и неон.
+## Ночью включаются фонари и неон. У каждого города свой оттенок ("lighting" в раскладке):
+## днём — солнце и окружающий свет, ночью — небо; плюс насыщенность картинки.
 
 ## Ключевые точки суток: час → цвет солнца, сила солнца, фон, окружающий свет, ночной свет (0…1).
 ## Днём свет яркий и чистый, тени чёткие, но мягкие; ночь — синяя, а не чёрная.
@@ -35,16 +36,26 @@ func apply_hour(hour: float) -> void:
 	var a: Array = KEYS[i]
 	var b: Array = KEYS[i + 1]
 	var t := clampf((hour - a[0]) / (b[0] - a[0]), 0.0, 1.0)
-	sun.light_color = (a[1] as Color).lerp(b[1], t)
-	sun.light_energy = lerpf(a[2], b[2], t)
+	var night := lerpf(a[5], b[5], t)
+	var tint: Dictionary = city.lighting
+	var day_tint := _tint(tint, "day")
+	var night_tint := _tint(tint, "night")
+	var mix := Color.WHITE.lerp(day_tint, 1.0 - night) * Color.WHITE.lerp(night_tint, night)
+	sun.light_color = (a[1] as Color).lerp(b[1], t) * mix
+	sun.light_energy = lerpf(a[2], b[2], t) * float(tint.get("energy", 1.0))
 	# Солнце идёт по небу с 6 до 20, ночью светит луна с постоянного угла.
 	var day_t := clampf((hour - 6.0) / 14.0, 0.0, 1.0)
 	sun.rotation_degrees = Vector3(-25.0 - sin(day_t * PI) * 40.0, -60.0 + day_t * 120.0, 0)
 	var env := world.environment
-	env.background_color = (a[3] as Color).lerp(b[3], t)
-	env.ambient_light_color = (a[4] as Color).lerp(b[4], t)
-	var night := lerpf(a[5], b[5], t)
+	env.background_color = (a[3] as Color).lerp(b[3], t) * mix
+	env.ambient_light_color = (a[4] as Color).lerp(b[4], t) * mix
+	env.adjustment_saturation = float(tint.get("saturation", 1.12))
 	for lamp: OmniLight3D in city.streetlights:
 		lamp.light_energy = night * 1.6
 	for neon: OmniLight3D in city.neon_lights:
 		neon.light_energy = night * 3.5
+
+
+static func _tint(tint: Dictionary, key: String) -> Color:
+	var c: Array = tint.get(key, [])
+	return Color(c[0], c[1], c[2]) if c.size() == 3 else Color.WHITE

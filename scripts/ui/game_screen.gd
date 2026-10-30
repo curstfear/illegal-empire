@@ -118,6 +118,8 @@ var _card_district: String = ""
 var _card_property: String = ""
 ## Содержимое карточки здания: строится заново при каждом обновлении.
 var _prop_box := VBoxContainer.new()
+## Блок «Полиция» в карточке района — всегда после дел района.
+var _police_box := VBoxContainer.new()
 ## Узлы строк рынка по id товара: { "buy": Label, "sell": Label, ... }.
 var _rows: Dictionary = {}
 ## Кнопки дел текущего района по id дела.
@@ -146,6 +148,8 @@ func _ready() -> void:
 	var s := GameState.session
 	_prop_box.add_theme_constant_override("separation", 6)
 	_activities_grid.get_parent().add_child(_prop_box)
+	_police_box.add_theme_constant_override("separation", 6)
+	_activities_grid.get_parent().add_child(_police_box)
 	_card_header.add_child(_card_icon_box)
 	_card_header.move_child(_card_icon_box, 0)
 	_card_icon_box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -245,7 +249,7 @@ func open_property_card(id: String) -> void:
 	_card_district = GameState.session.properties.get_def(id).district
 	_card.visible = true
 	_market_window.visible = false
-	if city != null:
+	if city != null and GameState.session.world.city_of(_card_district) == GameState.session.city:
 		city.select_property(id)
 	_update_screen_shift()
 	_refresh()
@@ -825,13 +829,15 @@ func _refresh_card() -> void:
 			dossier / 100.0 if dossier > 0.0 else -1.0, COLOR_DOWN))
 	_card_tiles.add_child(_tile(tr("TILE_KRYSHA"), tr("TILE_KRYSHA_UNTIL") % int(s.police.krysha[_card_district])
 			if s.police.has_krysha(_card_district) else tr("TILE_NO")))
-	_card_travel_button.visible = not here
+	_card_travel_button.visible = not here and s.world.city_of(_card_district) == s.city
 	_card_travel_button.disabled = not s.can_act()
 	_card_market_button.visible = here and s.has_market()
 	_card_market_button.disabled = _market_window.visible
 	_activities_grid.visible = here
 	_clear(_prop_box)
+	_police_box.visible = true
 	_police_section(_card_district)
+	_activities_grid.get_parent().move_child(_police_box, -1)
 	if here and not s.local_activities().is_empty():
 		_section(tr("SECTION_JOBS"))
 		_activities_grid.get_parent().move_child(_prop_box, _activities_grid.get_index())
@@ -841,11 +847,12 @@ func _refresh_card() -> void:
 ## В карточке района: детективы (если ведут дело) и «крыша» — нанять или отказаться.
 func _police_section(where: String) -> void:
 	var s := GameState.session
-	_section(tr("SECTION_POLICE"))
+	_clear(_police_box)
+	_police_box.add_child(_small_label(tr("SECTION_POLICE").to_upper(), 10, COLOR_MUTED))
 	if s.police.detectives_on(where):
 		var note := _small_label(tr("POLICE_DETECTIVES"), 10, COLOR_DOWN)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_prop_box.add_child(note)
+		_police_box.add_child(note)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	var info := _small_label(tr("POLICE_KRYSHA_ON") % int(s.police.krysha[where]) if s.police.has_krysha(where)
@@ -867,7 +874,7 @@ func _police_section(where: String) -> void:
 		button.disabled = not s.can_hire_krysha(where)
 		button.pressed.connect(GameState.hire_krysha.bind(where))
 	row.add_child(button)
-	_prop_box.add_child(row)
+	_police_box.add_child(row)
 	if s.police.has_krysha(where) and float(s.police.dossier[where]) > 0.0:
 		var hush := Button.new()
 		hush.text = tr("BTN_HUSH") % _format_money(s.hush_cost(where))
@@ -877,7 +884,7 @@ func _police_section(where: String) -> void:
 		hush.add_theme_font_size_override("font_size", 10)
 		hush.disabled = not s.can_hush(where)
 		hush.pressed.connect(GameState.hush_case.bind(where))
-		_prop_box.add_child(hush)
+		_police_box.add_child(hush)
 
 
 func _district_activity_count(district: String) -> int:
@@ -902,6 +909,7 @@ func _refresh_property_card() -> void:
 	var mine := props.is_mine(id)
 	var kind: String = prop.kind
 	_activities_grid.get_parent().move_child(_prop_box, -1)
+	_police_box.visible = false
 	_set_card_icon(KIND_ICONS[kind], COLOR_ACCENT if kind != "lab" else COLOR_UP)
 	_card_kicker.text = (tr("PROP_KIND_" + kind.to_upper()) + " · " + tr(s.market.get_district(prop.district).name_key)).to_upper()
 	_card_title.text = tr(prop.name_key)
@@ -920,7 +928,7 @@ func _refresh_property_card() -> void:
 	if not here:
 		_card_status.add_child(_pill(tr("PILL_AWAY") % int(s.balance.travel_hours), COLOR_MUTED))
 	_clear(_card_tiles)
-	_card_travel_button.visible = not here
+	_card_travel_button.visible = not here and s.world.city_of(_card_district) == s.city
 	_card_travel_button.disabled = not s.can_act()
 	_card_market_button.visible = false
 	_activities_grid.visible = false
@@ -1119,7 +1127,7 @@ func _refresh_buildings() -> void:
 		texts.add_theme_constant_override("separation", -2)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		texts.add_child(_small_label(tr(prop.name_key), 12, COLOR_TEXT))
-		texts.add_child(_small_label(tr(s.market.get_district(prop.district).name_key) + " · " + tr("PROP_KIND_" + String(prop.kind).to_upper()), 10, COLOR_MUTED))
+		texts.add_child(_small_label(_place_line(prop), 10, COLOR_MUTED))
 		row.add_child(texts)
 		var status: PanelContainer
 		if st.frozen_days > 0:
@@ -1153,7 +1161,9 @@ func _refresh_buildings() -> void:
 		row.add_child(open)
 		_buildings_list.add_child(row)
 		_buildings_list.add_child(HSeparator.new())
-	var for_sale := props.defs.filter(func(p: Dictionary) -> bool: return not props.is_mine(p.id))
+	# Продаются — только в городе, где ты сейчас.
+	var for_sale := props.defs.filter(func(p: Dictionary) -> bool:
+		return not props.is_mine(p.id) and s.world.city_of(p.district) == s.city)
 	if for_sale.is_empty():
 		return
 	_buildings_list.add_child(_small_label(tr("BUILDINGS_FOR_SALE").to_upper(), 10, COLOR_MUTED))
@@ -1175,6 +1185,16 @@ func _refresh_buildings() -> void:
 		open.pressed.connect(open_property_card.bind(String(prop.id)))
 		row.add_child(open)
 		_buildings_list.add_child(row)
+
+
+## «Район · тип», а для зданий в другом городе — «Город · район · тип».
+func _place_line(prop: Dictionary) -> String:
+	var s := GameState.session
+	var where := tr(s.market.get_district(prop.district).name_key)
+	var prop_city := s.world.city_of(prop.district)
+	if prop_city != s.city:
+		where = tr(s.world.get_city(prop_city).name_key) + " · " + where
+	return where + " · " + tr("PROP_KIND_" + String(prop.kind).to_upper())
 
 
 ## Вкладка «Люди»: бригада (место работы, уволить) и биржа (нанять).

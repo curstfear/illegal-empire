@@ -707,3 +707,39 @@ LOG_VISA_APPLIED,"%s: application filed, ready on day %d.","%s: документ
 LOG_VISA_READY,%s is ready.,Готова: %s.
 LOG_FAKE_BOUGHT,The forger made you a fake: %s.,Подделыватель сделал тебе: %s (подделка).
 LOG_CASE_BOUGHT,You bought a double-bottom suitcase.,Ты купил чемодан с двойным дном.
+POI_AMS_MARKET,Flower market,Цветочный рынок
+POI_AMS_PORT,Harbour,Гавань
+POI_AMS_CLUB,"""Windmill"" club",Клуб «Мельница»
+POI_AMS_PARK,Vondelpark,Вонделпарк
+POI_MRS_MARKET,Noailles market,Рынок Ноай
+POI_MRS_DOCKS,Container docks,Контейнерные доки
+POI_MRS_BAR,Old port bar,Бар у старого порта
+POI_MRS_CALANQUES,Calanques trail,Тропа в каланки
+POI_IST_BAZAAR,Grand Bazaar,Гранд-базар
+POI_IST_PORT,Haydarpaşa port,Порт Хайдарпаша
+POI_IST_CLUB,Istiklal club,Клуб на Истикляль
+POI_IST_FOREST,Belgrad forest,Белградский лес
+POI_MIA_MARKET,Downtown market,Рынок Даунтауна
+POI_MIA_PORT,Port of Miami,Порт Майами
+POI_MIA_CLUB,Ocean Drive club,Клуб на Оушен-драйв
+POI_MIA_GLADES,Everglades boardwalk,Тропа в Эверглейдс
+ACT_BIKE_DELIVERY,Bike courier,Велокурьер
+ACT_CANAL_PARCEL,Drop a parcel off a canal boat,Принять посылку с лодки на канале
+ACT_DOCK_LOADER,Docker,Докер в порту
+ACT_DOCK_CIGS,"Unload a ""special"" container",Разгрузить «левый» контейнер
+ACT_BAZAAR_HELPER,Help at a bazaar stall,Помогать торговцу на базаре
+ACT_BAZAAR_BACKROOM,Watch the back room,Посторожить заднюю комнату
+ACT_VALET,Valet parking,Парковщик у отеля
+ACT_CLUB_RUNNER,Runner for a club,Посыльный для клуба
+PROP_AMS_WAREHOUSE,Harbour shed,Склад в гавани
+PROP_AMS_LAB,Houseboat lab,Лаборатория на плавучем доме
+PROP_AMS_FRONT,"""Tulip"" coffee shop",Кофейня «Тюльпан»
+PROP_MRS_WAREHOUSE,Dock warehouse,Склад в доках
+PROP_MRS_LAB,Cellar by the quay,Погреб у набережной
+PROP_MRS_FRONT,Fish shop,Рыбная лавка
+PROP_IST_WAREHOUSE,Port storehouse,Портовый амбар
+PROP_IST_LAB,Basement in Beyoğlu,Подвал в Бейоглу
+PROP_IST_FRONT,Carpet shop,Ковровая лавка
+PROP_MIA_WAREHOUSE,Port container yard,Контейнерная площадка
+PROP_MIA_LAB,Beach house garage,Гараж у пляжного дома
+PROP_MIA_FRONT,Car wash,Автомойка

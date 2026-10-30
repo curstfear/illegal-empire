@@ -1,7 +1,8 @@
 extends Node
 ## Служебный прогон партии со скриншотами (для проверки глазами). Окно само закрывается в конце.
 ## Godot --path . res://tests/screenshot.tscn -- <папка_для_png> [часть]
-## Часть: "all" (по умолчанию, вся партия — минуты две) или "world" (только мировая карта — секунд 15).
+## Часть: "all" (по умолчанию, вся партия — минуты две), "world" (только мировая карта — секунд 15)
+## или "cities" (все города днём и вечером).
 ## Чтобы окно не мешало: --resolution 960x540 --position 0,0 перед --path.
 
 const GAME_SCENE := preload("res://scenes/game.tscn")
@@ -16,6 +17,10 @@ func _ready() -> void:
 	TranslationServer.set_locale("ru")
 	if part == "world":
 		await _world_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "cities":
+		await _city_shots(out_dir)
 		get_tree().quit()
 		return
 	GameState.new_game()
@@ -230,6 +235,26 @@ func _ready() -> void:
 	await _frames(2)
 	await _world_shots(out_dir)
 	get_tree().quit()
+
+
+## Все города днём и вечером: свой свет, вода, застройка, подписи.
+func _city_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	await _frames(5)
+	for city: Dictionary in GameState.session.world.cities:
+		GameState.session.city = city.id
+		GameState.session.district = city.start
+		GameState.changed.emit()
+		await _frames(10)
+		var lighting: Node = game.get_node("City/Lighting")
+		lighting.forced_hour = 12.0
+		await _frames(5)
+		_shot(out_dir.path_join("9_%s_day.png" % city.id))
+		lighting.forced_hour = 21.5
+		await _frames(5)
+		_shot(out_dir.path_join("9_%s_night.png" % city.id))
 
 
 ## Мир: карта, слой розыска с дугой до Майами, перелёт в Амстердам — город пересобирается.

@@ -91,6 +91,17 @@ static func layout_path() -> String:
 	return String(GameState.session.world.get_city(GameState.session.city).get("layout", CITY_PATH))
 
 
+## Цвета земли, травы, воды и фонарей города: из "colors" в раскладке, иначе — берлинские.
+var lighting: Dictionary:
+	get:
+		return _data.get("lighting", {})
+
+
+func _color(key: String, fallback: Color) -> Color:
+	var c: Array = _data.get("colors", {}).get(key, [])
+	return Color(c[0], c[1], c[2]) if c.size() == 3 else fallback
+
+
 func _ready() -> void:
 	_data = JSON.parse_string(FileAccess.get_file_as_string(layout_path()))
 	_size = int(_data.size)
@@ -326,7 +337,7 @@ func _build_ground() -> void:
 	plane.size = Vector2(extent + 400.0, extent + 400.0)
 	ground.mesh = plane
 	ground.position = Vector3(extent / 2.0 - _tile / 2.0, -0.02, extent / 2.0 - _tile / 2.0)
-	ground.material_override = _flat_material(COLOR_GROUND)
+	ground.material_override = _flat_material(_color("ground", COLOR_GROUND))
 	add_child(ground)
 
 
@@ -360,7 +371,7 @@ func _add_streetlight(pos: Vector3, rot_deg: float) -> void:
 	_place(KAY + "streetlight.gltf", pos, rot_deg, 1.2)
 	var lamp := OmniLight3D.new()
 	lamp.position = pos + Vector3(0, 1.15, 0)
-	lamp.light_color = LAMP_COLOR
+	lamp.light_color = _color("lamp", LAMP_COLOR)
 	lamp.omni_range = 3.2
 	lamp.light_energy = 0.0
 	add_child(lamp)
@@ -657,7 +668,7 @@ func _build_lawns() -> void:
 		for corner: Vector2i in [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1), Vector2i(1, -1)]:
 			var open := not _lawn.has(tile + Vector2i(corner.x, 0)) and not _lawn.has(tile + Vector2i(0, corner.y))
 			radii.append(r if open else 0.0)
-		_add_rounded(_tile_center(tile.x, tile.y), Vector2.ONE * _tile, 0.0, COLOR_GRASS, radii)
+		_add_rounded(_tile_center(tile.x, tile.y), Vector2.ONE * _tile, 0.0, _color("grass", COLOR_GRASS), radii)
 
 
 ## Пруды: каждая группа соседних клеток — одна скруглённая гладь на газоне.
@@ -684,7 +695,7 @@ func _build_ponds() -> void:
 			hi = Vector2i(maxi(hi.x, tile.x), maxi(hi.y, tile.y))
 		var center := (_tile_center(lo.x, lo.y) + _tile_center(hi.x, hi.y)) / 2.0
 		var size := Vector2(hi.x - lo.x + 1, hi.y - lo.y + 1) * _tile - Vector2.ONE * _tile * 0.35
-		var water := _add_rounded(center + Vector3(0, 0.01, 0), size, minf(size.x, size.y) * 0.4, COLOR_WATER)
+		var water := _add_rounded(center + Vector3(0, 0.01, 0), size, minf(size.x, size.y) * 0.4, _color("water", COLOR_WATER))
 		var mat: StandardMaterial3D = water.material_override
 		mat.roughness = 0.12
 		mat.metallic_specular = 0.9
