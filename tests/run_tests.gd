@@ -85,6 +85,7 @@ func _init() -> void:
 	_test_documents()
 	_test_customs()
 	_test_city_content()
+	_test_shipments()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -230,9 +231,10 @@ func _test_prices_stay_in_bounds() -> void:
 	var ok := true
 	for i in 300:
 		s.market.roll_day(s.rng, {})
-		for good: Dictionary in s.market.goods:
-			var factor: float = s.market.factors[good.id]
-			ok = ok and factor >= 0.5 and factor <= 1.8
+		for city: String in s.market.factors:
+			for good: Dictionary in s.market.goods:
+				var factor: float = s.market.factors[city][good.id]
+				ok = ok and factor >= 0.5 and factor <= 1.8
 	_check(ok, "цены за 300 дней в пределах ×0.5…×1.8")
 	var yesterday := s.buy_price("phones")
 	s.end_day()
@@ -1922,6 +1924,63 @@ func _test_city_content() -> void:
 	_check(s.local_activities().size() == 2, "в Амстердаме на Каналах есть подработки")
 	s.travel("ams_park")
 	_check(s.do_activity("ams_herbs").size() > 0 and s.inventory.herbs > 0, "в Вонделпарке можно собирать травы")
+
+
+func _test_shipments() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.next_payment_day = 1000
+	s.clean = 20000
+	s.buy_property("market_warehouse")
+	s.properties.add_stock("market_warehouse", "tea", 20)
+	s.properties.add_stock("market_warehouse", "phones", 10)
+	_check(s.shipment_targets("market_warehouse").has("@ist_bazaar"), "можно отправить на рынок другого города")
+	_check(not s.shipment_targets("market_warehouse").has("@clubs"), "в свой же город — не груз, а маршрут")
+	var near := s.shipment_quote("market_warehouse", "@ams_canals", "tea", 10, false)
+	var far := s.shipment_quote("market_warehouse", "@mia_downtown", "tea", 10, false)
+	_check(int(far.cost) > int(near.cost) and int(far.days) > int(near.days), "дальше — дороже и дольше")
+	_check(int(near.duty) == 0 and int(far.duty) > 0, "в Шенгене без пошлины, в США — пошлина")
+	_check(float(near.risk) == 0.0, "легальный груз не досматривают")
+	var plain := s.shipment_quote("market_warehouse", "@mia_downtown", "phones", 10, false)
+	var masked := s.shipment_quote("market_warehouse", "@mia_downtown", "phones", 10, true)
+	_check(float(masked.risk) < float(plain.risk) and int(masked.cost) > int(plain.cost), "маскировка: дороже, но риск ниже")
+	var clean := s.clean
+	_check(s.ship("market_warehouse", "@ist_bazaar", "tea", 20), "груз отправлен")
+	_check(s.properties.stock_of("market_warehouse", "tea") == 0 and s.clean < clean, "товар ушёл со склада, фрахт оплачен")
+	_check(not s.ship("market_warehouse", "@ist_bazaar", "tea", 5), "нельзя отправить больше, чем есть")
+	var report: Array = []
+	for i in 3:
+		report.append_array(s.end_day())
+	_check(_has(report, "LOG_SHIPMENT_SOLD") and s.logistics.shipments.is_empty(), "груз продан скупщику в Стамбуле")
+	s.balance.shipment_customs.usa = 10.0
+	s.balance.shipment_customs_max = 1.0
+	s.ship("market_warehouse", "@mia_downtown", "phones", 10)
+	report = []
+	for i in 5:
+		report.append_array(s.end_day())
+	_check(_has(report, "LOG_SHIPMENT_SEIZED"), "нелегальный груз забрала таможня")
+	# В своё здание в другом городе.
+	var t := _calm_session()
+	t.next_payment_day = 1000
+	t.clean = 20000
+	t.buy_property("market_warehouse")
+	t.properties.add_stock("market_warehouse", "herbs", 10)
+	t.properties.state.ams_warehouse.owned = true
+	_check(t.ship("market_warehouse", "ams_warehouse", "herbs", 10), "груз в своё здание в Амстердаме")
+	t.end_day()
+	_check(t.properties.stock_of("ams_warehouse", "herbs") == 10, "груз прибыл на склад в гавани")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session()
+	s.properties.add_stock("market_warehouse", "phones", 5)
+	s.ship("market_warehouse", "@ams_canals", "phones", 5)
+	data = JSON.parse_string(JSON.stringify(s.to_dict()))
+	loaded.load_dict(data)
+	_check(loaded.logistics.shipments.size() == 1 and loaded.logistics.shipments[0].amount == 5, "грузы в пути сохраняются")
+	# Цены в городах гуляют по-разному.
+	var u := _new_session()
+	for i in 5:
+		u.end_day()
+	_check(u.market.factors.berlin.phones != u.market.factors.miami.phones, "у каждого города свои колебания цен")
 
 
 func _test_world_save() -> void:

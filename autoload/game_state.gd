@@ -286,6 +286,14 @@ func add_route(from: String, to: String, good: String, vehicle_id: int, courier_
 		changed.emit()
 
 
+func ship(from: String, to: String, good: String, amount: int, disguise: bool) -> void:
+	if session.ship(from, to, good, amount, disguise):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_SHIPMENT_SENT", [amount, session.market.get_good(good).name_key,
+				int(session.logistics.shipments[-1].arrive)]]])
+		changed.emit()
+
+
 func remove_route(id: int) -> void:
 	if session.remove_route(id):
 		Audio.ui("select")

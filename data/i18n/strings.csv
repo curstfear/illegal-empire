@@ -743,3 +743,20 @@ PROP_IST_FRONT,Carpet shop,Ковровая лавка
 PROP_MIA_WAREHOUSE,Port container yard,Контейнерная площадка
 PROP_MIA_LAB,Beach house garage,Гараж у пляжного дома
 PROP_MIA_FRONT,Car wash,Автомойка
+SHIP_TITLE,Between cities: %d / %d shipments,Между городами: грузов %d / %d
+SHIP_IN_TRANSIT,"%d × %s → %s, arrives day %d","%d шт. (%s) → %s, прибудет в день %d"
+SHIP_NEED,Ship goods from your building to another city: to your building there or straight to a buyer at its market. Put goods into a building first.,Отправь товар из своего здания в другой город — в своё здание там или сразу скупщику на рынке. Сначала положи товар в здание.
+SHIP_PCS, pcs, шт.
+SHIP_DISGUISE,Disguise,Маскировка
+SHIP_DISGUISE_TIP,"Hide illegal goods among legal cargo: costs 10% of the value, customs find it far less often.","Спрятать нелегальное среди легального груза: 10% от стоимости, таможня находит гораздо реже."
+SHIP_QUOTE,"$%s, %d day(s)","$%s, %d дн."
+SHIP_DUTY,duty $%s,пошлина $%s
+SHIP_RISK,seizure %d%%,досмотр %d%%
+SHIP_SALE,buyer pays ~$%s,скупщик даст ~$%s
+BTN_SHIP,Ship,Отправить
+LOG_SHIPMENT_SENT,"Shipment sent: %d × %s, arrives day %d.","Груз отправлен: %d шт. (%s), прибудет в день %d."
+LOG_SHIPMENT_SEIZED,Customs seized your shipment: %d × %s (%s).,"Таможня забрала груз: %d шт. (%s), %s."
+LOG_SHIPMENT_SOLD,"Shipment sold on arrival: %d × %s, %s — $%s.","Груз продан скупщику: %d шт. (%s), %s — $%s."
+LOG_SHIPMENT_ARRIVED,"Shipment arrived: %d × %s, %s.","Груз прибыл: %d шт. (%s), %s."
+LOG_SHIPMENT_OVERFLOW,%d item(s) didn't fit and were lost.,Не влезло и пропало: %d шт.
+LOG_SHIPMENT_LOST,The building is no longer yours — shipment lost: %d × %s.,Здание уже не твоё — груз пропал: %d шт. (%s).

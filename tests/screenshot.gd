@@ -296,6 +296,18 @@ func _world_shots(out_dir: String) -> void:
 	screen._world_button.pressed.emit()
 	await _frames(10)
 	_shot(out_dir.path_join("8d_documents.png"))
+	# Грузы между городами: склад в доках Марселя, сигареты — в Берлин на рынок.
+	screen._world_overlay.visible = false
+	s.clean += 5000
+	s.properties.state.mrs_warehouse.owned = true
+	s.properties.add_stock("mrs_warehouse", "cigarettes", 30)
+	GameState.ship("mrs_warehouse", "@clubs", "cigarettes", 10, false)
+	screen.open_tab("routes")
+	await _frames(5)
+	var routes_scroll: ScrollContainer = screen.get_node("%Tabs").get_child(2)
+	routes_scroll.scroll_vertical = 400
+	await _frames(10)
+	_shot(out_dir.path_join("8e_shipments.png"))
 
 
 func _frames(count: int) -> void:

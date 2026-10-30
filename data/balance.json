@@ -339,5 +339,19 @@
 	"customs_bribe_mult": { "schengen": 1.0, "turkey": 0.7, "usa": 2.0 },
 	"customs_heat": 10,
 	"smuggle_case_cost": 500,
-	"smuggle_case_factor": 0.5
+	"smuggle_case_factor": 0.5,
+
+	"freight_base": 25,
+	"freight_per_unit_1000km": 0.8,
+	"freight_km_per_day": 3000,
+	"duty": { "schengen": 0.0, "turkey": 0.1, "usa": 0.15 },
+	"shipment_customs": { "schengen": 0.08, "turkey": 0.15, "usa": 0.3 },
+	"shipment_customs_per_1000": 0.02,
+	"shipment_customs_max": 0.7,
+	"shipment_disguise_share": 0.1,
+	"shipment_disguise_factor": 0.4,
+	"shipment_sale_price": 0.9,
+	"shipment_saturation": 0.33,
+	"shipment_seized_heat": 15,
+	"shipments_max": 5
 }

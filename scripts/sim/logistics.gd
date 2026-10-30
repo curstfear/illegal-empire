@@ -3,6 +3,8 @@ extends RefCounted
 ## Транспорт и маршруты. Машина: тип (скутер, легковая, фургон), тайник, маскировка груза, сколько дней в ремонте.
 ## Маршрут: каждую ночь курьер везёт товар на машине из твоего здания в другое твоё здание
 ## или на рынок района (место вида "@station"), где сам продаёт. Разведчик (по желанию) едет впереди.
+## Грузы между городами: разовая отправка товара из своего здания в своё здание или на рынок другого города,
+## идёт несколько дней (самолётом или контейнером, машины не нужны).
 ## Риски в пути и деньги считает GameSession — здесь только состояние и правила.
 
 ## Типы машин из balance.vehicles.
@@ -11,6 +13,8 @@ var types: Dictionary = {}
 var vehicles: Array = []
 ## Маршруты: { id, from, to, good, vehicle, courier, scout } (scout = 0 — без разведчика).
 var routes: Array = []
+## Грузы в пути: { id, from, to, good, amount, arrive (день прибытия), disguise }.
+var shipments: Array = []
 
 var _next_id := 1
 
@@ -87,8 +91,17 @@ func drop_broken_routes(place_ok: Callable, has_person: Callable) -> void:
 			route.scout = 0
 
 
+func add_shipment(from: String, to: String, good: String, amount: int, arrive: int, disguise: bool) -> Dictionary:
+	var shipment := { "id": _next_id, "from": from, "to": to, "good": good, "amount": amount, "arrive": arrive,
+			"disguise": disguise }
+	_next_id += 1
+	shipments.append(shipment)
+	return shipment
+
+
 func to_dict() -> Dictionary:
-	return { "vehicles": vehicles.duplicate(true), "routes": routes.duplicate(true), "next_id": _next_id }
+	return { "vehicles": vehicles.duplicate(true), "routes": routes.duplicate(true), "shipments": shipments.duplicate(true),
+			"next_id": _next_id }
 
 
 func load_dict(data: Dictionary) -> void:
@@ -102,3 +115,7 @@ func load_dict(data: Dictionary) -> void:
 	for r: Dictionary in data.get("routes", []):
 		routes.append({ "id": int(r.id), "from": String(r.from), "to": String(r.to), "good": String(r.good),
 				"vehicle": int(r.vehicle), "courier": int(r.courier), "scout": int(r.get("scout", 0)) })
+	shipments = []
+	for sh: Dictionary in data.get("shipments", []):
+		shipments.append({ "id": int(sh.id), "from": String(sh.from), "to": String(sh.to), "good": String(sh.good),
+				"amount": int(sh.amount), "arrive": int(sh.arrive), "disguise": bool(sh.disguise) })

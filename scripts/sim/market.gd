@@ -1,13 +1,14 @@
 class_name Market
 extends RefCounted
-## Рынок города: цены товаров по районам.
-## Цена = базовая × коэф. района × дневной коэф. × (1 + давление) × событие.
-## Дневной коэффициент общий для города: гуляет случайно и тянется обратно к 1.0.
+## Рынок мира: цены товаров по районам всех городов.
+## Цена = базовая × коэф. района × дневной коэф. города × (1 + давление) × событие.
+## Дневной коэффициент у каждого города свой: гуляет случайно и тянется обратно к 1.0 —
+## поэтому разница цен между городами каждый день другая.
 ## Давление — насыщение: твои продажи сбивают цену в районе, покупки поднимают; за ночь проходит.
 
 var goods: Array = []
 var districts: Array = []
-## Дневной коэффициент по товарам.
+## Дневной коэффициент: { город: { товар: число } }.
 var factors: Dictionary = {}
 ## Давление по районам: { район: { товар: число } }.
 var pressure: Dictionary = {}
@@ -29,8 +30,12 @@ func _init(goods_list: Array, district_list: Array, balance: Dictionary) -> void
 	goods = goods_list
 	districts = district_list
 	_balance = balance
-	for good: Dictionary in goods:
-		factors[good.id] = 1.0
+	for district: Dictionary in districts:
+		var city := String(district.get("city", ""))
+		if not factors.has(city):
+			factors[city] = {}
+			for good: Dictionary in goods:
+				factors[city][good.id] = 1.0
 	for district: Dictionary in districts:
 		pressure[district.id] = {}
 		history[district.id] = {}
@@ -82,13 +87,20 @@ func quote_buy(district: String, id: String, amount: int) -> int:
 
 
 ## Сколько дадут за amount штук подряд: каждая следующая чуть дешевле.
-func quote_sell(district: String, id: String, amount: int) -> int:
+## saturation — насколько каждая проданная штука сбивает цену (1 — как обычно, оптовик — меньше).
+func quote_sell(district: String, id: String, amount: int, saturation: float = 1.0) -> int:
 	var total := 0
 	var p: float = pressure[district][id]
 	for i in amount:
 		total += _sell(_price(district, id, p))
-		p = _shift(p, id, -1)
+		p = lerpf(p, _shift(p, id, -1), saturation)
 	return total
+
+
+## Записать оптовую продажу: давление растёт слабее (saturation < 1).
+func apply_wholesale(district: String, id: String, amount: int, saturation: float) -> void:
+	for i in amount:
+		pressure[district][id] = lerpf(pressure[district][id], _shift(pressure[district][id], id, -1), saturation)
 
 
 ## Сколько штук можно купить на эти деньги.
@@ -130,10 +142,11 @@ func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
 			if days.size() > HISTORY_DAYS - 1:
 				days.pop_front()
 	event = new_event
-	for good: Dictionary in goods:
-		var factor: float = factors[good.id]
-		factor += (1.0 - factor) * _balance.price_reversion + rng.randfn(0.0, good.volatility)
-		factors[good.id] = clampf(factor, _balance.min_price_factor, _balance.max_price_factor)
+	for city: String in factors:
+		for good: Dictionary in goods:
+			var factor: float = factors[city][good.id]
+			factor += (1.0 - factor) * _balance.price_reversion + rng.randfn(0.0, good.volatility)
+			factors[city][good.id] = clampf(factor, _balance.min_price_factor, _balance.max_price_factor)
 	for district: String in pressure:
 		for id: String in pressure[district]:
 			pressure[district][id] *= _balance.pressure_kept_overnight
@@ -161,7 +174,8 @@ func _remember_prices() -> void:
 
 
 func _price(district: String, id: String, p: float) -> int:
-	var price: float = get_good(id).base_price * get_district(district).prices[id] * factors[id] * (1.0 + p)
+	var d := get_district(district)
+	var price: float = get_good(id).base_price * d.prices[id] * factors[String(d.get("city", ""))][id] * (1.0 + p)
 	if _event_here(district):
 		price *= event.prices.get(id, 1.0)
 	return maxi(1, roundi(price))
@@ -179,7 +193,7 @@ func _shift(p: float, id: String, step: int) -> float:
 
 func to_dict() -> Dictionary:
 	return {
-		"factors": factors.duplicate(),
+		"factors": factors.duplicate(true),
 		"pressure": pressure.duplicate(true),
 		"previous_prices": previous_prices.duplicate(true),
 		"history": history.duplicate(true),
@@ -187,9 +201,17 @@ func to_dict() -> Dictionary:
 
 
 func load_dict(data: Dictionary) -> void:
-	for id: String in data.factors:
-		if factors.has(id):
-			factors[id] = float(data.factors[id])
+	# Старые сохранения: один коэффициент на товар — тогда он у всех городов.
+	for key: String in data.factors:
+		if data.factors[key] is Dictionary:
+			if factors.has(key):
+				for id: String in data.factors[key]:
+					if factors[key].has(id):
+						factors[key][id] = float(data.factors[key][id])
+		else:
+			for city: String in factors:
+				if factors[city].has(key):
+					factors[city][key] = float(data.factors[key])
 	for district: String in data.pressure:
 		if not pressure.has(district):
 			continue

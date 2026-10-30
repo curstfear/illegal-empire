@@ -130,7 +130,8 @@ var _stall_rows: Dictionary = {}
 var _skill_rows: Dictionary = {}
 ## Вкладка «Перевозки» (строится кодом) и выбор в форме нового маршрута.
 var _routes_list := VBoxContainer.new()
-var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0 }
+var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0,
+		"ship_from": "", "ship_to": "", "ship_good": "", "ship_amount": 0, "ship_disguise": false }
 ## Вкладка «Банды» (строится кодом).
 var _gangs_list := VBoxContainer.new()
 ## Окно разборки (строится кодом): затемнение, содержимое и банда, на которую собираемся наехать ("" — не собираемся).
@@ -1525,6 +1526,7 @@ func _refresh_routes() -> void:
 		row.add_child(stop)
 		_routes_list.add_child(row)
 	_build_route_form()
+	_build_shipments()
 
 
 func _build_gangs_tab() -> void:
@@ -1929,6 +1931,99 @@ func _build_route_form() -> void:
 	start.pressed.connect(func() -> void: GameState.add_route(f.from, f.to, f.good, f.vehicle, f.courier, f.scout))
 	bottom.add_child(start)
 	_routes_list.add_child(bottom)
+
+
+## «Между городами»: грузы в пути и форма отправки (откуда, что, сколько, куда, маскировка) с расчётом.
+func _build_shipments() -> void:
+	var s := GameState.session
+	_routes_list.add_child(HSeparator.new())
+	_routes_list.add_child(_small_label((tr("SHIP_TITLE") % [s.logistics.shipments.size(), int(s.balance.shipments_max)]).to_upper(),
+			10, COLOR_MUTED))
+	for shipment: Dictionary in s.logistics.shipments:
+		var line := tr("SHIP_IN_TRANSIT") % [int(shipment.amount), tr(s.market.get_good(shipment.good).name_key),
+				_ship_title(shipment.to), int(shipment.arrive)]
+		_routes_list.add_child(_small_label(line, 11, COLOR_TEXT))
+	var sources: Array = s.properties.mine().filter(func(p: Dictionary) -> bool: return not s.properties.state[p.id].stock.is_empty()) \
+			.map(func(p: Dictionary) -> Array: return [p.id, _ship_title(p.id)])
+	if sources.is_empty():
+		var hint := _small_label(tr("SHIP_NEED"), 11, COLOR_MUTED)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_routes_list.add_child(hint)
+		return
+	_fix_choice("ship_from", sources, 0)
+	var f := _route_form
+	var stock: Dictionary = s.properties.state[f.ship_from].stock
+	var goods: Array = stock.keys().filter(func(g: String) -> bool: return int(stock[g]) > 0) \
+			.map(func(g: String) -> Array: return [g, "%s (%d)" % [tr(s.market.get_good(g).name_key), int(stock[g])]])
+	var targets: Array = s.shipment_targets(f.ship_from).map(func(t: String) -> Array: return [t, _ship_title(t)])
+	if goods.is_empty() or targets.is_empty():
+		return
+	_fix_choice("ship_good", goods, 0)
+	_fix_choice("ship_to", targets, 0)
+	var have := int(stock.get(f.ship_good, 0))
+	if int(f.ship_amount) <= 0 or int(f.ship_amount) > have:
+		f.ship_amount = have
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 4)
+	top.add_child(_form_picker("ship_from", sources))
+	top.add_child(_small_label("→", 12, COLOR_MUTED))
+	top.add_child(_form_picker("ship_to", targets))
+	_routes_list.add_child(top)
+	var middle := HBoxContainer.new()
+	middle.add_theme_constant_override("separation", 4)
+	middle.add_child(_form_picker("ship_good", goods))
+	var amount := SpinBox.new()
+	amount.min_value = 1
+	amount.max_value = have
+	amount.value = int(f.ship_amount)
+	amount.suffix = tr("SHIP_PCS")
+	amount.custom_minimum_size.x = 90
+	amount.value_changed.connect(func(v: float) -> void:
+		f.ship_amount = int(v)
+		_refresh_routes())
+	middle.add_child(amount)
+	var legal: bool = s.market.get_good(f.ship_good).legal
+	var mask := CheckBox.new()
+	mask.text = tr("SHIP_DISGUISE")
+	mask.tooltip_text = tr("SHIP_DISGUISE_TIP")
+	mask.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	mask.add_theme_font_size_override("font_size", 11)
+	mask.disabled = legal
+	mask.button_pressed = f.ship_disguise and not legal
+	mask.toggled.connect(func(on: bool) -> void:
+		f.ship_disguise = on
+		_refresh_routes())
+	middle.add_child(mask)
+	_routes_list.add_child(middle)
+	var disguise: bool = f.ship_disguise and not legal
+	var quote := s.shipment_quote(f.ship_from, f.ship_to, f.ship_good, int(f.ship_amount), disguise)
+	var info := tr("SHIP_QUOTE") % [_format_money(int(quote.cost)), int(quote.days)]
+	if int(quote.duty) > 0:
+		info += " · " + tr("SHIP_DUTY") % _format_money(int(quote.duty))
+	if float(quote.risk) > 0.0:
+		info += " · " + tr("SHIP_RISK") % roundi(float(quote.risk) * 100.0)
+	if int(quote.sale) > 0:
+		info += " · " + tr("SHIP_SALE") % _format_money(int(quote.sale))
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 4)
+	var quote_label := _small_label(info, 10, COLOR_MUTED)
+	quote_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quote_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bottom.add_child(quote_label)
+	var send := Button.new()
+	send.text = tr("BTN_SHIP")
+	send.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(send, 8)
+	send.disabled = not s.can_ship(f.ship_from, f.ship_to, f.ship_good, int(f.ship_amount), disguise)
+	send.pressed.connect(func() -> void: GameState.ship(f.ship_from, f.ship_to, f.ship_good, int(f.ship_amount), disguise))
+	bottom.add_child(send)
+	_routes_list.add_child(bottom)
+
+
+## «Город: здание» или «Город: рынок района».
+func _ship_title(place: String) -> String:
+	var s := GameState.session
+	return tr(s.world.get_city(s.world.city_of(s.place_district(place))).name_key) + ": " + _place_title(place)
 
 
 ## Название места маршрута: здание или «Рынок: район».

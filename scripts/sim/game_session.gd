@@ -11,7 +11,7 @@ extends RefCounted
 ## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон)
 ## и полиция посложнее: детективы ведут дело, спецназ на крупных облавах, «крыша» — продажный полицейский;
 ## мир из нескольких городов в разных странах (у каждого свои районы, рынок, полиция и банды), перелёты,
-## документы (паспорт, визы, подделки) и таможня на границе.
+## документы (паспорт, визы, подделки) и таможня на границе, грузы между городами (фрахт, пошлина, досмотр).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -1610,6 +1610,7 @@ func end_day() -> Array:
 	pending_check = {}
 	report.append_array(_run_properties())
 	report.append_array(_run_routes())
+	report.append_array(_run_shipments())
 	report.append_array(_pay_crew())
 	report.append_array(_run_loyalty())
 	report.append_array(_run_stall())
@@ -1712,6 +1713,104 @@ func fly(to_city: String) -> Array:
 				* float(balance.customs_bribe_mult[zone_of(to_city)]) * skills.bribe_multiplier()
 		pending_check = { "bribe": maxi(50, roundi(bribe_value)), "customs": true }
 		report.append(["LOG_CUSTOMS_STOP", []])
+	return report
+
+
+# --- Грузы между городами ---
+
+## Куда можно отправить груз из здания: свои здания и рынки в других городах.
+func shipment_targets(from: String) -> Array:
+	var here := world.city_of(place_district(from))
+	var result: Array = properties.mine().filter(func(p: Dictionary) -> bool: return world.city_of(p.district) != here) \
+			.map(func(p: Dictionary) -> String: return p.id)
+	for d: Dictionary in market.districts:
+		if d.has_market and d.get("city", "") != here:
+			result.append(market_place(d.id))
+	return result
+
+
+## Расчёт груза: фрахт (за место и расстояние), пошлина за легальный товар при въезде в другую зону,
+## маскировка нелегального (доля стоимости), дни в пути, риск досмотра и выручка на рынке назначения.
+func shipment_quote(from: String, to: String, good: String, amount: int, disguise: bool) -> Dictionary:
+	var info := market.get_good(good)
+	var from_city := world.city_of(place_district(from))
+	var to_city := world.city_of(place_district(to))
+	var km := world.distance_km(from_city, to_city)
+	var value := float(info.base_price) * amount
+	var freight := float(balance.freight_base) + amount * good_size(good) * float(balance.freight_per_unit_1000km) * km / 1000.0
+	var zone := zone_of(to_city)
+	var duty := value * float(balance.duty[zone]) if info.legal and zone != zone_of(from_city) else 0.0
+	var mask := value * float(balance.shipment_disguise_share) if disguise and not info.legal else 0.0
+	var risk := 0.0
+	if not info.legal:
+		risk = minf(float(balance.shipment_customs_max), float(balance.shipment_customs[zone])
+				+ value / 1000.0 * float(balance.shipment_customs_per_1000))
+		if disguise:
+			risk *= float(balance.shipment_disguise_factor)
+	var sale := 0
+	if is_market_place(to):
+		sale = roundi(market.quote_sell(place_district(to), good, amount, float(balance.shipment_saturation))
+				* float(balance.shipment_sale_price))
+	return { "cost": roundi(freight + duty + mask), "duty": roundi(duty), "days": 1 + floori(km / float(balance.freight_km_per_day)),
+			"risk": risk, "sale": sale }
+
+
+func can_ship(from: String, to: String, good: String, amount: int, disguise: bool = false) -> bool:
+	if not can_act() or not properties.is_mine(from) or amount <= 0 or properties.stock_of(from, good) < amount \
+			or logistics.shipments.size() >= int(balance.shipments_max) or not shipment_targets(from).has(to):
+		return false
+	if not is_market_place(to) and properties.stock_free(to) < amount * good_size(good):
+		return false
+	return money >= int(shipment_quote(from, to, good, amount, disguise).cost)
+
+
+## Отправить груз: товар уходит со склада сразу, платишь сразу; прибудет через несколько дней.
+func ship(from: String, to: String, good: String, amount: int, disguise: bool = false) -> bool:
+	if not can_ship(from, to, good, amount, disguise):
+		return false
+	var quote := shipment_quote(from, to, good, amount, disguise)
+	_spend(int(quote.cost))
+	properties.add_stock(from, good, -amount)
+	logistics.add_shipment(from, to, good, amount, day + int(quote.days), disguise)
+	return true
+
+
+## Ночь для грузов: прибывшие к утру проходят досмотр (нелегальное могут забрать), потом — на склад
+## или скупщику на рынке назначения.
+func _run_shipments() -> Array:
+	var report: Array = []
+	for shipment: Dictionary in logistics.shipments.duplicate():
+		if int(shipment.arrive) > day + 1:
+			continue
+		logistics.shipments.erase(shipment)
+		var good := market.get_good(shipment.good)
+		var where := place_district(shipment.to)
+		var to_name := place_name_key(shipment.to)
+		var amount := int(shipment.amount)
+		if not good.legal:
+			var quote := shipment_quote(shipment.from, shipment.to, shipment.good, amount, shipment.disguise)
+			if rng.randf() < float(quote.risk):
+				police.add_heat(where, float(balance.shipment_seized_heat))
+				report.append(["LOG_SHIPMENT_SEIZED", [amount, good.name_key, to_name]])
+				continue
+		if is_market_place(shipment.to):
+			# Скупщик продаёт оптом через свою сеть — цена в районе падает слабее, чем от твоей продажи.
+			var saturation := float(balance.shipment_saturation)
+			var income := roundi(market.quote_sell(where, shipment.good, amount, saturation) * float(balance.shipment_sale_price))
+			market.apply_wholesale(where, shipment.good, amount, saturation)
+			_earn(income, good.legal)
+			if not good.legal:
+				_gang_notice(where, income)
+			report.append(["LOG_SHIPMENT_SOLD", [amount, good.name_key, to_name, income]])
+			continue
+		if not properties.is_mine(shipment.to):
+			report.append(["LOG_SHIPMENT_LOST", [amount, good.name_key]])
+			continue
+		var fits := mini(amount, properties.stock_free(shipment.to) / good_size(shipment.good))
+		properties.add_stock(shipment.to, shipment.good, fits)
+		report.append(["LOG_SHIPMENT_ARRIVED", [fits, good.name_key, to_name]])
+		if fits < amount:
+			report.append(["LOG_SHIPMENT_OVERFLOW", [amount - fits]])
 	return report
 
 
