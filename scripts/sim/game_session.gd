@@ -3,7 +3,8 @@ extends RefCounted
 ## Одна партия: деньги (чистые и грязные), долги, карман с товаром, день, район,
 ## рынок, розыск, события, банк, силы, навыки, подработки, сбор, ларёк,
 ## карман ограниченного размера, недвижимость (склады, лаборатории, фасады и отмыв),
-## бригада (повара, дилеры, охрана, курьеры, менеджеры; лояльность, страх, предательство) и перевозки.
+## бригада (повара, дилеры, охрана, курьеры, менеджеры, бухгалтеры, адвокаты, разведчики;
+## лояльность, страх, усталость, рост, предательство) и перевозки (в том числе на рынок).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -214,7 +215,13 @@ func travel(to_district: String) -> bool:
 	if not can_act() or to_district == district or market.get_district(to_district).is_empty():
 		return false
 	district = to_district
+	skills.add_xp("driving", int(balance.xp_travel))
 	return true
+
+
+## Сколько часов занимает переезд (Вождение сокращает).
+func travel_hours() -> float:
+	return float(balance.travel_hours) * skills.travel_multiplier()
 
 
 # --- Дела: подработки и сбор ---
@@ -529,6 +536,11 @@ func snitch_chance(id: String) -> float:
 	return minf(float(balance.snitch_max), smell_tonight(id) * neighbors * float(balance.snitch_per_smell))
 
 
+## Комиссия отмыва фасада: бухгалтер в здании её снижает.
+func launder_fee(id: String) -> float:
+	return maxf(0.02, float(properties.get_def(id).launder_fee) - _best_skill(id, "accountant") * float(balance.accountant_fee_per_skill))
+
+
 func can_launder(id: String) -> bool:
 	return can_use_property(id) and properties.get_def(id).kind == "front" and dirty > 0 \
 			and properties.state[id].frozen_days == 0
@@ -606,9 +618,10 @@ func _run_properties() -> Array:
 			var amount := 0 if s.frozen_days > 0 else mini(s.dirty_queue, limit)
 			if amount > 0:
 				s.dirty_queue -= amount
-				var out := roundi(amount * (1.0 - float(prop.launder_fee)))
+				var out := roundi(amount * (1.0 - launder_fee(id)))
 				_earn(out, true)
-				laundered_share += float(amount) / limit * _upgrade_factor(id, "books")
+				laundered_share += float(amount) / limit * _upgrade_factor(id, "books") \
+						* maxf(0.0, 1.0 - _best_skill(id, "accountant") * float(balance.accountant_tax_per_skill))
 				report.append(["LOG_LAUNDERED", [prop.name_key, out]])
 			s.frozen_days = maxi(0, s.frozen_days - 1)
 	report.append_array(_run_tax(laundered_share))
@@ -629,6 +642,7 @@ func hire(id: int) -> bool:
 		return false
 	_spend(int(crew.get_candidate(id).wage))
 	crew.hire(id)
+	skills.add_xp("leadership", int(balance.xp_leadership))
 	return true
 
 
@@ -669,6 +683,7 @@ func give_bonus(id: int) -> bool:
 	_spend(bonus_cost(id))
 	person.bonus_day = day
 	_change_loyalty(person, float(balance.bonus_loyalty))
+	skills.add_xp("leadership", int(balance.xp_leadership))
 	return true
 
 
@@ -687,7 +702,73 @@ func pressure(id: int) -> Array:
 		return [["LOG_PRESSURE_QUIT", [person.nick]]]
 	person.fear = minf(100.0, float(person.fear) + float(balance.pressure_fear) * float(crew.trait_value(person, "fear_mult", 1.0)))
 	_change_loyalty(person, float(balance.pressure_loyalty))
+	skills.add_xp("leadership", int(balance.xp_leadership))
 	return [["LOG_PRESSURED", [person.nick]]]
+
+
+## Работал ли человек этой ночью: вышел и был при деле (здание, маршрут или адвокат на связи).
+func worked_tonight(person: Dictionary) -> bool:
+	if not crew.present.get(person.id, true):
+		return false
+	return person.job != "" or not logistics.route_of(int(person.id)).is_empty() or person.role == "lawyer"
+
+
+## Опыт и усталость за ночь. Опыта набралось — навык растёт, а с ним и зарплата.
+func _grow(person: Dictionary) -> Array:
+	if not worked_tonight(person):
+		if int(person.off_day) != day:
+			person.fatigue = maxf(0.0, float(person.fatigue) - float(balance.fatigue_rest))
+		return []
+	person.fatigue = minf(100.0, float(person.fatigue) + float(balance.fatigue_per_night))
+	if int(person.skill) >= int(balance.crew_skill_max):
+		return []
+	person.xp = int(person.xp) + 1
+	if int(person.xp) < int(balance.crew_xp_step) * maxi(1, int(person.skill)):
+		return []
+	person.xp = 0
+	person.skill = int(person.skill) + 1
+	person.wage = crew.wage_for(person.role, person.skill, person.trait)
+	return [["LOG_CREW_SKILL_UP", [person.nick, int(person.skill), int(person.wage)]]]
+
+
+## Выходной: этой ночью человек не работает и хорошо отдыхает. Раз в день.
+func can_give_day_off(id: int) -> bool:
+	var person := crew.get_person(id)
+	return can_act() and not person.is_empty() and int(person.off_day) != day
+
+
+func give_day_off(id: int) -> bool:
+	if not can_give_day_off(id):
+		return false
+	var person := crew.get_person(id)
+	person.off_day = day
+	person.fatigue = maxf(0.0, float(person.fatigue) - float(balance.fatigue_day_off))
+	return true
+
+
+## Повысить до менеджера: опытный и верный. Зарплата — как у менеджера, лояльность растёт.
+func can_promote(id: int) -> bool:
+	var person := crew.get_person(id)
+	return can_act() and not person.is_empty() and not ["manager", "accountant", "lawyer"].has(person.role) \
+			and int(person.skill) >= int(balance.promote_skill) and float(person.loyalty) >= float(balance.promote_loyalty)
+
+
+func promote(id: int) -> bool:
+	if not can_promote(id):
+		return false
+	var person := crew.get_person(id)
+	person.role = "manager"
+	person.wage = crew.wage_for("manager", person.skill, person.trait)
+	if person.job != "" and not crew.can_work_in(person, properties.get_def(person.job).kind):
+		person.job = ""
+	for route: Dictionary in logistics.routes.duplicate():
+		if route.courier == id:
+			logistics.remove_route(route.id)
+		elif route.scout == id:
+			route.scout = 0
+	_change_loyalty(person, float(balance.promote_loyalty_gain))
+	skills.add_xp("leadership", int(balance.xp_leadership))
+	return true
 
 
 func _change_loyalty(person: Dictionary, amount: float) -> void:
@@ -699,17 +780,24 @@ func betray_chance(person: Dictionary) -> float:
 	var below := float(balance.betray_loyalty) - float(person.loyalty)
 	if below <= 0.0:
 		return 0.0
-	return maxf(0.0, below * float(balance.betray_chance_per_point) * (1.0 - float(person.fear) * float(balance.fear_betray_cut)))
+	return maxf(0.0, below * float(balance.betray_chance_per_point) * (1.0 - float(person.fear) * float(balance.fear_betray_cut))) \
+			* skills.betray_multiplier()
 
 
-## Ночь для отношений: оплаченные чуть больше доверяют, знают больше, страх спадает,
-## а нелояльные могут предать: украсть и сбежать, донести или уйти к конкурентам.
+## Ночь для отношений: оплаченные чуть больше доверяют, знают больше, страх спадает;
+## кто работал — набирается опыта и устаёт, кто отдыхал — восстанавливается;
+## нелояльные могут предать: украсть и сбежать, донести или уйти к конкурентам.
 func _run_loyalty() -> Array:
 	var report: Array = []
+	if not crew.people.is_empty():
+		skills.add_xp("leadership", 1)
 	for person: Dictionary in crew.people.duplicate():
 		person.knows = mini(int(balance.knows_max), int(person.knows) + 1)
-		var change := float(balance.loyalty_paid) + float(crew.trait_value(person, "drift", 0))
+		report.append_array(_grow(person))
+		var change := float(balance.loyalty_paid) + float(crew.trait_value(person, "drift", 0)) + skills.loyalty_bonus()
 		if float(person.fear) > float(balance.fear_resent):
+			change -= 1.0
+		if float(person.fatigue) >= float(balance.fatigue_tired):
 			change -= 1.0
 		_change_loyalty(person, change)
 		person.fear = maxf(0.0, float(person.fear) - float(balance.fear_decay))
@@ -756,8 +844,7 @@ func _snitch(person: Dictionary) -> void:
 
 
 func _drop_broken_routes() -> void:
-	logistics.drop_broken_routes(properties.is_mine,
-			func(id: int) -> bool: return not crew.get_person(id).is_empty())
+	logistics.drop_broken_routes(place_ok, func(id: int) -> bool: return not crew.get_person(id).is_empty())
 
 
 ## Менеджер в здании делает рутину сам: прибирает улики, в лаборатории/на кухне
@@ -791,6 +878,17 @@ func _run_manager(prop: Dictionary) -> Array:
 
 # --- Перевозки ---
 
+## Курьер продаёт привезённое на рынке района: легальное — чистыми, нелегальное — грязными и с розыском.
+func _route_sell(route: Dictionary, courier: Dictionary, amount: int) -> Array:
+	var where := place_district(route.to)
+	var good := market.get_good(route.good)
+	var income := route_sale_quote(route, amount)
+	market.apply_trade(where, route.good, -amount)
+	_earn(income, good.legal)
+	if not good.legal:
+		police.add_heat(where, float(good.heat) * amount * float(balance.dealer_heat_share) * skills.heat_multiplier())
+	return ["LOG_ROUTE_SOLD", [courier.nick, amount, good.name_key, market.get_district(where).name_key, income]]
+
 func vehicle_price(type: String) -> int:
 	return int(balance.vehicles[type].price)
 
@@ -823,19 +921,66 @@ func add_hidden(vehicle_id: int) -> bool:
 	return true
 
 
-## Маршрут: из своего здания в другое своё, свободная машина и свободный курьер.
-func can_add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int) -> bool:
+## Маскировка груза (мешки с картошкой сверху): патруль находит реже, дешевле тайника. Вместе — сильнее.
+func can_add_disguise(vehicle_id: int) -> bool:
+	var vehicle := logistics.get_vehicle(vehicle_id)
+	return can_act() and not vehicle.is_empty() and not vehicle.disguise and money >= int(balance.disguise_cost)
+
+
+func add_disguise(vehicle_id: int) -> bool:
+	if not can_add_disguise(vehicle_id):
+		return false
+	_spend(int(balance.disguise_cost))
+	logistics.get_vehicle(vehicle_id).disguise = true
+	return true
+
+
+## Место маршрута: id своего здания или рынок района "@district".
+func is_market_place(place: String) -> bool:
+	return place.begins_with("@")
+
+
+func market_place(district_id: String) -> String:
+	return "@" + district_id
+
+
+## Район места маршрута.
+func place_district(place: String) -> String:
+	return place.substr(1) if is_market_place(place) else String(properties.get_def(place).district)
+
+
+## Ключ перевода для названия места маршрута.
+func place_name_key(place: String) -> String:
+	if is_market_place(place):
+		return market.get_district(place.substr(1)).name_key
+	return properties.get_def(place).name_key
+
+
+## Место ещё годится: своё здание или район с рынком.
+func place_ok(place: String) -> bool:
+	if is_market_place(place):
+		return market.get_district(place.substr(1)).get("has_market", false)
+	return properties.is_mine(place)
+
+
+## Маршрут: из своего здания в другое своё или на рынок района, свободная машина и курьер;
+## разведчик — по желанию (0 — без него).
+func can_add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int, scout_id: int = 0) -> bool:
 	var courier := crew.get_person(courier_id)
-	return can_act() and from != to and properties.is_mine(from) and properties.is_mine(to) \
+	if scout_id != 0:
+		var scout := crew.get_person(scout_id)
+		if scout.is_empty() or scout.role != "scout" or logistics.scout_busy(scout_id):
+			return false
+	return can_act() and from != to and properties.is_mine(from) and place_ok(to) \
 			and not market.get_good(good).is_empty() and not logistics.get_vehicle(vehicle_id).is_empty() \
 			and not logistics.vehicle_busy(vehicle_id) and not courier.is_empty() and courier.role == "courier" \
 			and not logistics.courier_busy(courier_id)
 
 
-func add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int) -> bool:
-	if not can_add_route(from, to, good, vehicle_id, courier_id):
+func add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int, scout_id: int = 0) -> bool:
+	if not can_add_route(from, to, good, vehicle_id, courier_id, scout_id):
 		return false
-	logistics.add_route(from, to, good, vehicle_id, courier_id)
+	logistics.add_route(from, to, good, vehicle_id, courier_id, scout_id)
 	return true
 
 
@@ -857,15 +1002,26 @@ func route_police_chance(route: Dictionary) -> float:
 	var chance := float(balance.route_police_base) * float(balance.vehicles[vehicle.type].notice)
 	var heat := 0.0
 	var force := 0.0
-	for id: String in [route.from, route.to]:
-		var where: String = properties.get_def(id).district
+	for place: String in [route.from, route.to]:
+		var where := place_district(place)
 		heat += police.heat[where] / 2.0
 		force += float(market.get_district(where).police) * market.event_police(where) / 2.0
 	chance *= force * (1.0 + heat * float(balance.route_heat_per_point))
 	if vehicle.hidden:
 		chance *= float(balance.hidden_compartment_factor)
+	if vehicle.disguise:
+		chance *= float(balance.disguise_factor)
 	chance *= maxf(0.2, 1.0 - int(courier.get("skill", 0)) * float(balance.route_courier_skill_cut))
+	chance *= 1.0 - _scout_skill(route) * float(balance.scout_police_per_skill)
+	chance *= skills.route_police_multiplier()
 	return minf(1.0, chance)
+
+
+## Навык разведчика маршрута, если он вышел этой ночью (0 — нет разведчика).
+func _scout_skill(route: Dictionary) -> int:
+	if int(route.get("scout", 0)) == 0 or not crew.present.get(route.scout, true):
+		return 0
+	return int(crew.get_person(route.scout).get("skill", 0))
 
 
 ## Шанс засады конкурентов: чем дороже нелегальный груз, тем выше.
@@ -874,18 +1030,29 @@ func route_ambush_chance(route: Dictionary, amount: int) -> float:
 	if good.legal:
 		return 0.0
 	var value := float(good.base_price) * amount
-	return minf(float(balance.route_ambush_max),
+	var chance := minf(float(balance.route_ambush_max),
 			float(balance.route_ambush_base) + value / 1000.0 * float(balance.route_ambush_per_1000))
+	return chance * (float(balance.scout_ambush_factor) if _scout_skill(route) > 0 else 1.0)
 
 
-## Сколько штук увезёт маршрут этой ночью: сколько есть, влезет в машину и в здание назначения.
+## Сколько штук увезёт маршрут этой ночью: сколько есть, влезет в машину и в здание назначения
+## (на рынке места не надо — там продают).
 func route_amount(route: Dictionary) -> int:
 	var size := good_size(route.good)
 	var vehicle := logistics.get_vehicle(route.vehicle)
 	if vehicle.is_empty():
 		return 0
-	return mini(properties.stock_of(route.from, route.good),
-			mini(logistics.capacity(vehicle) / size, properties.stock_free(route.to) / size))
+	var fits := logistics.capacity(vehicle) / size
+	if not is_market_place(route.to):
+		fits = mini(fits, properties.stock_free(route.to) / size)
+	return mini(properties.stock_of(route.from, route.good), fits)
+
+
+## Сколько примерно выручит курьер на рынке за amount штук (цена района, насыщение, наценка перекупщика).
+func route_sale_quote(route: Dictionary, amount: int) -> int:
+	if not is_market_place(route.to) or amount <= 0:
+		return 0
+	return roundi(market.quote_sell(place_district(route.to), route.good, amount) * float(balance.route_sell_price))
 
 
 ## Ночь для маршрутов: поломки, патрули, засады; доехало — товар в здании назначения.
@@ -907,12 +1074,16 @@ func _run_routes() -> Array:
 			report.append(["LOG_ROUTE_BREAKDOWN", [courier.nick, balance.vehicles[vehicle.type].name_key]])
 			continue
 		if rng.randf() < route_police_chance(route):
-			# Груз забрали, курьера посадили, машину увезли на штрафстоянку.
+			# Груз забрали, машину увезли на штрафстоянку, курьера посадили (адвокат может вытащить).
 			properties.add_stock(route.from, route.good, -amount)
 			police.add_heat(properties.get_def(route.from).district, float(balance.route_bust_heat))
-			crew.fire(courier.id)
 			logistics.vehicles.erase(vehicle)
 			report.append(["LOG_ROUTE_BUSTED", [courier.nick, amount, good_key]])
+			if rng.randf() < crew.best_skill("lawyer") * float(balance.lawyer_free_per_skill):
+				report.append(["LOG_LAWYER_FREED", [courier.nick]])
+			else:
+				crew.fire(courier.id)
+				report.append(["LOG_COURIER_JAILED", [courier.nick]])
 			continue
 		if rng.randf() < route_ambush_chance(route, amount):
 			properties.add_stock(route.from, route.good, -amount)
@@ -920,6 +1091,9 @@ func _run_routes() -> Array:
 			report.append(["LOG_ROUTE_AMBUSH", [courier.nick, amount, good_key]])
 			continue
 		properties.add_stock(route.from, route.good, -amount)
+		if is_market_place(route.to):
+			report.append(_route_sell(route, courier, amount))
+			continue
 		properties.add_stock(route.to, route.good, amount)
 		report.append(["LOG_ROUTE_DELIVERED", [courier.nick, amount, good_key,
 				properties.get_def(route.from).name_key, properties.get_def(route.to).name_key]])
@@ -949,10 +1123,16 @@ func _roll_presence() -> Array:
 	var report: Array = []
 	crew.present.clear()
 	for person: Dictionary in crew.people:
-		var here := rng.randf() >= float(crew.trait_value(person, "no_show", 0.0))
+		if int(person.off_day) == day:
+			crew.present[person.id] = false
+			continue
+		var tired := float(person.fatigue) >= float(balance.fatigue_tired)
+		var no_show := float(crew.trait_value(person, "no_show", 0.0)) + (float(balance.fatigue_no_show) if tired else 0.0)
+		var here := rng.randf() >= no_show
 		crew.present[person.id] = here
-		if not here and person.job != "":
-			report.append(["LOG_CREW_NO_SHOW", [person.nick]])
+		var busy: bool = person.job != "" or not logistics.route_of(int(person.id)).is_empty()
+		if not here and busy:
+			report.append(["LOG_CREW_TIRED" if tired else "LOG_CREW_NO_SHOW", [person.nick]])
 	return report
 
 
@@ -1214,17 +1394,27 @@ func flee() -> Array:
 
 ## Арест: товар и часть грязных денег забирают, несколько дней сидишь.
 ## Дни в камере идут как обычные: аренда, проценты и срок платежа никуда не деваются.
+## Адвокат в бригаде: штраф меньше, а опытный (от 3 ур.) сокращает срок на день.
 func arrest() -> Array:
 	_lose_illegal_goods()
-	var fine := floori(dirty * float(balance.arrest_dirty_fine))
+	var lawyer := crew.best_skill("lawyer")
+	var fine := floori(dirty * float(balance.arrest_dirty_fine) * maxf(0.0, 1.0 - lawyer * float(balance.lawyer_fine_per_skill)))
 	dirty -= fine
 	police.heat[district] = float(balance.arrest_heat)
-	var report := [["LOG_ARRESTED", [fine, int(balance.arrest_days)]]]
-	for i in int(balance.arrest_days):
+	var days := arrest_days()
+	var report := [["LOG_ARRESTED", [fine, days]]]
+	if lawyer > 0:
+		report.append(["LOG_LAWYER_HELPED", []])
+	for i in days:
 		report.append_array(end_day())
 		if status != Status.PLAYING:
 			break
 	return report
+
+
+func arrest_days() -> int:
+	var short := 1 if crew.best_skill("lawyer") >= int(balance.lawyer_short_skill) else 0
+	return maxi(1, int(balance.arrest_days) - short)
 
 
 func _lose_illegal_goods() -> void:

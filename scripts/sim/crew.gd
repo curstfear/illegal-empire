@@ -1,15 +1,16 @@
 class_name Crew
 extends RefCounted
-## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник, курьер, менеджер).
+## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник, курьер, менеджер, бухгалтер, адвокат, разведчик).
 ## У человека: кличка, роль, навык 1–5, черта характера, зарплата за день, место работы (id здания или ""),
-## лояльность и страх (0–100), «что знает» (ночей в бригаде) и день последней премии.
+## лояльность, страх и усталость (0–100), «что знает» (ночей в бригаде), опыт к следующему уровню,
+## день последней премии и день выходного.
 ## Деньги, розыск и случайности считает GameSession — здесь только состояние и правила.
 
 ## Роли и черты из data/crew.json; клички — ключи перевода.
 var roles: Dictionary = {}
 var traits: Dictionary = {}
 var nicknames: Array = []
-## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job, loyalty, fear, knows, bonus_day }.
+## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job, loyalty, fear, knows, bonus_day, xp, fatigue, off_day }.
 var people: Array = []
 var candidates: Array = []
 ## Кто из нанятых вышел на работу этой ночью (пьющий может не прийти). Не сохраняется.
@@ -42,13 +43,28 @@ func _make_person(rng: RandomNumberGenerator) -> Dictionary:
 	var trait_id: String = traits.keys()[rng.randi() % traits.size()]
 	var base := rng.randi_range(1, 3) + (1 if rng.randf() < 0.15 else 0)
 	var skill := clampi(base + int(traits[trait_id].skill), 1, _skill_max)
-	var info: Dictionary = roles[role]
-	var wage := roundi((float(info.wage_base) + float(info.wage_per_skill) * skill) * float(traits[trait_id].wage))
+	var wage := wage_for(role, skill, trait_id)
 	var person := { "id": _next_id, "nick": nicknames[rng.randi() % nicknames.size()], "role": role,
 			"skill": skill, "trait": trait_id, "wage": wage, "job": "",
-			"loyalty": float(traits[trait_id].get("loyalty", _loyalty_start)), "fear": 0.0, "knows": 0, "bonus_day": 0 }
+			"loyalty": float(traits[trait_id].get("loyalty", _loyalty_start)), "fear": 0.0, "knows": 0, "bonus_day": 0,
+			"xp": 0, "fatigue": 0.0, "off_day": 0 }
 	_next_id += 1
 	return person
+
+
+## Зарплата за день: от роли и навыка, черта её меняет.
+func wage_for(role: String, skill: int, trait_id: String) -> int:
+	var info: Dictionary = roles[role]
+	return roundi((float(info.wage_base) + float(info.wage_per_skill) * skill) * float(traits[trait_id].wage))
+
+
+## Лучший навык среди нанятых этой роли (где бы ни работали), 0 — нет таких.
+func best_skill(role: String) -> int:
+	var best := 0
+	for person: Dictionary in people:
+		if person.role == role:
+			best = maxi(best, int(person.skill))
+	return best
 
 
 func get_person(id: int) -> Dictionary:
@@ -134,5 +150,6 @@ func _restore(list: Array) -> Array:
 		result.append({ "id": int(p.id), "nick": String(p.nick), "role": String(p.role), "skill": int(p.skill),
 				"trait": String(p.trait), "wage": int(p.wage), "job": String(p.job),
 				"loyalty": float(p.get("loyalty", traits[p.trait].get("loyalty", _loyalty_start))),
-				"fear": float(p.get("fear", 0.0)), "knows": int(p.get("knows", 0)), "bonus_day": int(p.get("bonus_day", 0)) })
+				"fear": float(p.get("fear", 0.0)), "knows": int(p.get("knows", 0)), "bonus_day": int(p.get("bonus_day", 0)),
+				"xp": int(p.get("xp", 0)), "fatigue": float(p.get("fatigue", 0.0)), "off_day": int(p.get("off_day", 0)) })
 	return result

@@ -3,7 +3,7 @@ extends RefCounted
 ## Навыки игрока. Растут от дела: опыт копится, уровень от 0 до skill_max.
 ## На следующий уровень нужно skill_xp_step × (уровень + 1) опыта.
 
-const IDS: Array[String] = ["trade", "charisma", "stealth", "craft"]
+const IDS: Array[String] = ["trade", "charisma", "stealth", "craft", "driving", "leadership"]
 
 var xp: Dictionary = {}
 
@@ -66,6 +66,26 @@ func heat_multiplier() -> float:
 ## Множитель сбора от Ремесла.
 func yield_multiplier() -> float:
 	return 1.0 + level("craft") * _balance.craft_yield_per_level
+
+
+## Доля времени в пути от Вождения (1 — как без навыка).
+func travel_multiplier() -> float:
+	return maxf(0.3, 1.0 - level("driving") * _balance.driving_travel_per_level)
+
+
+## Множитель риска остановки курьеров от Вождения (сам учишь их ездить).
+func route_police_multiplier() -> float:
+	return maxf(0.3, 1.0 - level("driving") * _balance.driving_route_per_level)
+
+
+## Прибавка к лояльности бригады за ночь от Лидерства.
+func loyalty_bonus() -> float:
+	return level("leadership") * _balance.leadership_loyalty_per_level
+
+
+## Множитель шанса предательства от Лидерства.
+func betray_multiplier() -> float:
+	return maxf(0.2, 1.0 - level("leadership") * _balance.leadership_betray_per_level)
 
 
 func _need(lvl: int) -> int:

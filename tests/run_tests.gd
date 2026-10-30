@@ -52,6 +52,11 @@ func _init() -> void:
 	_test_routes()
 	_test_route_risks()
 	_test_logistics_save()
+	_test_market_route()
+	_test_crew_growth()
+	_test_new_roles()
+	_test_disguise_and_scout()
+	_test_driving_and_leadership()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -887,6 +892,138 @@ func _test_logistics_save() -> void:
 	loaded.load_dict(data)
 	_check(JSON.stringify(loaded.logistics.to_dict()) == JSON.stringify(s.logistics.to_dict()), "машины и маршруты сохраняются")
 	_check(JSON.stringify(loaded.crew.to_dict()) == JSON.stringify(s.crew.to_dict()), "лояльность и страх сохраняются")
+
+
+func _test_market_route() -> void:
+	var s := _route_session()
+	s.buy_vehicle("car")
+	var car: int = s.logistics.vehicles[0].id
+	var courier := _candidate(s, "courier", "loyal", 2)
+	s.hire(courier)
+	_check(not s.can_add_route("market_warehouse", "@forest", "cigarettes", car, courier), "в лесу рынка нет — маршрут туда нельзя")
+	_check(s.add_route("market_warehouse", "@clubs", "cigarettes", car, courier), "маршрут на рынок клубов")
+	s.inventory.cigarettes = 30
+	s.store_goods("market_warehouse", "cigarettes")
+	var quote := s.route_sale_quote(s.logistics.routes[0], 30)
+	var dirty_before := s.dirty
+	var heat_before: float = s.police.heat.clubs
+	var report := s.end_day()
+	_check(_has(report, "LOG_ROUTE_SOLD"), "курьер продал на рынке")
+	_check(s.properties.stock_of("market_warehouse", "cigarettes") == 0, "весь груз уехал (влез в легковую)")
+	_check(s.dirty >= dirty_before + quote - 400, "выручка — грязными")
+	_check(s.police.heat.clubs > heat_before - float(s.balance.heat_decay), "розыск в районе продажи")
+	s.travel("station")
+	s.travel("market")
+	s.sell_property("market_warehouse")
+	_check(s.logistics.routes.is_empty(), "склад продан — маршрут закрыт")
+
+
+func _test_crew_growth() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	var guard := _candidate(s, "guard", "loyal", 1)
+	s.hire(guard)
+	s.assign(guard, "market_warehouse")
+	var report: Array = []
+	for i in 4:
+		report.append_array(s.end_day())
+	var person := s.crew.get_person(guard)
+	_check(_has(report, "LOG_CREW_SKILL_UP") and int(person.skill) == 2, "4 ночи работы — навык 1 → 2")
+	_check(int(person.wage) == s.crew.wage_for("guard", 2, "loyal") and s.crew.wage_for("guard", 2, "loyal") > s.crew.wage_for("guard", 1, "loyal"),
+			"вырос навык — зарплата по новой ставке, выше прежней")
+	_check(float(person.fatigue) >= 40.0, "за 4 ночи устал")
+	var tired := float(person.fatigue)
+	_check(s.give_day_off(guard) and float(person.fatigue) < tired, "выходной — усталость меньше")
+	_check(not s.can_give_day_off(guard), "второй выходной в тот же день — нельзя")
+	report = s.end_day()
+	_check(int(person.xp) == 0 and not _has(report, "LOG_CREW_NO_SHOW"), "в выходной не работал и опыта не получил")
+	person.fatigue = 100.0
+	s.balance.fatigue_no_show = 1.0
+	report = s.end_day()
+	_check(_has(report, "LOG_CREW_TIRED"), "вымотанный не вышел на работу")
+
+	var p := _rich_session()
+	var vet := _candidate(p, "guard", "loyal", 2)
+	p.hire(vet)
+	_check(not p.can_promote(vet), "навык 2 — до менеджера рано")
+	p.crew.get_person(vet).skill = 3
+	_check(p.promote(vet) and p.crew.get_person(vet).role == "manager", "навык 3 и верность — повышен до менеджера")
+	_check(int(p.crew.get_person(vet).wage) == p.crew.wage_for("manager", 3, "loyal"), "зарплата — как у менеджера")
+
+
+func _test_new_roles() -> void:
+	# Бухгалтер в фасаде: комиссия отмыва меньше.
+	var s := _rich_session()
+	s.buy_property("laundromat")
+	var fee := s.launder_fee("laundromat")
+	var acc := _candidate(s, "accountant", "loyal", 3)
+	s.hire(acc)
+	_check(not s.assign(acc, "market_warehouse"), "бухгалтер работает только в фасаде")
+	s.assign(acc, "laundromat")
+	_check(is_equal_approx(s.launder_fee("laundromat"), fee - 0.06), "бухгалтер 3 ур.: комиссия −6%%")
+
+	# Адвокат: короче арест, меньше штраф.
+	var a := _rich_session()
+	a.dirty = 1000
+	var lawyer := _candidate(a, "lawyer", "loyal", 3)
+	a.hire(lawyer)
+	_check(a.arrest_days() == int(a.balance.arrest_days) - 1, "адвокат 3 ур.: на день меньше в камере")
+	var report := a.arrest()
+	_check(_has(report, "LOG_LAWYER_HELPED"), "адвокат помог при аресте")
+	_check(a.day == 1 + int(a.balance.arrest_days) - 1, "арест прошёл быстрее")
+
+	# Адвокат вытаскивает курьера после остановки.
+	var r := _route_session()
+	r.buy_vehicle("car")
+	var courier := _candidate(r, "courier", "loyal", 2)
+	r.hire(courier)
+	var lw := _candidate(r, "lawyer", "loyal", 5)
+	r.hire(lw)
+	r.balance.lawyer_free_per_skill = 1.0
+	r.add_route("market_warehouse", "station_warehouse", "cigarettes", r.logistics.vehicles[0].id, courier)
+	r.balance.route_police_base = 100.0
+	r.inventory.cigarettes = 10
+	r.store_goods("market_warehouse", "cigarettes")
+	report = r.end_day()
+	_check(_has(report, "LOG_LAWYER_FREED") and not r.crew.get_person(courier).is_empty(), "адвокат вытащил курьера")
+
+
+func _test_disguise_and_scout() -> void:
+	var s := _route_session()
+	s.buy_vehicle("van")
+	var van: int = s.logistics.vehicles[0].id
+	var courier := _candidate(s, "courier", "loyal", 0)
+	s.hire(courier)
+	var scout := _candidate(s, "scout", "loyal", 3)
+	s.hire(scout)
+	_check(not s.can_add_route("market_warehouse", "station_warehouse", "cigarettes", van, courier, courier), "курьер не может быть разведчиком")
+	s.add_route("market_warehouse", "station_warehouse", "cigarettes", van, courier)
+	s.balance.route_police_base = 0.1
+	s.balance.route_ambush_base = 0.1
+	var route: Dictionary = s.logistics.routes[0]
+	var plain := s.route_police_chance(route)
+	var ambush := s.route_ambush_chance(route, 10)
+	_check(s.add_disguise(van) and is_equal_approx(s.route_police_chance(route), plain * 0.75), "маскировка: патруль −25%%")
+	route.scout = scout
+	_check(is_equal_approx(s.route_police_chance(route), plain * 0.75 * 0.7), "разведчик 3 ур.: патруль ещё −30%%")
+	_check(is_equal_approx(s.route_ambush_chance(route, 10), ambush * 0.5), "разведчик: засада вдвое реже")
+	s.fire(scout)
+	_check(s.logistics.routes.size() == 1 and int(s.logistics.routes[0].scout) == 0, "разведчика уволили — маршрут остался без него")
+
+
+func _test_driving_and_leadership() -> void:
+	var s := _rich_session()
+	var hours := s.travel_hours()
+	s.skills.xp.driving = 1000
+	_check(s.travel_hours() < hours, "Вождение: переезд быстрее")
+	s.skills.xp.leadership = 1000
+	var person := s.crew.get_candidate(_candidate(s, "guard", "loyal", 2))
+	person.loyalty = 0.0
+	var base := _new_session()
+	_check(s.betray_chance(person) < base.betray_chance(person), "Лидерство: предают реже")
+	var xp_before: int = base.skills.xp.driving
+	base.travel("station")
+	_check(int(base.skills.xp.driving) > xp_before, "переезды качают Вождение")
 
 
 func _test_property_sale() -> void:

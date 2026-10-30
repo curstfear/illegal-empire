@@ -54,6 +54,11 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Над панелями интерфейса прокрутка и щипок — для панелей: докрученный до конца список
+	# отдаёт жест дальше, и без этой проверки город уезжал бы вместе со списком.
+	if _is_scroll(event) and _over_ui():
+		get_viewport().set_input_as_handled()
+		return
 	# Жесты помечаем обработанными, иначе Godot отдаёт их повторно и карта едет вдвое дальше.
 	if event is InputEventPanGesture:
 		# Два пальца по трекпаду — двигаем карту.
@@ -81,6 +86,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				zoom_by(0.8)
 			KEY_MINUS, KEY_KP_SUBTRACT:
 				zoom_by(1.25)
+
+
+func _is_scroll(event: InputEvent) -> bool:
+	if event is InputEventPanGesture or event is InputEventMagnifyGesture:
+		return true
+	return event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN,
+			MOUSE_BUTTON_WHEEL_LEFT, MOUSE_BUTTON_WHEEL_RIGHT]
+
+
+## Курсор над панелью или кнопкой интерфейса (а не над открытым городом).
+func _over_ui() -> bool:
+	return get_viewport().gui_get_hovered_control() != null
 
 
 func _on_mouse_button(event: InputEventMouseButton) -> void:

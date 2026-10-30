@@ -2,6 +2,8 @@ extends Node3D
 ## Жизнь на улицах: машины по полосам, прохожие-чудики по тротуарам, полиция, герой.
 ## Двигаются по улицам сетки туда-обратно; доехав до края — появляются с другой стороны.
 ## Днём людно, ночью пусто. Полиции больше, когда растёт розыск и во время облавы.
+## Машины твоих маршрутов (синие) ночью ездят по улицам между точками маршрута;
+## когда открыта вкладка «Перевозки», маршруты видны синими линиями на земле.
 
 const KAY := "res://assets/models/kaykit_city/"
 const CAR_MODELS := ["car_hatchback.gltf", "car_sedan.gltf", "car_stationwagon.gltf", "car_taxi.gltf"]
@@ -22,6 +24,14 @@ const SIDEWALK := 0.86
 const CAR_SPEED := 2.2
 const WALK_SPEED := 0.45
 const PERSON_SCALE := 1.05
+## Машины маршрутов: модель по типу транспорта, синяя перекраска «твоё», часы, когда ездят.
+const ROUTE_MODELS := { "scooter": "car_hatchback.gltf", "car": "car_sedan.gltf", "van": "car_stationwagon.gltf" }
+const ROUTE_SCALE := { "scooter": 0.75, "car": 1.0, "van": 1.15 }
+const ROUTE_COLOR := Color(0.184, 0.42, 1.0)
+const ROUTE_SPEED := 2.0
+const ROUTE_LINE_WIDTH := 0.14
+const ROUTE_HOURS_FROM := 19.0
+const ROUTE_HOURS_TO := 7.0
 
 @export var city: Node3D
 
@@ -33,6 +43,17 @@ var _min: float
 var _max: float
 ## Где проходят улицы (координата середины улицы).
 var _road_positions: Array[float] = []
+## Показывать линии маршрутов (ставит интерфейс, когда открыта вкладка «Перевозки»).
+var show_route_lines := false:
+	set(value):
+		show_route_lines = value
+		_route_lines.visible = value
+## Машины маршрутов: { "node", "path": PackedVector3Array, "length", "distance", "dir" }.
+var _route_cars: Array = []
+var _route_lines := Node3D.new()
+## Подпись маршрутов, по которой понимаем, что их пора перестроить.
+var _routes_key := ""
+var _line_material := StandardMaterial3D.new()
 
 
 func _ready() -> void:
@@ -59,6 +80,11 @@ func _ready() -> void:
 	_hero.walking = false
 	_hero.scale = Vector3.ONE * PERSON_SCALE * 1.15
 	add_child(_hero)
+	_line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_line_material.albedo_color = Color(ROUTE_COLOR, 0.85)
+	_line_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_route_lines.visible = show_route_lines
+	add_child(_route_lines)
 	set_process(true)
 
 
@@ -88,6 +114,146 @@ func _process(delta: float) -> void:
 		else:
 			node.position.z = _wrap(node.position.z + step)
 	_place_hero()
+	_update_routes(delta)
+
+
+# --- Маршруты ---
+
+## Перестроить машины и линии, если маршруты поменялись; двигать машины ночью.
+func _update_routes(delta: float) -> void:
+	var s := GameState.session
+	if s == null:
+		return
+	var key := ""
+	for route: Dictionary in s.logistics.routes:
+		key += "%d:%s:%s:%s;" % [route.id, s.logistics.get_vehicle(route.vehicle).get("type", ""), route.from, route.to]
+	if key != _routes_key:
+		_routes_key = key
+		_rebuild_routes(s)
+	var hour := Clock.minutes_of_day() / 60.0
+	var night := hour >= ROUTE_HOURS_FROM or hour < ROUTE_HOURS_TO
+	for car: Dictionary in _route_cars:
+		var node: Node3D = car.node
+		node.visible = night
+		if not night or car.length <= 0.0:
+			continue
+		# Туда и обратно: доехал до конца — разворачивается.
+		car.distance += car.dir * ROUTE_SPEED * delta
+		if car.distance >= car.length or car.distance <= 0.0:
+			car.dir = -car.dir
+			car.distance = clampf(car.distance, 0.0, car.length)
+		_put_on_path(node, car.path, car.distance, car.dir)
+
+
+func _rebuild_routes(s: GameSession) -> void:
+	for car: Dictionary in _route_cars:
+		car.node.queue_free()
+	_route_cars.clear()
+	for child in _route_lines.get_children():
+		child.queue_free()
+	for route: Dictionary in s.logistics.routes:
+		var path := road_path(_place_ground(s, route.from), _place_ground(s, route.to))
+		_add_route_line(path)
+		var type: String = s.logistics.get_vehicle(route.vehicle).get("type", "car")
+		var node: Node3D = load(KAY + ROUTE_MODELS.get(type, "car_sedan.gltf")).instantiate()
+		node.scale = Vector3.ONE * float(ROUTE_SCALE.get(type, 1.0))
+		city.soften(node, ROUTE_COLOR, 0.55)
+		add_child(node)
+		_route_cars.append({ "node": node, "path": path, "length": _path_length(path),
+				"distance": _rng.randf() * _path_length(path), "dir": 1.0 })
+
+
+## Точка на земле у места маршрута: здание или главное место района (рынок).
+func _place_ground(s: GameSession, place: String) -> Vector3:
+	if s.is_market_place(place):
+		return city.district_ground_anchor(s.place_district(place))
+	return city.property_ground(place)
+
+
+## Путь по улицам от точки до точки: выезд на ближайшую улицу, не больше двух поворотов, съезд.
+func road_path(from: Vector3, to: Vector3) -> PackedVector3Array:
+	var a := _snap_to_road(from)
+	var b := _snap_to_road(to)
+	var pa: Vector3 = a.point
+	var pb: Vector3 = b.point
+	var path := PackedVector3Array([from, pa])
+	if a.horizontal and not b.horizontal:
+		path.append(Vector3(pb.x, pa.y, pa.z))
+	elif not a.horizontal and b.horizontal:
+		path.append(Vector3(pa.x, pa.y, pb.z))
+	elif a.horizontal and not is_equal_approx(pa.z, pb.z):
+		var cross := _nearest_road_position(pa.x)
+		path.append(Vector3(cross, pa.y, pa.z))
+		path.append(Vector3(cross, pa.y, pb.z))
+	elif not a.horizontal and not is_equal_approx(pa.x, pb.x):
+		var cross := _nearest_road_position(pa.z)
+		path.append(Vector3(pa.x, pa.y, cross))
+		path.append(Vector3(pb.x, pa.y, cross))
+	path.append(pb)
+	path.append(to)
+	return path
+
+
+## Ближайшая улица: вдоль X (horizontal) или вдоль Z, и точка на её середине.
+func _snap_to_road(p: Vector3) -> Dictionary:
+	var road_z := _nearest_road_position(p.z)
+	var road_x := _nearest_road_position(p.x)
+	if absf(p.z - road_z) <= absf(p.x - road_x):
+		return { "horizontal": true, "point": Vector3(p.x, 0.06, road_z) }
+	return { "horizontal": false, "point": Vector3(road_x, 0.06, p.z) }
+
+
+func _nearest_road_position(value: float) -> float:
+	var best: float = _road_positions[0]
+	for road: float in _road_positions:
+		if absf(road - value) < absf(best - value):
+			best = road
+	return best
+
+
+func _path_length(path: PackedVector3Array) -> float:
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += path[i - 1].distance_to(path[i])
+	return total
+
+
+## Поставить машину на путь: точка на расстоянии distance, своя полоса справа, нос по ходу.
+func _put_on_path(node: Node3D, path: PackedVector3Array, distance: float, dir: float) -> void:
+	var left := distance
+	for i in range(1, path.size()):
+		var a := path[i - 1]
+		var b := path[i]
+		var segment := a.distance_to(b)
+		if left > segment and i < path.size() - 1:
+			left -= segment
+			continue
+		var forward := (b - a).normalized() * dir
+		if forward == Vector3.ZERO:
+			return
+		var right := Vector3(-forward.z, 0, forward.x)
+		node.position = a.lerp(b, clampf(left / maxf(segment, 0.001), 0.0, 1.0)) + right * LANE
+		node.rotation.y = atan2(forward.x, forward.z)
+		return
+
+
+## Линия маршрута на земле: тонкие плоские полоски по отрезкам пути.
+func _add_route_line(path: PackedVector3Array) -> void:
+	for i in range(1, path.size()):
+		var a := path[i - 1]
+		var b := path[i]
+		var length := a.distance_to(b)
+		if length < 0.01:
+			continue
+		var strip := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(ROUTE_LINE_WIDTH, 0.02, length + ROUTE_LINE_WIDTH)
+		strip.mesh = box
+		strip.material_override = _line_material
+		strip.position = (a + b) / 2.0 + Vector3(0, 0.05, 0)
+		strip.rotation.y = atan2(b.x - a.x, b.z - a.z)
+		strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_route_lines.add_child(strip)
 
 
 ## Сколько прохожих на улицах (0…1) по времени суток: днём все, ночью почти никого.

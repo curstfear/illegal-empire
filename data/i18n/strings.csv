@@ -384,7 +384,7 @@ ROLE_DESC_MANAGER,"Runs a building for you every night: cleans up evidence (4 pe
 CREW_LOYALTY,Loyalty,Лояльность
 CREW_FEAR,Fear,Страх
 CREW_KNOWS,knows %d%%,знает %d%%
-CREW_STATS_TIP,"Loyalty grows with paid wages and bonuses, drops after raids, ambushes and pressure. Below 30 a person may steal, snitch or leave for rivals. Fear holds them back. The more they know, the worse a snitch.","Лояльность растёт от зарплаты и премий, падает от облав, засад и давления. Ниже 30 человек может украсть, донести или уйти к конкурентам. Страх сдерживает. Чем больше знает — тем опаснее донос."
+CREW_STATS_TIP,"Loyalty grows with paid wages, bonuses and your Leadership; drops after raids, ambushes, pressure and exhaustion. Below 30 a person may steal, snitch or leave. Fear holds them back. Working nights builds skill (and wage) but tires; a day off restores.","Лояльность растёт от зарплаты, премий и твоего Лидерства; падает от облав, засад, давления и усталости. Ниже 30 человек может украсть, донести или уйти. Страх сдерживает. Работа по ночам растит навык (и зарплату), но выматывает; выходной восстанавливает."
 BTN_BONUS,Bonus $%s,Премия $%s
 BTN_PRESSURE,Lean on,Надавить
 BTN_PRESSURE_TIP,"Fear +35 (betrays less), loyalty −10. A hothead may quit.","Страх +35 (предаёт реже), лояльность −10. Вспыльчивый может уйти."
@@ -406,9 +406,9 @@ PILL_REPAIR,in repair,в ремонте
 PILL_BUSY,on a route,на маршруте
 PILL_FREE,free,свободна
 ROUTES_LIST,Routes,Маршруты
-ROUTES_EMPTY,No routes. A courier carries goods every night between two of your buildings.,Маршрутов нет. Курьер каждую ночь возит товар между двумя твоими зданиями.
+ROUTES_EMPTY,No routes. Every night a courier carries goods from your building to another one — or to a district market and sells them there.,Маршрутов нет. Каждую ночь курьер везёт товар из твоего здания в другое — или на рынок района и сам там продаёт.
 ROUTES_NEW,New route,Новый маршрут
-ROUTES_NEED,"You need two of your buildings, a free vehicle and a free courier (hire one in the Crew tab).","Нужны два своих здания, свободная машина и свободный курьер (нанять — во вкладке «Люди»)."
+ROUTES_NEED,"You need a building of yours, a free vehicle and a free courier (hire one in the Crew tab).","Нужны своё здание, свободная машина и свободный курьер (нанять — во вкладке «Люди»)."
 ROUTE_INFO,%s · up to %d a night · police %d%% · ambush up to %d%%,%s · до %d шт. за ночь · патруль %d%% · засада до %d%%
 BTN_ADD_ROUTE,Start route,Запустить
 BTN_REMOVE_ROUTE,Stop route,Остановить маршрут
@@ -424,6 +424,39 @@ LOG_MANAGER_BREW,Manager %s started %d batch(es): %s.,"Менеджер %s за�
 LOG_MANAGER_LAUNDER,Manager %s sent $%s dirty to the laundering till.,Менеджер %s сдал в отмыв $%s грязными.
 LOG_VEHICLE_BOUGHT,Bought: %s.,Куплено: %s.
 LOG_ROUTE_BREAKDOWN,"%s: the %s broke down, no trip tonight.","%s: сломался транспорт (%s), сегодня рейса нет."
-LOG_ROUTE_BUSTED,"Police stopped courier %s: %d item(s) of %s seized, courier arrested, vehicle impounded.","Патруль остановил курьера %s: забрали %d шт. (%s), курьер арестован, машина на штрафстоянке."
+LOG_ROUTE_BUSTED,"Police stopped courier %s: %d item(s) of %s seized, vehicle impounded.","Патруль остановил курьера %s: забрали %d шт. (%s), машина на штрафстоянке."
 LOG_ROUTE_AMBUSH,Rivals ambushed courier %s and took %d item(s) of %s.,Конкуренты устроили засаду курьеру %s и отобрали %d шт. (%s).
 LOG_ROUTE_DELIVERED,Courier %s delivered %d item(s) of %s: %s → %s.,Курьер %s перевёз %d шт. (%s): %s → %s.
+ROLE_ACCOUNTANT,Accountant,Бухгалтер
+ROLE_LAWYER,Lawyer,Адвокат
+ROLE_SCOUT,Scout,Разведчик
+ROLE_LETTER_ACCOUNTANT,A,Б
+ROLE_LETTER_LAWYER,L,А
+ROLE_LETTER_SCOUT,S,Р
+ROLE_DESC_ACCOUNTANT,Works in a front: laundering fee −2% and tax attention −10% per skill level.,Работает в фасаде: комиссия отмыва −2% и внимание налоговой −10% за уровень навыка.
+ROLE_DESC_LAWYER,"On call for the whole crew: your arrest fine −10% per level, from level 3 one day less in a cell; may get a stopped courier out (15% per level).","На связи для всей бригады: штраф при твоём аресте −10% за уровень, с 3 ур. — на день меньше в камере; может вытащить пойманного курьера (15% за уровень)."
+ROLE_DESC_SCOUT,"Rides ahead of a route: police stop −10% per skill level, ambushes half as often.","Едет впереди маршрута: остановка патрулём −10% за уровень навыка, засады вдвое реже."
+SKILL_DRIVING,Driving,Вождение
+SKILL_LEADERSHIP,Leadership,Лидерство
+SKILL_DRIVING_EFFECT,"−%d%% travel time, −%d%% courier risk","−%d%% ко времени в пути, −%d%% к риску курьеров"
+SKILL_LEADERSHIP_EFFECT,"+%s loyalty a night, −%d%% betrayals","+%s к лояльности за ночь, −%d%% предательств"
+CREW_FATIGUE,Fatigue,Усталость
+CREW_ON_CALL,On call,На связи
+BTN_DAY_OFF,Day off,Выходной
+BTN_DAY_OFF_TIP,Tonight they do not work and rest well: fatigue −50.,Этой ночью не работает и хорошо отдыхает: усталость −50.
+BTN_PROMOTE,Make manager,В менеджеры
+BTN_PROMOTE_TIP,"Needs skill 3+ and loyalty 60+. Wage becomes a manager's, loyalty +10.","Нужно: навык 3+ и лояльность 60+. Зарплата станет как у менеджера, лояльность +10."
+BTN_DISGUISE,Disguise $%s,Маскировка $%s
+BTN_DISGUISE_TIP,Sacks of potatoes on top of the cargo: police find it 25% less often. Stacks with a compartment.,Мешки с картошкой поверх груза: патруль находит на 25% реже. Работает вместе с тайником.
+PILL_DISGUISE,disguise,маскировка
+ROUTE_MARKET,Market: %s,Рынок: %s
+ROUTE_NO_SCOUT,No scout,Без разведчика
+ROUTE_SALE,sells for ~$%s,выручка ~$%s
+LOG_CREW_SKILL_UP,"%s got more experienced: skill %d, wage now $%s a day.","%s набрался опыта: навык %d, зарплата теперь $%s в день."
+LOG_CREW_TIRED,%s is exhausted and didn't show up for work.,%s вымотан и не вышел на работу.
+LOG_DAY_OFF,%s has a day off tonight.,%s отдыхает этой ночью.
+LOG_PROMOTED,%s is promoted to manager.,%s повышен до менеджера.
+LOG_LAWYER_HELPED,Your lawyer helped: smaller fine.,Адвокат помог: штраф меньше.
+LOG_LAWYER_FREED,The lawyer got courier %s out — back at work.,Адвокат вытащил курьера %s — снова в деле.
+LOG_COURIER_JAILED,Courier %s is arrested.,Курьер %s арестован.
+LOG_ROUTE_SOLD,Courier %s sold %d item(s) of %s at the market (%s): $%s.,Курьер %s продал %d шт. (%s) на рынке (%s): $%s.

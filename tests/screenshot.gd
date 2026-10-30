@@ -112,10 +112,26 @@ func _ready() -> void:
 	print("после найма: ", s.crew.people.map(func(p: Dictionary) -> String: return p.role), " деньги ", s.money)
 	var courier: Dictionary = s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "courier")[0]
 	GameState.add_route("forest_shed", "laundromat", "moon_pollen", int(s.logistics.vehicles[0].id), int(courier.id))
+	# Второй маршрут: на рынок клубов, с разведчиком.
+	s.crew.roll_candidates(s.rng, 3)
+	for role: String in ["courier", "scout"]:
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = role
+		GameState.hire(int(candidate.id))
+	var runners := s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "courier" and s.logistics.route_of(int(p.id)).is_empty())
+	var scouts := s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "scout")
+	GameState.add_route("laundromat", "@clubs", "mushrooms", int(s.logistics.vehicles[1].id), int(runners[0].id), int(scouts[0].id))
+	GameState.add_disguise(int(s.logistics.vehicles[1].id))
 	screen.open_tab("routes")
-	await _frames(10)
+	Clock.elapsed = 0.9 * 90.0
+	Clock.paused = true
+	await _frames(30)
 	_shot(out_dir.path_join("4e_routes.png"))
 	print("маршруты: ", s.logistics.routes)
+	screen.open_tab("crew")
+	await _frames(10)
+	_shot(out_dir.path_join("4f_crew_more.png"))
+	Clock.elapsed = 0.0
 
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()

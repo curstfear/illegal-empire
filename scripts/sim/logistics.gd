@@ -1,14 +1,15 @@
 class_name Logistics
 extends RefCounted
-## Транспорт и маршруты. Машина: тип (скутер, легковая, фургон), тайник, сколько дней в ремонте.
-## Маршрут: каждую ночь курьер везёт товар на машине из одного твоего здания в другое.
+## Транспорт и маршруты. Машина: тип (скутер, легковая, фургон), тайник, маскировка груза, сколько дней в ремонте.
+## Маршрут: каждую ночь курьер везёт товар на машине из твоего здания в другое твоё здание
+## или на рынок района (место вида "@station"), где сам продаёт. Разведчик (по желанию) едет впереди.
 ## Риски в пути и деньги считает GameSession — здесь только состояние и правила.
 
 ## Типы машин из balance.vehicles.
 var types: Dictionary = {}
-## Свои машины: { id, type, hidden, broken }.
+## Свои машины: { id, type, hidden, disguise, broken }.
 var vehicles: Array = []
-## Маршруты: { id, from, to, good, vehicle, courier }.
+## Маршруты: { id, from, to, good, vehicle, courier, scout } (scout = 0 — без разведчика).
 var routes: Array = []
 
 var _next_id := 1
@@ -19,7 +20,7 @@ func _init(vehicle_types: Dictionary) -> void:
 
 
 func add_vehicle(type: String) -> Dictionary:
-	var vehicle := { "id": _next_id, "type": type, "hidden": false, "broken": 0 }
+	var vehicle := { "id": _next_id, "type": type, "hidden": false, "disguise": false, "broken": 0 }
 	_next_id += 1
 	vehicles.append(vehicle)
 	return vehicle
@@ -52,16 +53,20 @@ func courier_busy(id: int) -> bool:
 	return routes.any(func(route: Dictionary) -> bool: return route.courier == id)
 
 
-## Маршрут курьера или {}.
-func route_of(courier_id: int) -> Dictionary:
+func scout_busy(id: int) -> bool:
+	return routes.any(func(route: Dictionary) -> bool: return route.scout == id)
+
+
+## Маршрут курьера или разведчика, или {}.
+func route_of(person_id: int) -> Dictionary:
 	for route: Dictionary in routes:
-		if route.courier == courier_id:
+		if route.courier == person_id or route.scout == person_id:
 			return route
 	return {}
 
 
-func add_route(from: String, to: String, good: String, vehicle: int, courier: int) -> Dictionary:
-	var route := { "id": _next_id, "from": from, "to": to, "good": good, "vehicle": vehicle, "courier": courier }
+func add_route(from: String, to: String, good: String, vehicle: int, courier: int, scout: int = 0) -> Dictionary:
+	var route := { "id": _next_id, "from": from, "to": to, "good": good, "vehicle": vehicle, "courier": courier, "scout": scout }
 	_next_id += 1
 	routes.append(route)
 	return route
@@ -71,11 +76,15 @@ func remove_route(id: int) -> void:
 	routes.erase(get_route(id))
 
 
-## Убрать маршруты, которые больше не работают: нет здания, машины или курьера.
-func drop_broken_routes(is_mine: Callable, has_person: Callable) -> void:
+## Убрать маршруты, которые больше не работают: нет места, машины или курьера.
+## Пропал разведчик — маршрут остаётся, просто без него.
+func drop_broken_routes(place_ok: Callable, has_person: Callable) -> void:
 	routes = routes.filter(func(route: Dictionary) -> bool:
-		return is_mine.call(route.from) and is_mine.call(route.to) and not get_vehicle(route.vehicle).is_empty() \
+		return place_ok.call(route.from) and place_ok.call(route.to) and not get_vehicle(route.vehicle).is_empty() \
 				and has_person.call(route.courier))
+	for route: Dictionary in routes:
+		if route.scout != 0 and not has_person.call(route.scout):
+			route.scout = 0
 
 
 func to_dict() -> Dictionary:
@@ -87,8 +96,9 @@ func load_dict(data: Dictionary) -> void:
 	vehicles = []
 	for v: Dictionary in data.get("vehicles", []):
 		if types.has(v.type):
-			vehicles.append({ "id": int(v.id), "type": String(v.type), "hidden": bool(v.hidden), "broken": int(v.broken) })
+			vehicles.append({ "id": int(v.id), "type": String(v.type), "hidden": bool(v.hidden),
+					"disguise": bool(v.get("disguise", false)), "broken": int(v.broken) })
 	routes = []
 	for r: Dictionary in data.get("routes", []):
 		routes.append({ "id": int(r.id), "from": String(r.from), "to": String(r.to), "good": String(r.good),
-				"vehicle": int(r.vehicle), "courier": int(r.courier) })
+				"vehicle": int(r.vehicle), "courier": int(r.courier), "scout": int(r.get("scout", 0)) })

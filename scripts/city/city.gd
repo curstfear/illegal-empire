@@ -233,6 +233,12 @@ func _nearest_road(i: int) -> int:
 	return best
 
 
+## Где на земле стоит здание (центр его клетки).
+func property_ground(id: String) -> Vector3:
+	var anchor: Vector3 = _property_anchors.get(id, Vector3.ZERO)
+	return Vector3(anchor.x, 0.06, anchor.z)
+
+
 ## Точка на экране над главным зданием района (для карточки).
 func anchor_screen_position(district: String) -> Vector2:
 	var camera: Camera3D = camera_rig.camera

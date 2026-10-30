@@ -51,7 +51,7 @@ func travel(district: String) -> void:
 	if session.travel(district):
 		reported.emit([["LOG_TRAVEL", [session.market.get_district(district).name_key]]])
 		changed.emit()
-		Clock.advance_hours(session.balance.travel_hours)
+		Clock.advance_hours(session.travel_hours())
 
 
 ## Подработка или сбор: занимает часы, и до конца дня их должно хватить.
@@ -196,6 +196,20 @@ func pressure(id: int) -> void:
 		changed.emit()
 
 
+func give_day_off(id: int) -> void:
+	if session.give_day_off(id):
+		Audio.ui("select")
+		reported.emit([["LOG_DAY_OFF", [session.crew.get_person(id).nick]]])
+		changed.emit()
+
+
+func promote(id: int) -> void:
+	if session.promote(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_PROMOTED", [session.crew.get_person(id).nick]]])
+		changed.emit()
+
+
 # --- Перевозки ---
 
 func buy_vehicle(type: String) -> void:
@@ -211,8 +225,14 @@ func add_hidden(vehicle_id: int) -> void:
 		changed.emit()
 
 
-func add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int) -> void:
-	if session.add_route(from, to, good, vehicle_id, courier_id):
+func add_disguise(vehicle_id: int) -> void:
+	if session.add_disguise(vehicle_id):
+		Audio.ui("confirmation")
+		changed.emit()
+
+
+func add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int, scout_id: int = 0) -> void:
+	if session.add_route(from, to, good, vehicle_id, courier_id, scout_id):
 		Audio.ui("confirmation")
 		changed.emit()
 
