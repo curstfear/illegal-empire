@@ -492,3 +492,25 @@ LOG_GANG_NOW_FRIEND,%s (boss %s) now treat you as a friend.,%s (босс %s) т�
 LOG_GANG_NOW_NEUTRAL,%s (boss %s) have calmed down: neutral again.,%s (босс %s) успокоились: снова нейтралитет.
 LOG_GANG_NOW_RIVAL,%s (boss %s) see you as a rival: you are working their turf.,%s (босс %s) считают тебя соперником: ты работаешь на их земле.
 LOG_GANG_NOW_ENEMY,%s (boss %s) are now your enemies. Expect trouble.,%s (босс %s) теперь твои враги. Жди неприятностей.
+LOG_GANG_DEMAND,%s: boss %s wants a cut of your business on their turf — $%s. Answer in the Gangs tab.,%s: босс %s требует долю с твоих дел на их земле — $%s. Ответь во вкладке «Банды».
+LOG_GANG_DEMAND_PAID,You paid %s their cut: $%s. They are pleased.,Ты заплатил банде %s долю: $%s. Они довольны.
+LOG_GANG_DEMAND_REFUSED,You refused to pay %s. Expect them to get even.,Ты отказался платить банде %s. Жди мести.
+LOG_GANG_DEMAND_IGNORED,You never answered %s about their cut. They take it as a refusal.,Ты не ответил банде %s насчёт доли. Это сочли отказом.
+LOG_GANG_DUMP,%s dumped %s on the %s market — the price dropped.,%s сбросили %s на рынке района %s — цена упала.
+LOG_GANG_RAID,%s raided %s and carried off %d item(s).,%s устроили налёт на %s и вынесли %d шт. товара.
+LOG_GANG_RAID_REPELLED,"%s tried to raid %s, but your guards fought them off.","%s пытались налететь на %s, но охрана отбилась."
+LOG_GANG_POACHED,%s left you for %s.,%s теперь работает на банду %s.
+LOG_GANG_POACH_FAILED,"%s was invited to join %s, but stayed with you.","%s звали в банду %s — отказ, остаётся с тобой."
+LOG_GANG_DEAL_OFFER,"%s offer %d item(s) of %s for $%s, below market. See the Gangs tab.",%s предлагают %d шт. (%s) за $%s — дешевле рынка. Смотри вкладку «Банды».
+LOG_GANG_DEAL_DONE,Deal with %s: you got %d item(s) of %s.,Сделка с бандой %s: у тебя %d шт. (%s).
+LOG_GANG_DEAL_DECLINED,You turned down the offer from %s.,Ты отказался от предложения банды %s.
+LOG_GANG_AMBUSH,%s ambushed courier %s and took %d item(s) of %s.,%s устроили засаду курьеру %s и отобрали %d шт. (%s).
+GANGS_OFFERS,Demands and offers,Требования и предложения
+OFFER_DEMAND,%s want a cut: $%d,%s требуют долю: $%d
+OFFER_DEAL,%s sell %d × %s for $%d,%s продают %d шт. (%s) за $%d
+OFFER_DAYS,answer by day %d,ответить до дня %d
+BTN_PAY_CUT,Pay,Заплатить
+BTN_REFUSE,Refuse,Отказать
+BTN_BUY_DEAL,Buy,Купить
+BTN_DECLINE,No,Нет
+GANG_REVENGE,holds a grudge — will strike tonight,затаили обиду — ночью ударят

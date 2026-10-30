@@ -292,6 +292,17 @@ func repay_bank_loan() -> void:
 
 
 ## Ответ на проверку полиции: "bribe", "surrender" или "flee".
+# --- Банды ---
+
+func answer_offer(id: int, accept: bool) -> void:
+	var report := session.answer_offer(id, accept)
+	if not report.is_empty():
+		if accept:
+			Audio.coin()
+		reported.emit(report)
+		changed.emit()
+
+
 func resolve_check(choice: String) -> void:
 	var day_before := session.day
 	var report: Array = session.call(choice)

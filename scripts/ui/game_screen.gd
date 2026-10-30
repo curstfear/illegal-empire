@@ -1473,6 +1473,11 @@ func _refresh_gangs() -> void:
 	var hint := _small_label(tr("GANGS_HINT"), 10, COLOR_MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_gangs_list.add_child(hint)
+	_tab_buttons.get_child(TAB_INDEX.gangs).text = tr("TAB_GANGS") + (" %d" % gangs.offers.size() if not gangs.offers.is_empty() else "")
+	if not gangs.offers.is_empty():
+		_gangs_list.add_child(_small_label(tr("GANGS_OFFERS").to_upper(), 10, COLOR_MUTED))
+	for offer: Dictionary in gangs.offers:
+		_gangs_list.add_child(_offer_row(offer))
 	for gang: Dictionary in gangs.defs:
 		var st: Dictionary = gangs.state[gang.id]
 		var level := gangs.level(gang.id)
@@ -1498,6 +1503,8 @@ func _refresh_gangs() -> void:
 		var turf: Array = gangs.territories(gang.id).map(func(d: String) -> String: return tr(s.market.get_district(d).name_key))
 		texts.add_child(_small_label((tr("GANG_RELATION") % roundi(gangs.relation(gang.id))) + " · "
 				+ (tr("GANG_TURF") % ", ".join(turf) if not turf.is_empty() else tr("GANG_NO_TURF")), 10, LEVEL_COLORS[level]))
+		if st.revenge:
+			texts.add_child(_small_label(tr("GANG_REVENGE"), 10, COLOR_DOWN))
 		row.add_child(texts)
 		_gangs_list.add_child(row)
 	_gangs_list.add_child(HSeparator.new())
@@ -1524,6 +1531,33 @@ func _refresh_gangs() -> void:
 		legend.add_child(swatch)
 		legend.add_child(_small_label(item[0], 10, COLOR_MUTED))
 	_gangs_list.add_child(legend)
+
+
+## Строка требования или предложения банды: что хотят, до какого дня, кнопки «да» и «нет».
+func _offer_row(offer: Dictionary) -> HBoxContainer:
+	var s := GameState.session
+	var gang := s.gangs.get_def(offer.gang)
+	var demand: bool = offer.kind == "demand"
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(_icon_square("dirty" if demand else offer.good, s.gangs.color(offer.gang), 22))
+	var texts := VBoxContainer.new()
+	texts.add_theme_constant_override("separation", -2)
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var what := tr("OFFER_DEMAND") % [tr(gang.name_key), int(offer.amount)] if demand \
+			else tr("OFFER_DEAL") % [tr(gang.name_key), int(offer.units), tr(s.market.get_good(offer.good).name_key), int(offer.amount)]
+	texts.add_child(_small_label(what, 12, COLOR_DOWN if demand else COLOR_TEXT))
+	texts.add_child(_small_label(tr("OFFER_DAYS") % int(offer.expires), 10, COLOR_MUTED))
+	row.add_child(texts)
+	for answer: Array in [[true, "BTN_PAY_CUT" if demand else "BTN_BUY_DEAL"], [false, "BTN_REFUSE" if demand else "BTN_DECLINE"]]:
+		var button := Button.new()
+		button.text = tr(answer[1])
+		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(button, 8)
+		button.disabled = not s.can_accept_offer(int(offer.id)) if answer[0] else not s.can_act()
+		button.pressed.connect(GameState.answer_offer.bind(int(offer.id), answer[0]))
+		row.add_child(button)
+	return row
 
 
 ## Полоска влияния в районе: доли банд их цветами, твоя — синим, ничья — серым.

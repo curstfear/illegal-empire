@@ -5,7 +5,8 @@ extends RefCounted
 ## карман ограниченного размера, недвижимость (склады, лаборатории, фасады и отмыв),
 ## бригада (повара, дилеры, охрана, курьеры, менеджеры, бухгалтеры, адвокаты, разведчики;
 ## лояльность, страх, усталость, рост, предательство), перевозки (в том числе на рынок)
-## и банды (хозяева районов, отношение к тебе, твоё влияние).
+## и банды (хозяева районов, отношение к тебе, твоё влияние; ночью требуют долю, сбивают цены,
+## нападают на здания и перевозки, переманивают людей, предлагают сделки).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -1036,9 +1037,24 @@ func route_ambush_chance(route: Dictionary, amount: int) -> float:
 	if good.legal:
 		return 0.0
 	var value := float(good.base_price) * amount
-	var chance := minf(float(balance.route_ambush_max),
-			float(balance.route_ambush_base) + value / 1000.0 * float(balance.route_ambush_per_1000))
+	var chance := float(balance.route_ambush_base) + value / 1000.0 * float(balance.route_ambush_per_1000)
+	# Засады устраивают банды районов в начале и конце пути — чем хуже отношение, тем чаще.
+	chance = minf(float(balance.route_ambush_max), chance * _route_hostility(route))
 	return chance * (float(balance.scout_ambush_factor) if _scout_skill(route) > 0 else 1.0)
+
+
+func _route_hostility(route: Dictionary) -> float:
+	return maxf(gangs.hostility(place_district(route.from)), gangs.hostility(place_district(route.to)))
+
+
+## Какая банда устроила засаду: самая враждебная из хозяев районов пути ("" — неизвестные).
+func _ambusher(route: Dictionary) -> String:
+	var best := ""
+	for where: String in [place_district(route.from), place_district(route.to)]:
+		var host := gangs.gang_owner(where)
+		if host != "" and (best == "" or gangs.relation(host) < gangs.relation(best)):
+			best = host
+	return best
 
 
 ## Сколько штук увезёт маршрут этой ночью: сколько есть, влезет в машину и в здание назначения
@@ -1094,7 +1110,13 @@ func _run_routes() -> Array:
 		if rng.randf() < route_ambush_chance(route, amount):
 			properties.add_stock(route.from, route.good, -amount)
 			_change_loyalty(courier, float(balance.loyalty_ambush))
-			report.append(["LOG_ROUTE_AMBUSH", [courier.nick, amount, good_key]])
+			var ambusher := _ambusher(route)
+			if ambusher == "":
+				report.append(["LOG_ROUTE_AMBUSH", [courier.nick, amount, good_key]])
+			else:
+				gangs.state[ambusher].cash = int(gangs.state[ambusher].cash) + roundi(
+						market.get_good(route.good).base_price * amount * float(balance.gang_ambush_loot_share))
+				report.append(["LOG_GANG_AMBUSH", [gangs.get_def(ambusher).name_key, courier.nick, amount, good_key]])
 			continue
 		properties.add_stock(route.from, route.good, -amount)
 		if is_market_place(route.to):
@@ -1567,6 +1589,7 @@ func _gang_notice(where: String, value: int) -> void:
 	if value <= 0:
 		return
 	var hundreds := float(value) / 100.0
+	gangs.turf_sales[where] = int(gangs.turf_sales.get(where, 0)) + value
 	for id: String in gangs.influence[where].keys():
 		if id != Gangs.PLAYER:
 			gangs.change_relation(id, -hundreds * float(balance.gang_relation_per_100)
@@ -1589,13 +1612,187 @@ func _run_gangs() -> Array:
 		if host != "":
 			gangs.change_relation(host, -float(balance.gang_relation_property) * float(gangs.temper(host).anger))
 		gangs.player_gain(where, float(balance.player_influence_property))
+	report.append_array(_expire_offers())
 	report.append_array(gangs.night(rng))
+	for gang: Dictionary in gangs.defs:
+		report.append_array(_gang_turn(gang.id))
+	gangs.turf_sales.clear()
 	for gang: Dictionary in gangs.defs:
 		var now := gangs.level(gang.id)
 		if now != gangs.known_level.get(gang.id, now):
 			report.append(["LOG_GANG_NOW_" + now.to_upper(), [gang.name_key, gang.boss_key]])
 		gangs.known_level[gang.id] = now
 	return report
+
+
+## Не ответил на требование вовремя — это отказ.
+func _expire_offers() -> Array:
+	var report: Array = []
+	for offer: Dictionary in gangs.offers.duplicate():
+		if int(offer.expires) > day:
+			continue
+		gangs.offers.erase(offer)
+		if offer.kind == "demand":
+			_refuse_demand(offer)
+			report.append(["LOG_GANG_DEMAND_IGNORED", [gangs.get_def(offer.gang).name_key]])
+	return report
+
+
+## Ход банды ночью. Обиженная (отказ платить) мстит наверняка — нападает. Соперники и враги действуют
+## по характеру босса; нейтральные изредка просят долю; друзья и нейтральные предлагают товар со скидкой.
+## Действие, которое сделать нельзя (нечего требовать, некого переманить), заменяется другим.
+func _gang_turn(id: String) -> Array:
+	var st: Dictionary = gangs.state[id]
+	var level := gangs.level(id)
+	if st.revenge:
+		st.revenge = false
+		var revenge := _gang_attack(id, true)
+		if not revenge.is_empty():
+			return revenge
+	if rng.randf() < float(balance.gang_deal_chance[level]) and gangs.offer_from(id).is_empty():
+		return _gang_deal(id)
+	if rng.randf() >= float(balance.gang_act_chance[level]):
+		return []
+	var allowed: Array = ["demand"] if level == "neutral" else ["demand", "dump", "attack", "poach"]
+	while not allowed.is_empty():
+		var action := gangs.pick_action(id, allowed, rng)
+		allowed.erase(action)
+		var report: Array = call("_gang_" + action, id)
+		if not report.is_empty():
+			return report
+	return []
+
+
+## Требование доли с твоих нелегальных продаж на их земле (или «за постой», если у тебя там здания).
+func _gang_demand(id: String) -> Array:
+	if not gangs.offer_from(id).is_empty():
+		return []
+	var sales := 0
+	for district: String in gangs.territories(id):
+		sales += int(gangs.turf_sales.get(district, 0))
+	var has_place := properties.mine().any(func(p: Dictionary) -> bool: return gangs.gang_owner(p.district) == id)
+	if sales <= 0 and not has_place:
+		return []
+	var amount := maxi(int(balance.gang_demand_min), roundi(sales * float(balance.gang_demand_share)))
+	gangs.add_offer({ "gang": id, "kind": "demand", "amount": amount, "good": "", "units": 0,
+			"expires": day + int(balance.gang_offer_days) })
+	var gang := gangs.get_def(id)
+	return [["LOG_GANG_DEMAND", [gang.name_key, gang.boss_key, amount]]]
+
+
+## Банда сбрасывает на своём рынке самый дорогой нелегальный товар — цена падает.
+func _gang_dump(id: String) -> Array:
+	var turf: Array = gangs.territories(id).filter(func(d: String) -> bool: return market.get_district(d).has_market)
+	if turf.is_empty():
+		return []
+	var where: String = turf[0]
+	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal)
+	goods.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.base_price) > int(b.base_price))
+	var good: Dictionary = goods[0]
+	market.apply_trade(where, good.id, -int(balance.gang_dump_units))
+	return [["LOG_GANG_DUMP", [gangs.get_def(id).name_key, good.name_key, market.get_district(where).name_key]]]
+
+
+## Шанс, что налёт банды на здание удастся: сила банды против охраны (и сигнализации).
+func gang_attack_chance(id: String, property_id: String) -> float:
+	var attack := float(balance.gang_attack_base) + gangs.strength(id) * float(balance.gang_attack_share)
+	var defense := 0.0
+	for guard: Dictionary in crew.working_at(property_id, "guard"):
+		if crew.present.get(guard.id, true):
+			defense += int(guard.skill) * float(balance.guard_defense_per_skill)
+	if properties.has_upgrade(property_id, "alarm"):
+		defense += float(balance.alarm_defense)
+	return attack / (attack + defense)
+
+
+## Налёт на твоё здание с товаром: на их земле, а врагу или мстителю — любое. Удался — забирают долю товара;
+## отбились — банда теряет человека.
+func _gang_attack(id: String, anywhere: bool = false) -> Array:
+	var targets := properties.mine().filter(func(p: Dictionary) -> bool:
+		return properties.stock_used(p.id) > 0 and (anywhere or gangs.level(id) == "enemy" or gangs.gang_owner(p.district) == id))
+	if targets.is_empty():
+		return []
+	targets.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return properties.stock_used(a.id) > properties.stock_used(b.id))
+	var prop: Dictionary = targets[0]
+	var gang := gangs.get_def(id)
+	if rng.randf() >= gang_attack_chance(id, prop.id):
+		gangs.state[id].people = maxi(1, int(gangs.state[id].people) - 1)
+		return [["LOG_GANG_RAID_REPELLED", [gang.name_key, prop.name_key]]]
+	var taken := 0
+	var stock: Dictionary = properties.state[prop.id].stock
+	for good: String in stock.keys():
+		var n := ceili(int(stock[good]) * float(balance.gang_attack_steal_share))
+		properties.add_stock(prop.id, good, -n)
+		taken += n
+	for person: Dictionary in crew.working_at(prop.id):
+		_change_loyalty(person, float(balance.gang_attack_loyalty))
+	return [["LOG_GANG_RAID", [gang.name_key, prop.name_key, taken]]]
+
+
+## Переманивают самого недовольного из твоих людей (если лояльность ниже порога).
+func _gang_poach(id: String) -> Array:
+	var unhappy := crew.people.filter(func(p: Dictionary) -> bool: return float(p.loyalty) < float(balance.gang_poach_loyalty))
+	if unhappy.is_empty():
+		return []
+	unhappy.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.loyalty) < float(b.loyalty))
+	var person: Dictionary = unhappy[0]
+	var gang := gangs.get_def(id)
+	if rng.randf() >= float(balance.gang_poach_chance):
+		_change_loyalty(person, float(balance.gang_poach_refused_loyalty))
+		return [["LOG_GANG_POACH_FAILED", [person.nick, gang.name_key]]]
+	crew.fire(person.id)
+	_drop_broken_routes()
+	gangs.state[id].people = int(gangs.state[id].people) + 1
+	return [["LOG_GANG_POACHED", [person.nick, gang.name_key]]]
+
+
+## Предложение купить у банды партию нелегального товара дешевле рынка.
+func _gang_deal(id: String) -> Array:
+	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal)
+	var good: Dictionary = goods[rng.randi() % goods.size()]
+	var units := int(balance.gang_deal_units)
+	var where: String = gangs.get_def(id).home
+	var amount := roundi(market.buy_price(where, good.id) * units * float(balance.gang_deal_price))
+	gangs.add_offer({ "gang": id, "kind": "deal", "amount": amount, "good": good.id, "units": units,
+			"expires": day + int(balance.gang_offer_days) })
+	return [["LOG_GANG_DEAL_OFFER", [gangs.get_def(id).name_key, units, good.name_key, amount]]]
+
+
+func can_accept_offer(offer_id: int) -> bool:
+	var offer := gangs.get_offer(offer_id)
+	if not can_act() or offer.is_empty() or money < int(offer.amount):
+		return false
+	return offer.kind == "demand" or int(offer.units) * good_size(offer.good) <= pocket_free()
+
+
+## Ответ на требование или предложение: accept — заплатить долю / купить товар (сначала грязными).
+func answer_offer(offer_id: int, accept: bool) -> Array:
+	var offer := gangs.get_offer(offer_id)
+	if offer.is_empty() or not can_act() or accept and not can_accept_offer(offer_id):
+		return []
+	gangs.offers.erase(offer)
+	var gang := gangs.get_def(offer.gang)
+	if offer.kind == "demand":
+		if not accept:
+			_refuse_demand(offer)
+			return [["LOG_GANG_DEMAND_REFUSED", [gang.name_key]]]
+		_spend(int(offer.amount))
+		gangs.state[offer.gang].cash = int(gangs.state[offer.gang].cash) + int(offer.amount)
+		gangs.change_relation(offer.gang, float(balance.gang_demand_paid_relation))
+		return [["LOG_GANG_DEMAND_PAID", [gang.name_key, int(offer.amount)]]]
+	if not accept:
+		return [["LOG_GANG_DEAL_DECLINED", [gang.name_key]]]
+	_spend(int(offer.amount))
+	inventory[offer.good] += int(offer.units)
+	spent_on[offer.good] += int(offer.amount)
+	gangs.state[offer.gang].cash = int(gangs.state[offer.gang].cash) + int(offer.amount)
+	gangs.change_relation(offer.gang, float(balance.gang_deal_relation))
+	return [["LOG_GANG_DEAL_DONE", [gang.name_key, int(offer.units), market.get_good(offer.good).name_key]]]
+
+
+func _refuse_demand(offer: Dictionary) -> void:
+	gangs.change_relation(offer.gang, -float(balance.gang_demand_refused_relation))
+	gangs.state[offer.gang].revenge = true
 
 
 ## Аренда комнаты — только чистыми. Не хватает: доплачиваешь грязными, и это замечают.

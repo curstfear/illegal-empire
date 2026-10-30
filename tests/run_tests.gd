@@ -61,6 +61,10 @@ func _init() -> void:
 	_test_gang_anger_and_influence()
 	_test_gang_night()
 	_test_gangs_save()
+	_test_gang_demand()
+	_test_gang_attack()
+	_test_gang_poach_dump_deal()
+	_test_gang_ambush()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -862,10 +866,11 @@ func _test_route_risks() -> void:
 	a.add_route("market_warehouse", "station_warehouse", "cigarettes", car, runner)
 	a.balance.route_ambush_base = 1.0
 	a.balance.route_ambush_max = 1.0
+	a.gangs.change_relation("bazaar", -100.0)
 	a.inventory.cigarettes = 10
 	a.store_goods("market_warehouse", "cigarettes")
 	report = a.end_day()
-	_check(_has(report, "LOG_ROUTE_AMBUSH") and a.properties.stock_of("station_warehouse", "cigarettes") == 0, "засада: груз отобрали")
+	_check(_has(report, "LOG_GANG_AMBUSH") and a.properties.stock_of("station_warehouse", "cigarettes") == 0, "засада: груз отобрали")
 	_check(float(a.crew.get_person(runner).loyalty) < 75.0, "после засады курьер недоволен")
 
 	var b := _route_session()
@@ -1200,7 +1205,7 @@ func _test_gang_anger_and_influence() -> void:
 	s.sell("blue_dust", 10)
 	var drop := relation_before - s.gangs.relation("neon")
 	_check(drop > 0.0, "нелегальная продажа на чужой земле злит хозяев")
-	_check(is_equal_approx(s.gangs.share("clubs", Gangs.PLAYER), revenue / 100.0), "продажа даёт влияние в районе")
+	_check(is_equal_approx(s.gangs.share("clubs", Gangs.PLAYER), revenue / 100.0 * float(s.balance.player_influence_per_100)), "продажа даёт влияние в районе")
 	_check(s.gangs.relation("bazaar") == 0.0, "банды других районов не замечают")
 	s.inventory.tea = 10
 	s.sell("tea", 10)
@@ -1208,7 +1213,10 @@ func _test_gang_anger_and_influence() -> void:
 	# Ничья земля кончилась — твоё влияние теснит хозяина района.
 	s.gangs.player_gain("clubs", 40.0)
 	_check(s.gangs.share("clubs", "neon") < float(s.balance.gang_home_influence), "много влияния — хозяин района теряет своё")
-	s.gangs.player_gain("clubs", 60.0)
+	var neon_share := s.gangs.share("clubs", "neon")
+	s.gangs.player_gain("clubs", 10.0)
+	_check(s.gangs.share("clubs", "neon") > neon_share - 10.0 * 0.5, "торговлей банду теснишь медленно")
+	s.gangs.player_gain("clubs", 60.0, 1.0)
 	_check(s.gangs.owner("clubs") == Gangs.PLAYER, "влияния больше всех — район твой")
 	_check(s.gangs.gang_owner("clubs") == "", "у твоего района нет хозяина-банды")
 	s.gangs.change_relation("neon", -200.0)
@@ -1250,6 +1258,119 @@ func _test_gangs_save() -> void:
 	var loaded := _calm_session()
 	loaded.load_dict(data)
 	_check(JSON.stringify(loaded.gangs.to_dict()) == JSON.stringify(s.gangs.to_dict()), "банды и влияние сохраняются")
+
+
+## Банды без случайных дел ночью (кроме тех, что тест включает сам).
+func _quiet_gangs(s: GameSession) -> void:
+	for level: String in s.balance.gang_act_chance:
+		s.balance.gang_act_chance[level] = 0.0
+		s.balance.gang_deal_chance[level] = 0.0
+
+
+func _test_gang_demand() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.travel("clubs")
+	s.inventory.blue_dust = 10
+	s.sell("blue_dust", 10)
+	_check(s._gang_demand("bazaar").is_empty(), "с чужой земли долю не требуют")
+	var report := s._gang_demand("neon")
+	_check(_has(report, "LOG_GANG_DEMAND") and s.gangs.offers.size() == 1, "Неон требует долю с продаж в клубах")
+	var offer: Dictionary = s.gangs.offers[0]
+	_check(int(offer.amount) >= int(s.balance.gang_demand_min), "доля не меньше минимума")
+	_check(s._gang_demand("neon").is_empty(), "второе требование, пока не ответил, не приходит")
+	var relation := s.gangs.relation("neon")
+	var money_before := s.money
+	s.answer_offer(int(offer.id), true)
+	_check(s.money == money_before - int(offer.amount) and s.gangs.relation("neon") > relation, "заплатил долю — банда подобрела")
+	s._gang_demand("neon")
+	offer = s.gangs.offers[0]
+	relation = s.gangs.relation("neon")
+	s.answer_offer(int(offer.id), false)
+	_check(s.gangs.relation("neon") < relation and s.gangs.state.neon.revenge, "отказал — обида и месть")
+	s.gangs.turf_sales.clubs = 500
+	s._gang_demand("neon")
+	var days := int(s.balance.gang_offer_days)
+	# Требование пришло днём: ответить можно в этот день и ещё days дней.
+	for i in days + 1:
+		s.end_day()
+	_check(s.gangs.offers.is_empty(), "не ответил вовремя — требование пропало")
+	_check(s.gangs.relation("neon") < relation, "молчание — тоже отказ")
+
+
+func _test_gang_attack() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.clean = 5000
+	s.travel("clubs")
+	s.buy_property("club_lab")
+	s.properties.add_stock("club_lab", "blue_dust", 10)
+	_check(s._gang_attack("bazaar").is_empty(), "соперник не лезет на чужую землю")
+	var bare := s.gang_attack_chance("neon", "club_lab")
+	var guard := _candidate(s, "guard", "loyal", 3)
+	s.hire(guard)
+	s.assign(guard, "club_lab")
+	_check(s.gang_attack_chance("neon", "club_lab") < bare, "охрана снижает шанс налёта")
+	s.balance.gang_attack_base = 100000.0
+	var report := s._gang_attack("neon")
+	_check(_has(report, "LOG_GANG_RAID") and s.properties.stock_of("club_lab", "blue_dust") == 5, "налёт удался — забрали половину")
+	s.balance.gang_attack_base = 0.0
+	s.balance.gang_attack_share = 0.0
+	var people: int = s.gangs.state.neon.people
+	report = s._gang_attack("neon")
+	_check(_has(report, "LOG_GANG_RAID_REPELLED") and int(s.gangs.state.neon.people) == people - 1, "отбились — банда потеряла человека")
+	# Обиженная банда мстит ночью наверняка.
+	s.balance.gang_attack_base = 100000.0
+	s.gangs.state.bazaar.revenge = true
+	report = s.end_day()
+	_check(_has(report, "LOG_GANG_RAID") and not s.gangs.state.bazaar.revenge, "месть: налёт в ту же ночь")
+
+
+func _test_gang_poach_dump_deal() -> void:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.clean = 5000
+	var happy := _candidate(s, "dealer", "loyal", 2)
+	s.hire(happy)
+	_check(s._gang_poach("neon").is_empty(), "довольных не переманить")
+	var sad := _candidate(s, "guard", "greedy", 2)
+	s.hire(sad)
+	s.crew.get_person(sad).loyalty = 10.0
+	s.balance.gang_poach_chance = 1.0
+	var people: int = s.gangs.state.neon.people
+	var report := s._gang_poach("neon")
+	_check(_has(report, "LOG_GANG_POACHED") and s.crew.get_person(sad).is_empty(), "недовольного переманили")
+	_check(int(s.gangs.state.neon.people) == people + 1, "у банды стало больше людей")
+	var price := s.market.sell_price("clubs", "blue_dust")
+	report = s._gang_dump("neon")
+	_check(_has(report, "LOG_GANG_DUMP") and s.market.sell_price("clubs", "blue_dust") < price, "сброс товара бандой снижает цену")
+	report = s._gang_deal("rails")
+	var offer: Dictionary = s.gangs.offers[0]
+	var good: String = offer.good
+	_check(_has(report, "LOG_GANG_DEAL_OFFER") and int(offer.amount) < s.market.buy_price("station", good) * int(offer.units),
+			"сделка дешевле рынка")
+	var had: int = s.inventory[good]
+	s.answer_offer(int(offer.id), true)
+	_check(s.inventory[good] == had + int(offer.units) and s.gangs.offers.is_empty(), "сделка: товар в кармане")
+	s.inventory[good] = 0
+
+
+func _test_gang_ambush() -> void:
+	var s := _route_session()
+	s.buy_vehicle("car")
+	var car: int = s.logistics.vehicles[0].id
+	var courier := _candidate(s, "courier", "loyal", 2)
+	s.hire(courier)
+	s.add_route("market_warehouse", "@clubs", "cigarettes", car, courier)
+	s.balance.route_ambush_base = 0.02
+	var route: Dictionary = s.logistics.routes[0]
+	var calm := s.route_ambush_chance(route, 10)
+	s.gangs.change_relation("neon", -100.0)
+	_check(s.route_ambush_chance(route, 10) > calm, "враги в районе пути — засады чаще")
+	s.gangs.change_relation("neon", 200.0)
+	s.gangs.change_relation("bazaar", 100.0)
+	_check(s.route_ambush_chance(route, 10) == 0.0, "с друзьями на обоих концах засад нет")
+	_check(s._ambusher(route) != "", "засаду устраивает банда района")
 
 
 func _test_save_and_load() -> void:

@@ -137,6 +137,11 @@ func _ready() -> void:
 	s.gangs.player_gain("forest", 45.0)
 	s.gangs.player_gain("clubs", 22.0)
 	s.gangs.change_relation("neon", -40.0)
+	s.gangs.turf_sales.clubs = 900
+	s._gang_demand("neon")
+	s._gang_deal("rails")
+	s.gangs.state.bazaar.revenge = true
+	GameState.changed.emit()
 	screen.open_tab("gangs")
 	screen.open_card("clubs")
 	await _frames(10)

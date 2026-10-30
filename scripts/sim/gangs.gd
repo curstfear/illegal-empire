@@ -3,6 +3,7 @@ extends RefCounted
 ## Банды города: у каждой босс с характером, люди, общак, отношение к тебе (−100…100)
 ## и влияние в районах. Влияние — очки 0–100 на район, сумма в районе не больше 100;
 ## «player» — твоё влияние, остаток — ничья земля. Хозяин района — у кого больше всех влияния (и не меньше порога).
+## Требования и предложения банд ждут ответа игрока несколько дней.
 ## Деньги игрока и случайности считает GameSession — здесь только состояние и правила.
 
 const PLAYER := "player"
@@ -12,12 +13,19 @@ const LEVELS: Array[String] = ["friend", "neutral", "rival", "enemy"]
 ## Описания банд из data/gangs.json и характеры боссов.
 var defs: Array = []
 var tempers: Dictionary = {}
-## Состояние банды по id: { people, cash, relation }.
+## Состояние банды по id: { people, cash, relation, revenge } (revenge — отказал или промолчал, ночью мстят).
 var state: Dictionary = {}
 ## Влияние по районам: { district: { gang_id | "player": очки } }.
 var influence: Dictionary = {}
 ## Уровень отношения, о котором уже сообщили игроку (чтобы сказать, когда он меняется).
 var known_level: Dictionary = {}
+## Требования и предложения: { id, gang, kind ("demand" — доля, "deal" — товар со скидкой),
+## amount (сумма), good, units, expires (последний день для ответа) }.
+var offers: Array = []
+## Сколько ты наторговал нелегального в каждом районе с прошлой ночи (банды требуют с этого долю). Не сохраняется.
+var turf_sales: Dictionary = {}
+
+var _next_offer_id := 1
 
 var _balance: Dictionary
 
@@ -29,7 +37,7 @@ func _init(data: Dictionary, district_list: Array, balance: Dictionary) -> void:
 	for district: Dictionary in district_list:
 		influence[district.id] = {}
 	for gang: Dictionary in defs:
-		state[gang.id] = { "people": int(gang.people), "cash": int(gang.cash), "relation": float(gang.relation) }
+		state[gang.id] = { "people": int(gang.people), "cash": int(gang.cash), "relation": float(gang.relation), "revenge": false }
 		influence[gang.home][gang.id] = float(balance.gang_home_influence)
 		known_level[gang.id] = level(gang.id)
 
@@ -83,9 +91,11 @@ func territories(who: String) -> Array:
 	return influence.keys().filter(func(d: String) -> bool: return owner(d) == who)
 
 
-## Твоё влияние растёт: сначала занимаешь ничью землю, потом теснишь самую сильную банду района.
-## Возвращает, у какой банды отнято (или "").
-func player_gain(district: String, amount: float) -> String:
+## Твоё влияние растёт: сначала занимаешь ничью землю, потом теснишь самую сильную банду района —
+## торговлей медленно (доля push), силой (разборки) — сразу (push = 1). Возвращает, у какой банды отнято (или "").
+func player_gain(district: String, amount: float, push: float = -1.0) -> String:
+	if push < 0.0:
+		push = float(_balance.gang_trade_push)
 	var points: Dictionary = influence[district]
 	var from_free := minf(amount, free_share(district))
 	points[PLAYER] = share(district, PLAYER) + from_free
@@ -98,7 +108,7 @@ func player_gain(district: String, amount: float) -> String:
 			rival = who
 	if rival == "" or float(points[rival]) <= 0.0:
 		return ""
-	var taken := minf(rest, float(points[rival]))
+	var taken := minf(rest * push, float(points[rival]))
 	points[rival] = float(points[rival]) - taken
 	points[PLAYER] = share(district, PLAYER) + taken
 	return rival
@@ -122,6 +132,47 @@ func level(id: String) -> String:
 	if r > float(_balance.gang_enemy_at):
 		return "rival"
 	return "enemy"
+
+
+## Насколько опасно в районе для твоих перевозок: от отношения хозяина района (ничья или твоя земля — немного).
+func hostility(district: String) -> float:
+	var host := gang_owner(district)
+	return float(_balance.gang_hostility[level(host) if host != "" else "none"])
+
+
+## Случайное действие враждебной банды по весам характера босса (только из allowed).
+func pick_action(id: String, allowed: Array, rng: RandomNumberGenerator) -> String:
+	var weights: Dictionary = temper(id).actions
+	var total := 0.0
+	for action: String in allowed:
+		total += float(weights.get(action, 0))
+	var roll := rng.randf() * total
+	for action: String in allowed:
+		roll -= float(weights.get(action, 0))
+		if roll < 0.0:
+			return action
+	return allowed[-1]
+
+
+func add_offer(offer: Dictionary) -> Dictionary:
+	offer.id = _next_offer_id
+	_next_offer_id += 1
+	offers.append(offer)
+	return offer
+
+
+func get_offer(id: int) -> Dictionary:
+	for offer: Dictionary in offers:
+		if offer.id == id:
+			return offer
+	return {}
+
+
+func offer_from(gang_id: String) -> Dictionary:
+	for offer: Dictionary in offers:
+		if offer.gang == gang_id:
+			return offer
+	return {}
 
 
 ## Сила банды для будущих разборок: люди и деньги на снаряжение.
@@ -161,14 +212,21 @@ func night(rng: RandomNumberGenerator) -> Array:
 
 
 func to_dict() -> Dictionary:
-	return { "state": state.duplicate(true), "influence": influence.duplicate(true), "known_level": known_level.duplicate() }
+	return { "state": state.duplicate(true), "influence": influence.duplicate(true), "known_level": known_level.duplicate(),
+			"offers": offers.duplicate(true), "next_offer_id": _next_offer_id }
 
 
 func load_dict(data: Dictionary) -> void:
 	for id: String in data.get("state", {}):
 		if state.has(id):
 			var st: Dictionary = data.state[id]
-			state[id] = { "people": int(st.people), "cash": int(st.cash), "relation": float(st.relation) }
+			state[id] = { "people": int(st.people), "cash": int(st.cash), "relation": float(st.relation),
+					"revenge": bool(st.get("revenge", false)) }
+	offers = []
+	for offer: Dictionary in data.get("offers", []):
+		offers.append({ "id": int(offer.id), "gang": String(offer.gang), "kind": String(offer.kind), "amount": int(offer.amount),
+				"good": String(offer.good), "units": int(offer.units), "expires": int(offer.expires) })
+	_next_offer_id = int(data.get("next_offer_id", 1))
 	for id: String in data.get("known_level", {}):
 		known_level[id] = String(data.known_level[id])
 	for district: String in data.get("influence", {}):

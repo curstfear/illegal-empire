@@ -8,8 +8,11 @@
 			"color": [0.62, 0.3, 0.88], "people": 9, "cash": 3500, "relation": -10 }
 	],
 	"tempers": {
-		"greedy": { "name_key": "TEMPER_GREEDY", "anger": 1.0, "forgive": 1.0 },
-		"cautious": { "name_key": "TEMPER_CAUTIOUS", "anger": 0.7, "forgive": 1.5 },
-		"hothead": { "name_key": "TEMPER_HOTHEAD", "anger": 1.5, "forgive": 0.6 }
+		"greedy": { "name_key": "TEMPER_GREEDY", "anger": 1.0, "forgive": 1.0,
+			"actions": { "demand": 4, "dump": 2, "attack": 1, "poach": 1 } },
+		"cautious": { "name_key": "TEMPER_CAUTIOUS", "anger": 0.7, "forgive": 1.5,
+			"actions": { "demand": 2, "dump": 3, "attack": 1, "poach": 2 } },
+		"hothead": { "name_key": "TEMPER_HOTHEAD", "anger": 1.5, "forgive": 0.6,
+			"actions": { "demand": 1, "dump": 1, "attack": 3, "poach": 1 } }
 	}
 }
