@@ -74,5 +74,24 @@
 			"layout": "res://data/cities/miami.json",
 			"start": "mia_downtown"
 		}
+	],
+	"suppliers": [
+		{ "id": "otto", "city": "berlin", "name_key": "SUP_OTTO", "goods": ["mushrooms", "herbs"], "price": 0.85, "risk": 0.0 },
+		{ "id": "chemsnab", "city": "berlin", "name_key": "SUP_CHEMSNAB", "goods": ["reagents", "cigarettes"], "price": 1.0, "risk": 0.03 },
+		{ "id": "shram", "city": "berlin", "name_key": "SUP_SHRAM", "goods": ["moon_moss", "reagents", "cigarettes", "phones"], "price": 0.7, "risk": 0.15 },
+		{ "id": "tulip", "city": "amsterdam", "name_key": "SUP_TULIP", "goods": ["herbs", "mushrooms", "moon_moss"], "price": 0.9, "risk": 0.02 },
+		{ "id": "wim", "city": "amsterdam", "name_key": "SUP_WIM", "goods": ["moon_moss", "reagents", "phones"], "price": 0.65, "risk": 0.16 },
+		{ "id": "quay", "city": "marseille", "name_key": "SUP_QUAY", "goods": ["cigarettes", "reagents", "herbs"], "price": 0.95, "risk": 0.03 },
+		{ "id": "corsican", "city": "marseille", "name_key": "SUP_CORSICAN", "goods": ["cigarettes", "reagents", "phones"], "price": 0.7, "risk": 0.18 },
+		{ "id": "teahouse", "city": "istanbul", "name_key": "SUP_TEAHOUSE", "goods": ["herbs", "mushrooms", "cigarettes"], "price": 0.85, "risk": 0.02 },
+		{ "id": "ahmet", "city": "istanbul", "name_key": "SUP_AHMET", "goods": ["phones", "cigarettes", "reagents"], "price": 0.7, "risk": 0.15 },
+		{ "id": "portlog", "city": "miami", "name_key": "SUP_PORTLOG", "goods": ["reagents", "herbs", "mushrooms"], "price": 1.1, "risk": 0.03 },
+		{ "id": "cuban", "city": "miami", "name_key": "SUP_CUBAN", "goods": ["moon_moss", "cigarettes", "reagents"], "price": 0.75, "risk": 0.2 }
+	],
+	"clients": [
+		{ "id": "promoter", "city": "*", "name_key": "CLIENT_PROMOTER", "goods": ["moon_pollen", "blue_dust", "cigarettes"] },
+		{ "id": "chef", "city": "*", "name_key": "CLIENT_CHEF", "goods": ["mushrooms", "herbs", "tea"] },
+		{ "id": "fixer", "city": "*", "name_key": "CLIENT_FIXER", "goods": ["phones", "cigarettes"] },
+		{ "id": "apothecary", "city": "*", "name_key": "CLIENT_APOTHECARY", "goods": ["moon_moss", "herbs", "reagents"] }
 	]
 }

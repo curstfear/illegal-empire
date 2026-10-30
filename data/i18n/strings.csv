@@ -200,7 +200,7 @@ BTN_BREW,Brew (%d),Варить (%d)
 PROP_BATCH,"Brewing: %d × %s, ready in %d night(s)","Варится: %d × %s, готово через %d ноч."
 PROP_LAB_LEVEL,Equipment lvl %d · defects %d%% · great batch %d%%,Оборудование ур. %d · брак %d%% · удачная партия %d%%
 BTN_UPGRADE,Upgrade $%s,Улучшить $%s
-PROP_LAUNDER_INFO,"Waiting to launder: $%s · up to $%s a night, fee %d%% · register income $%s a night","В очереди на отмыв: $%s · до $%s за ночь, комиссия %d%% · касса $%s за ночь"
+PROP_LAUNDER_INFO,"Waiting to launder: $%s · up to $%s a night, fee %d%% · register income $%s a day","В очереди на отмыв: $%s · до $%s за ночь, комиссия %d%% · касса $%s за день"
 PROP_FROZEN,Tax audit: laundering frozen for %d more night(s).,Проверка налоговой: отмыв заморожен ещё на %d ноч.
 PROP_TAX,Tax office attention: %d/100,Внимание налоговой: %d/100
 BTN_LAUNDER,Launder dirty ($%s),Сдать грязные ($%s)
@@ -409,7 +409,7 @@ ROUTES_LIST,Routes,Маршруты
 ROUTES_EMPTY,No routes. Every night a courier carries goods from your building to another one — or to a district market and sells them there.,Маршрутов нет. Каждую ночь курьер везёт товар из твоего здания в другое — или на рынок района и сам там продаёт.
 ROUTES_NEW,New route,Новый маршрут
 ROUTES_NEED,"You need a building of yours, a free vehicle and a free courier (hire one in the Crew tab).","Нужны своё здание, свободная машина и свободный курьер (нанять — во вкладке «Люди»)."
-ROUTE_INFO,%s · up to %d a night · police %d%% · ambush up to %d%%,%s · до %d шт. за ночь · патруль %d%% · засада до %d%%
+ROUTE_INFO,%s · up to %d a trip · police %d%% · ambush up to %d%%,%s · до %d шт. за рейс · патруль %d%% · засада до %d%%
 BTN_ADD_ROUTE,Start route,Запустить
 BTN_REMOVE_ROUTE,Stop route,Остановить маршрут
 LOG_FIRED_SNITCHED,%s took the firing badly and went to the police. Heat is up.,%s обиделся на увольнение и пошёл в полицию. Розыск вырос.
@@ -760,3 +760,162 @@ LOG_SHIPMENT_SOLD,"Shipment sold on arrival: %d × %s, %s — $%s.","Груз п
 LOG_SHIPMENT_ARRIVED,"Shipment arrived: %d × %s, %s.","Груз прибыл: %d шт. (%s), %s."
 LOG_SHIPMENT_OVERFLOW,%d item(s) didn't fit and were lost.,Не влезло и пропало: %d шт.
 LOG_SHIPMENT_LOST,The building is no longer yours — shipment lost: %d × %s.,Здание уже не твоё — груз пропал: %d шт. (%s).
+ROUTE_SHIFT_DAY,Day 14:00,Днём 14:00
+ROUTE_SHIFT_NIGHT,Night 02:00,Ночью 02:00
+ROUTE_SHIFT_BOTH,Both trips,Оба рейса
+ROUTE_SHIFT_TIP,"When the courier drives: by day there are more patrols, at night more ambushes.","Когда ездит курьер: днём больше патрулей, ночью — засад."
+TAG_BREWING,%s · brewing %d%%,%s · варка %d%%
+TAG_INCOME,%s · +$%s today,%s · +$%s сегодня
+SUP_TITLE,Suppliers %d/%d,Поставщики %d/%d
+SUP_DAILY_LINE,%d × %s every morning → %s,%d шт. %s каждое утро → %s
+SUP_KEEP_LINE,Keep %d × %s · %s,Держать %d шт. %s · %s
+SUP_INFO,%s · $%s each · next morning %d for $%s,%s · $%s/шт · утром %d шт. за $%s
+SUP_NEED,"Buy or rent a building in this city: suppliers deliver to your warehouse, lab or front.","Купи или арендуй здание в этом городе: поставщики возят на твой склад, в лабораторию или прикрытие."
+SUP_AMOUNT,%d pcs,%d шт.
+SUP_MODE_DAILY,Every morning,Каждое утро
+SUP_MODE_KEEP,Keep in stock,Держать запас
+SUP_RISK,unreliable: %d%% chance of a short delivery or a police tail,ненадёжный: %d%% — недовес или «хвост» полиции
+SUP_RELIABLE,reliable,надёжный
+SUP_KEEP_NEEDS_MANAGER,Only a manager in the building can keep stock topped up.,Держать запас может только менеджер в здании.
+BTN_ADD_SUPPLY,Make a deal (~$%s a delivery),Договориться (~$%s за раз)
+BTN_REMOVE_SUPPLY,End the deal,Разорвать договор
+SECTION_SUPPLIES,Deliveries here,Поставки сюда
+SECTION_ORDERS,Manager orders,Приказы менеджеру
+ORDERS_NEED_MANAGER,"Assign a manager (Crew tab), and the building runs itself on your orders.","Назначь менеджера (вкладка «Люди»), и здание будет работать само по твоим приказам."
+ORDER_BREW,Brew,Варить
+ORDER_BREW_AUTO,Most expensive,Самое дорогое
+ORDER_BREW_NONE,Nothing,Ничего
+ORDER_LAUNDER,Launder dirty cash,Отмывать грязные
+ORDER_LAUNDER_ALL,All of it,Всё
+ORDER_LAUNDER_KEEP,Keep $%s on hand,Оставлять $%s
+ORDER_LAUNDER_OFF,Don't launder,Не отмывать
+ORDERS_HINT,Every night the manager cleans up evidence and follows these orders.,Каждую ночь менеджер прибирает улики и выполняет эти приказы.
+LOG_SUPPLY_SIGNED,Deal: %s brings %d × %s to %s.,Договорились: %s возит %d шт. (%s) → %s.
+LOG_SUPPLY_DELIVERED,%s delivered %d × %s to %s: $%s.,%s привёз %d шт. (%s) → %s: $%s.
+LOG_SUPPLY_SHORT,"%s shorted you: %d of %d × %s, paid $%s in full.","%s недовёз: %d из %d шт. (%s), а взял все $%s."
+LOG_SUPPLY_TAIL,%s brought a police tail to %s: heat and evidence up.,%s привёл «хвост» к зданию %s: розыск и улики выросли.
+LOG_SUPPLY_NO_ROOM,"%s: no room in %s, no delivery.","%s: в здании %s нет места, поставки нет."
+LOG_SUPPLY_NO_MONEY,%s didn't deliver: you needed $%s.,%s не привёз: не хватило $%s.
+LOG_SUPPLY_NO_MANAGER,"%s: no manager in %s to keep stock, no delivery.","%s: в здании %s нет менеджера, держать запас некому."
+SUP_OTTO,Farmer Otto,Фермер Отто
+SUP_OTTO_DESC,mushrooms and herbs from the countryside,грибы и травы из пригорода
+SUP_CHEMSNAB,Khimsnab wholesale,Оптовик «Химснаб»
+SUP_CHEMSNAB_DESC,"reagents and cigarettes, all with invoices","реагенты и сигареты, всё с накладными"
+SUP_SHRAM,Scar the fence,Барыга Шрам
+SUP_SHRAM_DESC,"cheap, no questions asked",дёшево и без вопросов
+SUP_TULIP,Tulip co-op,Кооператив «Тюльпан»
+SUP_TULIP_DESC,"herbs, mushrooms and moss from greenhouses","травы, грибы и мох из теплиц"
+SUP_WIM,Wim the Dutchman,Голландец Вим
+SUP_WIM_DESC,moss and phones straight from the port,мох и телефоны прямо из порта
+SUP_QUAY,Quay wholesaler,Оптовик с причала
+SUP_QUAY_DESC,"port goods: cigarettes, reagents, herbs","портовый товар: сигареты, реагенты, травы"
+SUP_CORSICAN,The Corsican,Корсиканец
+SUP_CORSICAN_DESC,contraband off the boats,контрабанда с катеров
+SUP_TEAHOUSE,Tea yard,Чайный двор
+SUP_TEAHOUSE_DESC,"herbs, mushrooms, cigarettes","травы, грибы, сигареты"
+SUP_AHMET,Ahmet from the bazaar,Ахмет с базара
+SUP_AHMET_DESC,"phones and cigarettes, sometimes hot","телефоны и сигареты, бывает «горячее»"
+SUP_PORTLOG,Port Logistics,«Порт-логистика»
+SUP_PORTLOG_DESC,"pricey, but clean paperwork","дорого, зато чистые бумаги"
+SUP_CUBAN,The Cuban,Кубинец
+SUP_CUBAN_DESC,"moss, cigarettes and reagents from the Keys","мох, сигареты и реагенты с островов"
+ORDERS_TITLE,Orders %d/%d,Заказы %d/%d
+ORDERS_BOARD,Board (%d),Доска (%d)
+ORDERS_EMPTY,No orders yet. Open the board: clients pay above market if you deliver on time.,"Заказов пока нет. Открой доску: клиенты платят выше рынка, если успеть к сроку."
+ORDER_WHAT,%d × %s → %s,%d шт. %s → %s
+ORDER_REWARD_CLEAN,$%s clean,$%s чистыми
+ORDER_REWARD_DIRTY,$%s dirty,$%s грязными
+ORDER_TODAY,today!,сегодня!
+ORDER_DAYS_LEFT,%d d.,%d дн.
+ORDER_PROGRESS,%s · have %d/%d · %s,%s · есть %d/%d · %s
+ORDER_GO_THERE,Go to %s to deliver.,"Чтобы сдать, иди в район %s."
+ORDER_SNITCH_TIP,"Tip off the police about the deal: 30% of the reward clean, heat drops, but the gang may find out.","Слить сделку полиции: 30% награды чистыми, розыск спадёт, но банда может узнать."
+OFFER_INFO,%s · %s · %d days,%s · %s · на %d дн.
+BTN_DELIVER_ORDER,Deliver,Сдать
+BTN_SNITCH_ORDER,Set up,Подставить
+BTN_DROP_ORDER,Drop the order (counts as failed),Отказаться (как сорвать)
+BTN_ACCEPT_ORDER,Take,Взять
+CLIENT_PROMOTER,Club promoter,Клубный промоутер
+CLIENT_CHEF,Chef Jules,Шеф Жюль
+CLIENT_FIXER,The Fixer,Решала
+CLIENT_APOTHECARY,Back-room apothecary,Подпольный аптекарь
+LOG_ORDER_DONE,"Order for %s done: %d × %s, +$%s.","Заказ для «%s» выполнен: %d шт. (%s), +$%s."
+LOG_ORDER_FAILED,Order for %s failed: %d × %s not delivered.,Заказ для «%s» сорван: %d шт. (%s) не привезли.
+LOG_ORDER_SNITCHED,You set up %s: the police paid $%s.,Ты подставил «%s»: полиция заплатила $%s.
+LOG_ORDER_SNITCH_FOUND,%s found out who talked.,"%s узнали, кто их сдал."
+SIT_HOURS_LEFT,%d h,%d ч
+SIT_COP_VISIT,Local cop at the door,Участковый у дверей
+SIT_COP_VISIT_TEXT,A local cop dropped by %s and is sniffing around.,Участковый заглянул в «%s» и что-то вынюхивает.
+SIT_ADVANCE,A request for an advance,Просят аванс
+SIT_ADVANCE_TEXT,%s asks for an advance: $%s.,%s просит аванс: $%s.
+SIT_BULK_BUYER,Bulk buyer,Перекупщик
+SIT_BULK_BUYER_TEXT,"A buyer wants to take from %s %d × %s for $%s, above market.",Перекупщик хочет забрать из «%s» %d шт. (%s) за $%s — дороже рынка.
+SIT_NEIGHBORS,Neighbors complain,Соседи жалуются
+SIT_NEIGHBORS_TEXT,Neighbors of %s complain about the smell. They might call the police tonight.,Соседи «%s» жалуются на запах. Ночью могут позвонить в полицию.
+SIT_TIP_OFF,A tip,Наводка
+SIT_TIP_OFF_TEXT,%s left their stash in %s unguarded: about %d × %s.,%s оставили склад в районе %s без охраны: там около %d шт. (%s).
+SIT_CHOICE_COP_VISIT_BRIBE,Pay $%s,Дать $%s
+SIT_CHOICE_COP_VISIT_HIDE,Hide it (%d%%),Спрятать (%d%%)
+SIT_CHOICE_COP_VISIT_DUMP,Dump the goods,Сбросить товар
+SIT_CHOICE_ADVANCE_PAY,Give $%s,Дать $%s
+SIT_CHOICE_ADVANCE_REFUSE,Refuse,Отказать
+SIT_CHOICE_ADVANCE_PRESSURE,Lean on them,Надавить
+SIT_CHOICE_BULK_BUYER_SELL,Sell for $%s,Продать за $%s
+SIT_CHOICE_BULK_BUYER_DECLINE,Decline,Отказаться
+SIT_CHOICE_NEIGHBORS_PAY,Pay them $%s,Заплатить $%s
+SIT_CHOICE_NEIGHBORS_IGNORE,Ignore,Игнорировать
+SIT_CHOICE_NEIGHBORS_VENT,Ventilation $%s,Вентиляция $%s
+SIT_CHOICE_TIP_OFF_ROB,Raid it (%d%%),Налёт (%d%%)
+SIT_CHOICE_TIP_OFF_POLICE,Sell to police ($%s),Слить полиции ($%s)
+SIT_CHOICE_TIP_OFF_IGNORE,Pass,Пропустить
+LOG_SITUATION,Something's up: %s.,Ситуация: %s.
+LOG_SIT_TIMEOUT,No decision in time: %s.,Не успел решить: %s.
+LOG_SIT_IGNORED,You let it go.,Ты не стал вмешиваться.
+LOG_SIT_COP_BRIBED,The cop took $%s and forgot everything.,"Участковый взял $%s и забыл, что видел."
+LOG_SIT_COP_HIDDEN,Everything was hidden in time. The cop left empty-handed.,"Всё спрятали вовремя, участковый ушёл ни с чем."
+LOG_SIT_COP_NOTICED,The cop noticed something in %s: evidence and heat up.,Участковый заметил лишнее в «%s»: улики и розыск выросли.
+LOG_SIT_COP_DUMPED,"The goods went down the drain. Clean, but empty.","Товар слили. Чисто, но пусто."
+LOG_SIT_ADVANCE_PAID,%s got $%s and won't forget it.,"%s: аванс $%s выдан, такое помнят."
+LOG_SIT_ADVANCE_REFUSED,%s didn't get the advance and is sulking.,%s остаётся без аванса и с обидой.
+LOG_SIT_ADVANCE_PRESSED,%s got the message: no more questions.,"%s: намёк понят, больше вопросов не будет."
+LOG_SIT_BUYER_SOLD,The buyer took %d × %s for $%s.,Перекупщик забрал %d шт. (%s) за $%s.
+LOG_SIT_BUYER_STING,"The buyer was a cop! %d × %s seized, heat up.","Перекупщик оказался подставным! Забрали %d шт. (%s), розыск вырос."
+LOG_SIT_NEIGHBORS_PAID,The neighbors took $%s and will keep quiet tonight.,Соседи взяли $%s и сегодня будут молчать.
+LOG_SIT_NEIGHBORS_ANGRY,The neighbors of %s are angry. Expect a call to the police.,Соседи «%s» злы. Жди звонка в полицию.
+LOG_SIT_NEIGHBORS_VENT,Ventilation installed in %s. The smell is gone.,"В «%s» поставили вентиляцию, запаха больше нет."
+LOG_SIT_TIP_ROBBED,Raid on %s's stash: you took %d × %s.,Налёт на склад «%s»: взяли %d шт. (%s).
+LOG_SIT_TIP_FAILED,"The raid on %s went wrong: it was a mess, heat up.","Налёт на «%s» сорвался: шум, розыск вырос."
+LOG_SIT_TIP_POLICE,You sold the tip to the police: $%s clean.,Ты слил наводку полиции: $%s чистыми.
+RANK_TRAMP,Tramp,Бродяга
+RANK_STREET,Street hustler,Уличный
+RANK_DEALER,Dealer,Барыга
+RANK_BRIGADIER,Crew boss,Бригадир
+RANK_DISTRICT_BOSS,District boss,Босс района
+RANK_CITY_KING,King of the city,Король города
+RANK_INTERNATIONAL,International player,Международный игрок
+RANK_EMPEROR,Emperor,Император
+RANK_TITLE,Rank %d of %d,Ступень %d из %d
+RANK_NEXT,To become %s:,До ступени «%s»:
+RANK_TOP,You're at the top: the Emperor.,Ты на вершине: Император.
+RANK_OPENS,Unlocks: %s,Откроет: %s
+BTN_LADDER,All ranks,Все ступени
+NEED_EARNED,Earn in total,Заработать всего
+NEED_ORDERS,Orders done,Выполнить заказов
+NEED_CREW,People in crew,Людей в бригаде
+NEED_BUILDINGS,Own buildings,Своих зданий
+NEED_DISTRICTS,Districts you own,Своих районов
+NEED_CITY_DISTRICTS,Districts in one city,Районов в одном городе
+NEED_CITIES,Cities with buildings,Городов со зданиями
+NEED_KINGDOMS,Cities you rule,Городов под тобой
+NEED_DEBT_FREE,Debt paid off,Долг выплачен
+PERK_ORDER_OFFERS,+%d order on the board,+%d заказ на доске
+PERK_ORDER_ACTIVE_MAX,+%d order in progress,+%d заказ в работе
+PERK_SUPPLY_MAX,+%d supplier deals,+%d поставщика
+PERK_CREW_MAX,+%d crew places,+%d места в бригаде
+PERK_VEHICLES_MAX,+%d vehicle,+%d машина
+PERK_TRIBUTE,tribute from your districts,дань с твоих районов
+PERK_KRYSHA_DISCOUNT,a bought cop is %d%% cheaper,«крыша» дешевле на %d%%
+PERK_SHIPMENTS_MAX,+%d shipments abroad,+%d груза за границу
+PERK_CUSTOMS_CUT,customs checks %d%% rarer,таможня реже на %d%%
+LOG_RANK_UP,New rank: %s!,Новая ступень: %s!
+LOG_TRIBUTE,Tribute from %d district(s): $%s dirty.,Дань с районов (%d): $%s грязными.

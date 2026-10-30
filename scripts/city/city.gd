@@ -29,6 +29,10 @@ const COLOR_TRUNK := Color(0.6, 0.46, 0.36)
 const LAWN_RADIUS := 0.4
 const COLOR_MINE := Color(0.184, 0.42, 1.0)
 const COLOR_FOR_SALE := Color(0.98, 0.6, 0.2)
+const COLOR_CLEAN_MONEY := Color(0.13, 0.66, 0.36)
+const COLOR_DIRTY_MONEY := Color(0.72, 0.46, 0.04)
+## Сколько секунд всплывшие деньги поднимаются и тают.
+const FLOAT_SECONDS := 2.4
 ## Фонари: сколько света ночью и какого цвета.
 const LAMP_COLOR := Color(1.0, 0.78, 0.5)
 
@@ -71,6 +75,10 @@ var _turf_frames: Dictionary = {}
 ## Хозяин района на прошлом кадре — перекрашиваем рамку только при смене.
 var _turf_owner: Dictionary = {}
 var _tags: Array[MapTag] = []
+## Всплывающие деньги над зданиями: { tag, from (точка мира), age (сек) }.
+var _floaters: Array = []
+## Метки ситуаций над зданиями и районами: { id ситуации: MapTag }.
+var _situation_tags: Dictionary = {}
 ## Слой подписей: поверх 3D, но под интерфейсом.
 var _tag_layer := CanvasLayer.new()
 var _hovered: String = ""
@@ -121,11 +129,14 @@ func _ready() -> void:
 	_build_highlights()
 	_build_turf_frames()
 	camera_rig.target = _tile_center(_center, _center)
+	GameState.earned.connect(_on_earned)
 
 
 func _process(delta: float) -> void:
 	_refresh_property_tags()
 	_refresh_turf()
+	_update_floaters(delta)
+	_refresh_situation_tags()
 	# Подписи-плашки следуют за зданиями.
 	for tag: MapTag in _tags:
 		tag.follow(camera_rig.camera)
@@ -504,7 +515,7 @@ func _refresh_property_tags() -> void:
 		var tag: MapTag = _property_tags[id]
 		var mine: bool = GameState.session.properties.is_mine(id)
 		var def := GameState.session.properties.get_def(id)
-		tag.set_text(tr(def.name_key) if mine else tr("PROP_FOR_SALE_TAG") % [tr(def.name_key), _money_text(int(def.buy_price))])
+		tag.set_text(_mine_tag_text(id) if mine else tr("PROP_FOR_SALE_TAG") % [tr(def.name_key), _money_text(int(def.buy_price))])
 		tag.set_dot(COLOR_MINE if mine else COLOR_FOR_SALE)
 		var pin: Node3D = _property_pins[id]
 		pin.position.y = _property_anchors[id].y + 0.25 + bob
@@ -514,6 +525,95 @@ func _refresh_property_tags() -> void:
 		if _property_owned.get(id, false) != mine and _property_nodes[id] != null:
 			_property_owned[id] = mine
 			soften(_property_nodes[id], COLOR_MINE, 0.7 if mine else 0.0)
+
+
+## Деньги за игровой час всплывают над зданием (или над рынком района для ларька и курьеров):
+## зелёные — чистые, жёлтые — грязные (как в интерфейсе). Поднимаются и тают за FLOAT_SECONDS.
+func _on_earned(popups: Array) -> void:
+	var sums: Dictionary = {}
+	for item: Array in popups:
+		var key := "%s|%s" % [item[0], item[2]]
+		sums[key] = int(sums.get(key, 0)) + int(item[1])
+	var stack: Dictionary = {}
+	for key: String in sums:
+		var place := key.get_slice("|", 0)
+		var is_clean := key.get_slice("|", 1) == "true"
+		var at: Vector3
+		if place.begins_with("@"):
+			if not _anchors.has(place.substr(1)):
+				continue
+			at = _anchors[place.substr(1)] + Vector3(0, 1.4, 0)
+		elif _property_anchors.has(place):
+			at = _property_anchors[place] + Vector3(0, 2.6, 0)
+		else:
+			continue
+		# Чистые и грязные над одним зданием — друг над другом.
+		at.y += 0.5 * int(stack.get(place, 0))
+		stack[place] = int(stack.get(place, 0)) + 1
+		var tag := MapTag.new("+$" + _money_text(int(sums[key])), at)
+		tag.set_text_color(COLOR_CLEAN_MONEY if is_clean else COLOR_DIRTY_MONEY)
+		_tag_layer.add_child(tag)
+		_floaters.append({ "tag": tag, "from": at, "age": 0.0 })
+
+
+## Над местом ситуации — оранжевая плашка с её названием, пока ты не решил.
+func _refresh_situation_tags() -> void:
+	if GameState.session == null:
+		return
+	var s := GameState.session
+	var alive: Dictionary = {}
+	for sit: Dictionary in s.jobs.situations:
+		var place: String = sit.place
+		var at := Vector3.INF
+		if place.begins_with("@") and _anchors.has(place.substr(1)):
+			at = _anchors[place.substr(1)] + Vector3(0, 1.0, 0)
+		elif _property_anchors.has(place):
+			at = _property_anchors[place] + Vector3(0, 3.0, 0)
+		if at == Vector3.INF:
+			continue
+		alive[sit.id] = true
+		if not _situation_tags.has(sit.id):
+			var tag := MapTag.new("! " + tr(s.situation_title_key(sit.kind)), at)
+			tag.set_text_color(COLOR_FOR_SALE)
+			tag.set_dot(COLOR_FOR_SALE)
+			_tag_layer.add_child(tag)
+			_situation_tags[sit.id] = tag
+		var bob := sin(Time.get_ticks_msec() / 250.0) * 0.08
+		_situation_tags[sit.id].world_pos = at + Vector3(0, bob, 0)
+		_situation_tags[sit.id].follow(camera_rig.camera)
+	for id: int in _situation_tags.keys():
+		if not alive.has(id):
+			_situation_tags[id].queue_free()
+			_situation_tags.erase(id)
+
+
+func _update_floaters(delta: float) -> void:
+	for floater: Dictionary in _floaters.duplicate():
+		floater.age += delta
+		var tag: MapTag = floater.tag
+		if floater.age >= FLOAT_SECONDS:
+			tag.queue_free()
+			_floaters.erase(floater)
+			continue
+		var t: float = floater.age / FLOAT_SECONDS
+		tag.world_pos = floater.from + Vector3(0, t * 1.2, 0)
+		tag.modulate.a = 1.0 - t * t
+		tag.follow(camera_rig.camera)
+
+
+## Подпись твоего здания: идёт варка — её готовность, иначе — сколько оно принесло сегодня.
+func _mine_tag_text(id: String) -> String:
+	var s := GameState.session
+	var name := tr(s.properties.get_def(id).name_key)
+	var batches: Array = s.properties.state[id].batches
+	if not batches.is_empty():
+		# Партии готовы к утру после последней ночи: готовность — по прошедшим ночам и часам дня.
+		var batch: Dictionary = batches[0]
+		var nights := float(s.properties.get_recipe(batch.recipe).nights)
+		var done := (nights - float(batch.nights_left) + Clock.hours_passed() / 24.0) / nights
+		return tr("TAG_BREWING") % [name, clampi(roundi(done * 100.0), 0, 99)]
+	var income := int(s.income_today.get(id, 0))
+	return tr("TAG_INCOME") % [name, _money_text(income)] if income > 0 else name
 
 
 ## 1500 → «1 500».

@@ -67,6 +67,11 @@ func set_dot(color: Color) -> void:
 		reset_size()
 
 
+## Цвет текста (для всплывающих денег).
+func set_text_color(color: Color) -> void:
+	_label.add_theme_color_override("font_color", color)
+
+
 func highlight(on: bool) -> void:
 	_label.add_theme_color_override("font_color", COLOR_ACCENT if on else COLOR_TEXT)
 

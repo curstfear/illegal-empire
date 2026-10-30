@@ -28,10 +28,13 @@ const PERSON_SCALE := 1.05
 const ROUTE_MODELS := { "scooter": "car_hatchback.gltf", "car": "car_sedan.gltf", "van": "car_stationwagon.gltf" }
 const ROUTE_SCALE := { "scooter": 0.75, "car": 1.0, "van": 1.15 }
 const ROUTE_COLOR := Color(0.184, 0.42, 1.0)
-const ROUTE_SPEED := 2.0
 const ROUTE_LINE_WIDTH := 0.14
-const ROUTE_HOURS_FROM := 19.0
-const ROUTE_HOURS_TO := 7.0
+## Сколько игровых часов машина в пути после выезда (туда и обратно).
+const ROUTE_TRIP_HOURS := 3.0
+## Машина поставщика: оранжевый универсал, въезжает в город с края карты утром и уезжает за SUPPLY_TRIP_HOURS.
+const SUPPLY_MODEL := "car_stationwagon.gltf"
+const SUPPLY_COLOR := Color(0.98, 0.6, 0.2)
+const SUPPLY_TRIP_HOURS := 2.0
 
 @export var city: Node3D
 
@@ -114,35 +117,46 @@ func _process(delta: float) -> void:
 		else:
 			node.position.z = _wrap(node.position.z + step)
 	_place_hero()
-	_update_routes(delta)
+	_update_routes()
 
 
 # --- Маршруты ---
 
-## Перестроить машины и линии, если маршруты поменялись; двигать машины ночью.
-func _update_routes(delta: float) -> void:
+## Перестроить машины и линии, если маршруты поменялись; машина едет в час своего рейса
+## (днём или ночью) и за ROUTE_TRIP_HOURS проезжает туда и обратно.
+func _update_routes() -> void:
 	var s := GameState.session
 	if s == null:
 		return
 	var key := ""
 	for route: Dictionary in s.logistics.routes:
 		key += "%d:%s:%s:%s;" % [route.id, s.logistics.get_vehicle(route.vehicle).get("type", ""), route.from, route.to]
+	for contract: Dictionary in s.suppliers.contracts:
+		key += "s%d:%s;" % [contract.id, contract.to]
 	if key != _routes_key:
 		_routes_key = key
 		_rebuild_routes(s)
-	var hour := Clock.minutes_of_day() / 60.0
-	var night := hour >= ROUTE_HOURS_FROM or hour < ROUTE_HOURS_TO
+	var hour := Clock.hours_passed()
 	for car: Dictionary in _route_cars:
 		var node: Node3D = car.node
-		node.visible = night
-		if not night or car.length <= 0.0:
+		var t := -1.0
+		if car.has("supply"):
+			var since := hour - float(s.balance.supply_hour) + SUPPLY_TRIP_HOURS / 2.0
+			if since >= 0.0 and since < SUPPLY_TRIP_HOURS:
+				t = since / SUPPLY_TRIP_HOURS
+		else:
+			var route := s.logistics.get_route(car.route)
+			for shift: String in s.route_shifts(route) if not route.is_empty() else []:
+				var since := hour - float(s.balance.route_shifts[shift].hour)
+				if since >= 0.0 and since < ROUTE_TRIP_HOURS:
+					t = since / ROUTE_TRIP_HOURS
+		node.visible = t >= 0.0 and car.length > 0.0
+		if not node.visible:
 			continue
-		# Туда и обратно: доехал до конца — разворачивается.
-		car.distance += car.dir * ROUTE_SPEED * delta
-		if car.distance >= car.length or car.distance <= 0.0:
-			car.dir = -car.dir
-			car.distance = clampf(car.distance, 0.0, car.length)
-		_put_on_path(node, car.path, car.distance, car.dir)
+		# Первая половина пути — туда, вторая — обратно.
+		var dir := 1.0 if t < 0.5 else -1.0
+		car.distance = car.length * (t * 2.0 if t < 0.5 else 2.0 - t * 2.0)
+		_put_on_path(node, car.path, car.distance, dir)
 
 
 func _rebuild_routes(s: GameSession) -> void:
@@ -160,7 +174,17 @@ func _rebuild_routes(s: GameSession) -> void:
 		city.soften(node, ROUTE_COLOR, 0.55)
 		add_child(node)
 		_route_cars.append({ "node": node, "path": path, "length": _path_length(path),
-				"distance": _rng.randf() * _path_length(path), "dir": 1.0 })
+				"distance": 0.0, "route": int(route.id) })
+	# Поставщики въезжают с северного края карты по средней улице и в час доставки стоят у здания.
+	var entry := Vector3(_road_positions[_road_positions.size() / 2], 0.06, _min)
+	for contract: Dictionary in s.suppliers.contracts:
+		if s.world.city_of(s.properties.get_def(contract.to).district) != s.city:
+			continue
+		var path := road_path(entry, city.property_ground(contract.to))
+		var node: Node3D = load(KAY + SUPPLY_MODEL).instantiate()
+		city.soften(node, SUPPLY_COLOR, 0.6)
+		add_child(node)
+		_route_cars.append({ "node": node, "path": path, "length": _path_length(path), "distance": 0.0, "supply": true })
 
 
 ## Точка на земле у места маршрута: здание или главное место района (рынок).

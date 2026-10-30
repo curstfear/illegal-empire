@@ -2,7 +2,8 @@ extends Node
 ## Служебный прогон партии со скриншотами (для проверки глазами). Окно само закрывается в конце.
 ## Godot --path . res://tests/screenshot.tscn -- <папка_для_png> [часть]
 ## Часть: "all" (по умолчанию, вся партия — минуты две), "world" (только мировая карта — секунд 15)
-## или "cities" (все города днём и вечером).
+## "cities" (все города днём и вечером), "engine" (бизнес по часам: деньги над зданиями, дневной рейс)
+## "supply" (поставщик, приказы менеджеру, утренняя доставка), "jobs" (заказы и ситуации) или "rank" (ступени карьеры).
 ## Чтобы окно не мешало: --resolution 960x540 --position 0,0 перед --path.
 
 const GAME_SCENE := preload("res://scenes/game.tscn")
@@ -21,6 +22,22 @@ func _ready() -> void:
 		return
 	if part == "cities":
 		await _city_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "rank":
+		await _rank_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "jobs":
+		await _jobs_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "supply":
+		await _supply_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "engine":
+		await _engine_shots(out_dir)
 		get_tree().quit()
 		return
 	GameState.new_game()
@@ -136,7 +153,7 @@ func _ready() -> void:
 	GameState.add_route("laundromat", "@clubs", "mushrooms", int(s.logistics.vehicles[1].id), int(runners[0].id), int(scouts[0].id))
 	GameState.add_disguise(int(s.logistics.vehicles[1].id))
 	screen.open_tab("routes")
-	Clock.elapsed = 0.9 * 90.0
+	Clock.elapsed = 0.9 * Clock._day_length
 	Clock.paused = true
 	await _frames(30)
 	_shot(out_dir.path_join("4e_routes.png"))
@@ -210,7 +227,7 @@ func _ready() -> void:
 	screen.open_card("clubs")
 	screen.get_node("%CardTravelButton").pressed.emit()
 	screen.open_tab("stall")
-	Clock.elapsed = 0.72 * 90.0
+	Clock.elapsed = 0.72 * Clock._day_length
 	Clock.paused = true
 	await _frames(15)
 	_shot(out_dir.path_join("5_night_clubs.png"))
@@ -318,3 +335,165 @@ func _frames(count: int) -> void:
 func _shot(path: String) -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	print("saved ", path)
+
+
+## Этап 8.5: склад с дилером и ларёк торгуют по часам, деньги всплывают; легковая едет дневным рейсом.
+func _engine_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.clean += 20000
+	GameState.buy_property("market_warehouse")
+	s.inventory.cigarettes = 25
+	GameState.store_goods("market_warehouse", "cigarettes")
+	GameState.buy_stall()
+	s.inventory.mushrooms = 20
+	GameState.stock_stall("mushrooms")
+	s.crew.roll_candidates(s.rng, 3)
+	for role: String in ["dealer", "courier"]:
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = role
+		candidate.skill = 3
+		GameState.hire(int(candidate.id))
+	var dealer: Dictionary = s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "dealer")[0]
+	var courier: Dictionary = s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "courier")[0]
+	GameState.assign(int(dealer.id), "market_warehouse")
+	GameState.buy_vehicle("car")
+	GameState.add_route("market_warehouse", "@clubs", "cigarettes", int(s.logistics.vehicles[0].id), int(courier.id))
+	GameState.set_route_shift(int(s.logistics.routes[0].id), "day")
+	var money := s.money
+	Clock.set_speed(4)
+	await _frames(20)
+	# Пропускаем к 09:50 — дальше часы идут сами, и в 10:00 деньги всплывают над зданиями.
+	Clock.elapsed = 3.83 / 24.0 * Clock._day_length
+	while s.hours_done < 4.0:
+		await _frames(1)
+	await _frames(12)
+	_shot(out_dir.path_join("engine_1_popups.png"))
+	print("к 10:00: часов отработано ", s.hours_done, ", денег было ", money, " стало ", s.money,
+			", сигарет на складе ", s.properties.stock_of("market_warehouse", "cigarettes"), ", доход сегодня ", s.income_today)
+	Clock.elapsed = 9.2 / 24.0 * Clock._day_length
+	await _frames(30)
+	screen.open_tab("routes")
+	await _frames(10)
+	_shot(out_dir.path_join("engine_2_day_trip.png"))
+	print("в 15:10: часов ", s.hours_done, ", маршрут ", s.logistics.routes, ", денег ", s.money)
+	Clock.paused = true
+
+
+## Этап 8.5, часть 2: лаборатория у вокзала с менеджером и дилером, Шрам держит там запас мха.
+func _supply_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.clean += 20000
+	s.travel("station")
+	GameState.buy_property("station_lab")
+	s.crew.roll_candidates(s.rng, 3)
+	for role: String in ["manager", "dealer"]:
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = role
+		candidate.skill = 3
+		GameState.hire(int(candidate.id))
+	for person: Dictionary in s.crew.people:
+		GameState.assign(int(person.id), "station_lab")
+	GameState.add_supply("shram", "moon_moss", 10, "station_lab", "keep")
+	GameState.add_supply("chemsnab", "reagents", 5, "station_lab", "daily")
+	GameState.set_order("station_lab", "brew", "moon_pollen")
+	screen.open_tab("routes")
+	await _frames(15)
+	(screen._routes_list.get_parent() as ScrollContainer).scroll_vertical = 100000
+	await _frames(5)
+	_shot(out_dir.path_join("supply_1_routes_tab.png"))
+	Clock.set_speed(4)
+	Clock.elapsed = 1.4 / 24.0 * Clock._day_length
+	while s.hours_done < 2.0:
+		await _frames(1)
+	await _frames(20)
+	_shot(out_dir.path_join("supply_2_morning_van.png"))
+	var life: Node = game.get_node("City/Life")
+	var vans: Array = life._route_cars.filter(func(car: Dictionary) -> bool: return car.has("supply"))
+	print("машины поставщиков: ", vans.size(), ", видно ", vans.filter(func(car: Dictionary) -> bool: return car.node.visible).size(),
+			", где ", vans.map(func(car: Dictionary) -> Vector3: return car.node.position))
+	print("утро: склад лаборатории ", s.properties.state.station_lab.stock, ", грязных ", s.dirty, ", чистых ", s.clean)
+	Clock.paused = true
+	screen.open_property_card("station_lab")
+	await _frames(15)
+	_shot(out_dir.path_join("supply_3_card_orders.png"))
+	for day in 2:
+		Clock.finish_day()
+		Clock.elapsed = 12.0 / 24.0 * Clock._day_length
+		Clock.set_speed(4)
+		await _frames(30)
+		Clock.paused = true
+	print("через 2 дня: склад ", s.properties.state.station_lab.stock, ", грязных ", s.dirty, ", доход сегодня ", s.income_today)
+	await _frames(10)
+	_shot(out_dir.path_join("supply_4_after_two_days.png"))
+
+
+## Этап 8.5, часть 3: панель «Дела» — заказ в работе, доска, две ситуации и метки над городом.
+func _jobs_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.balance.situation_chance = 0.0
+	s.clean += 20000
+	GameState.buy_property("market_warehouse")
+	s.inventory.phones = 10
+	GameState.store_goods("market_warehouse", "phones")
+	var offer: Dictionary = s.jobs.offers_in(s.city)[0]
+	GameState.accept_order(int(offer.id))
+	var now := s.day * 24 + 4
+	s.jobs.situations.append({ "id": s.jobs.next_id(), "kind": "cop_visit", "place": "market_warehouse", "target": "",
+			"amount": 0, "cost": 260, "expires": now })
+	s.jobs.situations.append({ "id": s.jobs.next_id(), "kind": "tip_off", "place": "@clubs", "target": "neon|moon_moss",
+			"amount": 8, "cost": 0, "expires": now + 2 })
+	screen.close_card()
+	screen._offers_open = true
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("jobs_1_panel.png"))
+	print("заказы: ", s.jobs.orders, " доска: ", s.jobs.offers_in(s.city).size(), " ситуации: ", s.jobs.situations.size())
+	GameState.choose_situation(int(s.jobs.situations[0].id), "bribe")
+	screen._offers_open = false
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("jobs_2_after_choice.png"))
+	print("после выбора: ситуаций ", s.jobs.situations.size(), ", денег ", s.money)
+
+
+## Этап 8.5, часть 4: карточка ступени — прогресс до Барыги, потом повышение и вся лестница.
+func _rank_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s._earn(3200, false)
+	s.orders_done = 1
+	GameState.tick(1.0)
+	screen.close_card()
+	await _frames(20)
+	_shot(out_dir.path_join("rank_1_progress.png"))
+	print("ступень ", s.rank, " ", s.rank_name_key(), ", заработано ", s.earned_total)
+	s.orders_done = 2
+	s._earn(2000, true)
+	GameState.tick(2.0)
+	screen._ladder_open = true
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("rank_2_ladder.png"))
+	print("после: ступень ", s.rank, " ", s.rank_name_key(), ", заказов в работе до ", s.limit("order_active_max"))

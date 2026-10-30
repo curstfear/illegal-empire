@@ -28,6 +28,8 @@ func _process(delta: float) -> void:
 	elapsed += delta * speed
 	if elapsed >= _day_length:
 		finish_day()
+	else:
+		_tick_business()
 
 
 func reset() -> void:
@@ -51,11 +53,24 @@ func advance_hours(hours: float) -> void:
 	elapsed += hours / 24.0 * _day_length
 	if elapsed >= _day_length:
 		finish_day()
+	else:
+		_tick_business()
 
 
 ## Прошло hours часов, но день не кончается (например, ждёт решение на таможне): часы встают за минуту до конца.
 func advance_hours_within_day(hours: float) -> void:
 	elapsed = minf(elapsed + hours / 24.0 * _day_length, _day_length - _day_length / 1440.0)
+
+
+## Сколько игровых часов прошло с начала дня (0–24).
+func hours_passed() -> float:
+	return elapsed / _day_length * 24.0
+
+
+## Каждый новый игровой час бизнес отрабатывает его (продажи, касса, рейсы).
+func _tick_business() -> void:
+	if floorf(hours_passed()) > GameState.session.hours_done:
+		GameState.tick(hours_passed())
 
 
 ## Закончить день сразу (кнопка «Закончить день»).

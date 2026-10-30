@@ -26,7 +26,7 @@ func _ready() -> void:
 	await _check_gestures(city)
 
 	# Полдень по игровым часам: на улицах людно. Розыск высокий — полиции больше.
-	Clock.elapsed = 0.25 * 90.0
+	Clock.elapsed = 0.25 * Clock._day_length
 	GameState.session.police.heat.market = 90.0
 	var rig: Node3D = city.camera_rig
 	rig.target = city.district_ground_anchor("market") + Vector3(1.5, 0, 1.5)

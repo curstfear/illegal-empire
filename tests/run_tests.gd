@@ -86,6 +86,13 @@ func _init() -> void:
 	_test_customs()
 	_test_city_content()
 	_test_shipments()
+	_test_hourly_business()
+	_test_suppliers()
+	_test_manager_orders()
+	_test_chain_without_clicks()
+	_test_orders()
+	_test_situations()
+	_test_ranks()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -104,6 +111,7 @@ func _calm_session(seed_value: int = 42) -> GameSession:
 	var s := _new_session(seed_value)
 	s.balance.check_base = 0.0
 	s.balance.check_per_heat = 0.0
+	s.balance.situation_chance = 0.0
 	return s
 
 
@@ -1997,6 +2005,368 @@ func _test_world_save() -> void:
 	data.district = "station"
 	loaded.load_dict(data)
 	_check(loaded.city == "berlin", "старое сохранение — город по району")
+
+
+## Этап 8.5: бизнес работает по часам, а не только в конце дня.
+func _test_hourly_business() -> void:
+	var d := _rich_session()
+	d.buy_property("market_warehouse")
+	d.inventory.cigarettes = 10
+	d.store_goods("market_warehouse", "cigarettes")
+	var dealer := _candidate(d, "dealer", "loyal", 2)
+	d.hire(dealer)
+	d.assign(dealer, "market_warehouse")
+	var dirty_before := d.dirty
+	d.run_hours(12.0)
+	_check(d.properties.stock_of("market_warehouse", "cigarettes") == 8, "к полудню дилер продал половину дневной нормы (2 из 4)")
+	_check(d.dirty > dirty_before and not d.popups.is_empty(), "деньги пришли сразу и всплыли над зданием")
+	_check(int(d.income_today.market_warehouse) > 0, "доход здания за сегодня считается")
+	var data: Variant = JSON.parse_string(JSON.stringify(d.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(is_equal_approx(loaded.hours_done, 12.0), "сохранение посреди дня помнит отработанные часы")
+	var report := loaded.end_day()
+	_check(loaded.properties.stock_of("market_warehouse", "cigarettes") == 6, "к концу дня — вся норма, без двойного счёта")
+	_check(_has(report, "LOG_DEALER_SOLD"), "итог дилера за день — в журнале")
+	_check(loaded.hours_done == 0.0 and loaded.income_today.is_empty(), "новый день начинается с нуля")
+
+	var s := _route_session()
+	s.balance.vehicles.car.breakdown = 0.0
+	s.buy_vehicle("car")
+	var car: int = s.logistics.vehicles[0].id
+	var courier := _candidate(s, "courier", "loyal", 2)
+	s.hire(courier)
+	s.add_route("market_warehouse", "station_warehouse", "cigarettes", car, courier)
+	var route: Dictionary = s.logistics.routes[0]
+	_check(route.shift == "night", "по умолчанию маршрут ездит ночью")
+	_check(s.set_route_shift(route.id, "day"), "рейс можно перенести на день")
+	_check(s.route_police_chance(route, "day") >= s.route_police_chance(route, "night"), "днём патрулей больше")
+	_check(s.route_ambush_chance(route, 20, "day") <= s.route_ambush_chance(route, 20, "night"), "днём засад меньше")
+	s.inventory.cigarettes = 30
+	s.store_goods("market_warehouse", "cigarettes")
+	_check(_has(s.run_hours(7.0), "LOG_ROUTE_DELIVERED") == false, "до 13:00 машина ещё не уехала")
+	_check(_has(s.run_hours(9.0), "LOG_ROUTE_DELIVERED"), "дневной рейс в 14:00 довёз груз")
+	s.set_route_shift(route.id, "both")
+	s.inventory.cigarettes = 30
+	s.store_goods("market_warehouse", "cigarettes")
+	_check(_has(s.end_day(), "LOG_ROUTE_DELIVERED"), "ночной рейс того же дня тоже поехал")
+
+
+## Этап 8.5, часть 2: поставщики сами привозят сырьё по утрам.
+func _test_suppliers() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	_check(not s.can_add_supply("shram", "herbs", 10, "market_warehouse", "daily"), "у Шрама трав нет")
+	_check(not s.can_add_supply("wim", "moon_moss", 10, "market_warehouse", "daily"), "амстердамский поставщик в Берлин не возит")
+	_check(not s.can_add_supply("otto", "mushrooms", 7, "market_warehouse", "daily"), "партии — только 5/10/20/40")
+	_check(not s.can_add_supply("otto", "mushrooms", 10, "market_warehouse", "keep"), "«держать запас» — только с менеджером")
+	_check(s.add_supply("otto", "mushrooms", 10, "market_warehouse", "daily"), "договорились с Отто: 10 грибов в день")
+	_check(not s.can_add_supply("otto", "mushrooms", 20, "market_warehouse", "daily"), "второй такой же договор не нужен")
+	var price := s.supply_price("otto", "mushrooms")
+	_check(price < s.market.buy_price("market", "mushrooms"), "оптом у фермера дешевле рынка")
+	var clean_before := s.clean
+	_check(not _has(s.run_hours(1.0), "LOG_SUPPLY_DELIVERED"), "до 08:00 машины нет")
+	_check(_has(s.run_hours(3.0), "LOG_SUPPLY_DELIVERED"), "в 08:00 поставщик приехал")
+	_check(s.properties.stock_of("market_warehouse", "mushrooms") == 10 and s.clean == clean_before - price * 10,
+			"10 грибов на складе, оплачено чистыми")
+	s.end_day()
+	_check(_has(s.end_day(), "LOG_SUPPLY_DELIVERED"), "на следующее утро — снова привёз, без кликов")
+
+	var poor := _rich_session()
+	poor.buy_property("market_warehouse")
+	poor.add_supply("shram", "moon_moss", 10, "market_warehouse", "daily")
+	poor.clean = 0
+	poor.dirty = 0
+	_check(_has(poor.run_hours(3.0), "LOG_SUPPLY_NO_MONEY"), "нет денег — поставки нет")
+
+	var risky := _rich_session()
+	risky.buy_property("market_warehouse")
+	risky.suppliers.get_def("shram").risk = 1.0
+	risky.add_supply("shram", "moon_moss", 10, "market_warehouse", "daily")
+	risky.dirty = 5000
+	var report := risky.run_hours(3.0)
+	_check(_has(report, "LOG_SUPPLY_SHORT") or _has(report, "LOG_SUPPLY_TAIL"), "«палёный» поставщик подвёл")
+	_check(risky.dirty < 5000, "за нелегальное платят сначала грязными")
+
+	var keeper := _rich_session()
+	keeper.travel("forest")
+	keeper.buy_property("forest_shed")
+	var boss := _candidate(keeper, "manager", "loyal", 2)
+	keeper.hire(boss)
+	keeper.assign(boss, "forest_shed")
+	keeper.inventory.moon_moss = 4
+	keeper.store_goods("forest_shed", "moon_moss")
+	keeper.suppliers.get_def("shram").risk = 0.0
+	_check(keeper.add_supply("shram", "moon_moss", 10, "forest_shed", "keep"), "менеджер держит запас мха")
+	keeper.run_hours(3.0)
+	_check(keeper.properties.stock_of("forest_shed", "moon_moss") == 10, "довезли ровно до 10 (4 было + 6)")
+	var data: Variant = JSON.parse_string(JSON.stringify(keeper.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.suppliers.to_dict()) == JSON.stringify(keeper.suppliers.to_dict()), "договоры поставки сохраняются")
+	keeper.travel("market")
+	keeper.travel("forest")
+	keeper.sell_property("forest_shed")
+	_check(keeper.properties.is_mine("forest_shed") or keeper.suppliers.contracts.is_empty(), "здание продано — договор закрыт")
+
+
+func _test_manager_orders() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.inventory.moon_moss = 6
+	s.store_goods("forest_shed", "moon_moss")
+	_check(not s.can_set_order("forest_shed", "brew", "none"), "без менеджера приказывать некому")
+	var boss := _candidate(s, "manager", "loyal", 2)
+	s.hire(boss)
+	s.assign(boss, "forest_shed")
+	_check(not s.set_order("forest_shed", "brew", "tea"), "чай в лаборатории не варят")
+	_check(s.set_order("forest_shed", "brew", "none"), "приказ: не варить")
+	_check(not _has(s.end_day(), "LOG_MANAGER_BREW"), "менеджер не варит по приказу")
+	s.set_order("forest_shed", "brew", "moon_pollen")
+	_check(_has(s.end_day(), "LOG_MANAGER_BREW"), "приказ: варить пыльцу — варит")
+
+	var f := _rich_session()
+	f.buy_property("laundromat")
+	var manager := _candidate(f, "manager", "loyal", 2)
+	f.hire(manager)
+	f.assign(manager, "laundromat")
+	_check(f.set_order("laundromat", "launder_keep", 500), "приказ: держать $500 грязных на руках")
+	f.dirty = 1000
+	f.end_day()
+	# Зарплата менеджеру ($50) — грязными, после отмыва.
+	_check(f.dirty >= 400 and f.dirty <= 500, "в отмыв ушло только то, что сверх $500")
+	f.set_order("laundromat", "launder_keep", -1)
+	f.dirty = 1000
+	f.end_day()
+	_check(f.dirty >= 900, "приказ «не отмывать» — грязные на руках")
+	var data: Variant = JSON.parse_string(JSON.stringify(f.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(loaded.manager_order("laundromat").launder_keep == -1, "приказы сохраняются")
+
+
+## Цепочка «поставщик → лаборатория → дилер» работает несколько дней без единого клика.
+func _test_chain_without_clicks() -> void:
+	var s := _rich_session()
+	s.travel("station")
+	s.buy_property("station_lab")
+	s.suppliers.get_def("shram").risk = 0.0
+	var boss := _candidate(s, "manager", "loyal", 3)
+	s.hire(boss)
+	s.assign(boss, "station_lab")
+	s.crew.roll_candidates(s.rng, 3)
+	var dealer := _candidate(s, "dealer", "loyal", 3)
+	s.hire(dealer)
+	s.assign(dealer, "station_lab")
+	_check(s.add_supply("shram", "moon_moss", 10, "station_lab", "keep"), "Шрам держит в лаборатории 10 мха")
+	s.dirty = 0
+	var logs: Array = []
+	for day in 4:
+		for hour in range(1, 25):
+			logs.append_array(s.run_hours(float(hour)))
+		logs.append_array(s.end_day())
+	_check(_has(logs, "LOG_SUPPLY_DELIVERED") and _has(logs, "LOG_MANAGER_BREW") and _has(logs, "LOG_DEALER_SOLD"),
+			"мох привезли, менеджер сварил пыльцу, дилер продал")
+	_check(s.dirty > 0, "грязные деньги идут сами")
+
+
+## Этап 8.5, часть 3: заказы с дедлайном.
+func _test_orders() -> void:
+	var s := _rich_session()
+	_check(s.jobs.offers_in("berlin").size() == 3, "на доске 3 заказа в Берлине")
+	var offer: Dictionary = s.jobs.offers_in("berlin")[0]
+	var unit := s.market.sell_price(offer.district, offer.good)
+	_check(int(offer.reward) > unit * int(offer.amount), "заказ платит больше рынка")
+	_check(s.accept_order(int(offer.id)), "взяли заказ")
+	_check(s.jobs.offers_in("berlin").size() == 2 and s.jobs.orders.size() == 1, "заказ ушёл с доски в работу")
+	var order: Dictionary = s.jobs.orders[0]
+	s.inventory[order.good] = int(order.amount) - 1
+	s.district = order.district
+	_check(not s.can_deliver_order(int(order.id)), "не хватает одной штуки — сдать нельзя")
+	s.inventory[order.good] = int(order.amount)
+	s.district = "forest"
+	_check(not s.can_deliver_order(int(order.id)), "сдать можно только в районе заказа")
+	s.district = order.district
+	var legal: bool = s.market.get_good(order.good).legal
+	var before := s.clean if legal else s.dirty
+	var report := s.deliver_order(int(order.id))
+	_check(_has(report, "LOG_ORDER_DONE") and s.jobs.orders.is_empty(), "заказ сдан")
+	_check((s.clean if legal else s.dirty) == before + int(order.reward), "награда пришла (легальное — чистыми, нелегальное — грязными)")
+
+	# Срок вышел — заказ сорван, банда злится.
+	var f := _rich_session()
+	var gang_offer := {}
+	for o: Dictionary in f.jobs.offers:
+		if String(o.client).begins_with("gang:"):
+			gang_offer = o
+	if gang_offer.is_empty():
+		gang_offer = { "id": f.jobs.next_id(), "client": "gang:bazaar", "city": "berlin", "district": "market", "good": "cigarettes",
+				"amount": 5, "reward": 300, "days": 2, "expires": 5 }
+		f.jobs.offers.append(gang_offer)
+	var gang: String = String(gang_offer.client).get_slice(":", 1)
+	f.accept_order(int(gang_offer.id))
+	var relation := f.gangs.relation(gang)
+	var logs: Array = []
+	for i in 5:
+		logs.append_array(f.end_day())
+	_check(_has(logs, "LOG_ORDER_FAILED") and f.jobs.orders.is_empty(), "не успел к сроку — заказ сорван")
+	_check(f.gangs.relation(gang) < relation, "банда-заказчик обиделась")
+	_check(f.jobs.offers_in("berlin").size() == 3, "доска каждый день добирается до 3")
+
+	# Подставить банду: сдать сделку полиции.
+	var p := _rich_session()
+	p.jobs.offers.append({ "id": p.jobs.next_id(), "client": "gang:neon", "city": "berlin", "district": "clubs", "good": "blue_dust",
+			"amount": 5, "reward": 2000, "days": 3, "expires": 3 })
+	var snitch_id: int = p.jobs.offers[-1].id
+	p.jobs.orders.clear()
+	p.accept_order(snitch_id)
+	p.police.heat.clubs = 50.0
+	var clean_before := p.clean
+	report = p.snitch_order(snitch_id)
+	_check(_has(report, "LOG_ORDER_SNITCHED") and p.clean == clean_before + 600, "сдали банду полиции: 30% награды чистыми")
+	_check(p.police.heat.clubs < 50.0, "розыск в районе спал")
+	var data: Variant = JSON.parse_string(JSON.stringify(p.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.jobs.to_dict()) == JSON.stringify(p.jobs.to_dict()), "заказы и доска сохраняются")
+
+
+## Этап 8.5, часть 3: ситуации с выбором.
+func _test_situations() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	s.inventory.phones = 10
+	s.store_goods("market_warehouse", "phones")
+	s.balance.situation_chance = 1.0
+	s.balance.situation_max = 5
+	var report := s.run_hours(4.0)
+	_check(_has(report, "LOG_SITUATION") and not s.jobs.situations.is_empty(), "за несколько часов случилась ситуация")
+	_check(s.jobs.situations.size() <= 5, "не больше лимита")
+	s.balance.situation_chance = 0.0
+
+	# Участковый: взятка, спрятать, сбросить; не решил — сам находит.
+	var c := _rich_session()
+	c.buy_property("market_warehouse")
+	c.inventory.phones = 10
+	c.store_goods("market_warehouse", "phones")
+	var sit := { "id": c.jobs.next_id(), "kind": "cop_visit", "place": "market_warehouse", "target": "", "amount": 0, "cost": 260,
+			"expires": c.day * 24 + 6 }
+	c.jobs.situations.append(sit)
+	var money := c.money
+	_check(_has(c.choose_situation(int(sit.id), "bribe"), "LOG_SIT_COP_BRIBED") and c.money == money - 260, "участковому дали $260")
+	_check(c.jobs.situations.is_empty(), "ситуация закрыта")
+	sit.id = c.jobs.next_id()
+	c.jobs.situations.append(sit)
+	c.choose_situation(int(sit.id), "dump")
+	_check(c.properties.stock_of("market_warehouse", "phones") == 0, "сбросили товар — улик нет")
+	c.inventory.phones = 10
+	c.store_goods("market_warehouse", "phones")
+	sit.id = c.jobs.next_id()
+	sit.expires = c.day * 24 + 3
+	c.jobs.situations.append(sit)
+	var evidence: float = c.properties.state.market_warehouse.evidence
+	report = c.run_hours(4.0)
+	_check(_has(report, "LOG_SIT_TIMEOUT") and c.properties.state.market_warehouse.evidence > evidence, "не решил вовремя — участковый нашёл улики")
+
+	# Аванс: заплатил — лояльность выросла.
+	var a := _rich_session()
+	a.buy_property("market_warehouse")
+	var worker := _candidate(a, "guard", "loyal", 2)
+	a.hire(worker)
+	a.assign(worker, "market_warehouse")
+	var loyalty: float = a.crew.get_person(worker).loyalty
+	a.jobs.situations.append({ "id": a.jobs.next_id(), "kind": "advance", "place": "market_warehouse", "target": worker, "amount": 0,
+			"cost": 150, "expires": 99 })
+	a.choose_situation(int(a.jobs.situations[0].id), "pay")
+	_check(a.crew.get_person(worker).loyalty > loyalty, "дал аванс — человек благодарен")
+
+	# Соседи: заплатил — донос невозможен, проигнорировал — вдвое вероятнее.
+	var n := _rich_session()
+	n.travel("station")
+	n.buy_property("station_lab")
+	n.inventory.moon_moss = 6
+	n.store_goods("station_lab", "moon_moss")
+	n.start_production("station_lab", "moon_pollen")
+	n.balance.snitch_per_smell = 0.005
+	var base := n.snitch_chance("station_lab")
+	n.jobs.situations.append({ "id": n.jobs.next_id(), "kind": "neighbors", "place": "station_lab", "target": "", "amount": 0,
+			"cost": 150, "expires": 99 })
+	n.choose_situation(int(n.jobs.situations[0].id), "ignore")
+	_check(n.snitch_chance("station_lab") > base, "соседей проигнорировали — донесут охотнее")
+	n.neighbor_mood.station_lab = "calm"
+	_check(n.snitch_chance("station_lab") == 0.0, "соседям заплатили — молчат")
+
+	# Перекупщик: продажа оптом сверху рынка.
+	var b := _rich_session()
+	b.buy_property("market_warehouse")
+	b.inventory.mushrooms = 10
+	b.store_goods("market_warehouse", "mushrooms")
+	b.jobs.situations.append({ "id": b.jobs.next_id(), "kind": "bulk_buyer", "place": "market_warehouse", "target": "mushrooms",
+			"amount": 8, "cost": 120, "expires": 99 })
+	var clean_before := b.clean
+	b.choose_situation(int(b.jobs.situations[0].id), "sell")
+	_check(b.clean == clean_before + 120 and b.properties.stock_of("market_warehouse", "mushrooms") == 2, "перекупщик забрал 8 грибов за $120")
+
+	# Наводка на склад банды: отбили товар, банда злится.
+	var t := _rich_session()
+	t.jobs.situations.append({ "id": t.jobs.next_id(), "kind": "tip_off", "place": "@clubs", "target": "neon|moon_moss",
+			"amount": 6, "cost": 0, "expires": 99 })
+	var relation := t.gangs.relation("neon")
+	t.choose_situation(int(t.jobs.situations[0].id), "rob")
+	_check(t.gangs.relation("neon") < relation, "налёт по наводке — Неон злится")
+	_check(not t.can_choose_situation(12345, "rob"), "чужую ситуацию не выбрать")
+
+
+## Этап 8.5, часть 4: ступени карьеры.
+func _test_ranks() -> void:
+	var s := _rich_session()
+	_check(s.rank == 0 and s.rank_name_key() == "RANK_TRAMP", "старт — Бродяга")
+	_check(s.limit("order_offers") == 3 and s.limit("crew_max") == 6, "лимиты без бонусов")
+	s.inventory.mushrooms = 30
+	s.sell("mushrooms", 30)
+	_check(s.earned_total > 0 and s.earned_total < 1000 and s.rank == 0, "заработал мало — ещё Бродяга")
+	s._earn(1000, true)
+	var report := s.run_hours(1.0)
+	_check(_has(report, "LOG_RANK_UP") and s.rank == 1, "заработал $1 000 — Уличный")
+	_check(s.limit("order_offers") == 4, "Уличный: на доске на 1 заказ больше")
+	s._earn(5000, false)
+	s.run_hours(2.0)
+	_check(s.rank == 1, "на Барыгу мало денег — нужны и 2 заказа")
+	s.orders_done = 2
+	s.run_hours(3.0)
+	_check(s.rank == 2 and s.limit("order_active_max") == 4 and s.limit("supply_max") == 8, "Барыга: +1 заказ и +2 поставщика")
+	s.orders_done = 99
+	s.earned_total = 10000000
+	s.run_hours(4.0)
+	_check(s.rank == 2, "дальше без бригады и здания не пускают (Бригадир)")
+	var before_load := s.rank
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(loaded.rank == before_load and loaded.earned_total == s.earned_total, "ступень сохраняется")
+
+	# Отмыв не считается вторым заработком.
+	var l := _rich_session()
+	l.clean = 5000
+	l.buy_property("laundromat")
+	l.dirty = 600
+	l.launder("laundromat")
+	var earned := l.earned_total
+	l.end_day()
+	_check(l.earned_total - earned <= 70, "заработано за ночь — только касса, отмытое не в счёт")
+
+	# Дань: Босс района получает с каждого своего района.
+	var t := _rich_session()
+	t.rank = 4
+	t.gangs.player_gain("forest", 60.0)
+	_check(t.gangs.owner("forest") == Gangs.PLAYER, "лесопарк — твой")
+	var dirty := t.dirty
+	report = t.end_day()
+	_check(_has(report, "LOG_TRIBUTE") and t.dirty >= dirty + int(t.balance.tribute_per_district) - 200, "район платит дань")
+	_check(t.krysha_fee("market") < roundi(float(t.balance.krysha_fee)) or t.rank < 5, "скидка на «крышу» — с Короля города")
+	t.rank = 5
+	_check(t.krysha_fee("market") == roundi(float(t.balance.krysha_fee) * float(t.market.get_district("market").police) * 0.7), "Король города: «крыша» на 30% дешевле")
 
 
 func _test_save_and_load() -> void:

@@ -70,7 +70,8 @@ func route_of(person_id: int) -> Dictionary:
 
 
 func add_route(from: String, to: String, good: String, vehicle: int, courier: int, scout: int = 0) -> Dictionary:
-	var route := { "id": _next_id, "from": from, "to": to, "good": good, "vehicle": vehicle, "courier": courier, "scout": scout }
+	var route := { "id": _next_id, "from": from, "to": to, "good": good, "vehicle": vehicle, "courier": courier, "scout": scout,
+			"shift": "night" }
 	_next_id += 1
 	routes.append(route)
 	return route
@@ -114,7 +115,8 @@ func load_dict(data: Dictionary) -> void:
 	routes = []
 	for r: Dictionary in data.get("routes", []):
 		routes.append({ "id": int(r.id), "from": String(r.from), "to": String(r.to), "good": String(r.good),
-				"vehicle": int(r.vehicle), "courier": int(r.courier), "scout": int(r.get("scout", 0)) })
+				"vehicle": int(r.vehicle), "courier": int(r.courier), "scout": int(r.get("scout", 0)),
+				"shift": String(r.get("shift", "night")) })
 	shipments = []
 	for sh: Dictionary in data.get("shipments", []):
 		shipments.append({ "id": int(sh.id), "from": String(sh.from), "to": String(sh.to), "good": String(sh.good),

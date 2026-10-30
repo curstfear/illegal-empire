@@ -5,6 +5,8 @@ signal changed
 ## Записи для журнала: список [ключ_перевода, аргументы].
 signal reported(report: Array)
 signal finished(status: GameSession.Status)
+## Деньги, заработанные бизнесом за игровой час: [[место, сумма, чистые]] — город показывает их над зданиями.
+signal earned(popups: Array)
 
 var session: GameSession
 ## Первая запись журнала для экрана игры: [ключ_перевода, аргументы].
@@ -27,6 +29,8 @@ func continue_game() -> bool:
 	session.load_dict(data)
 	intro = ["LOG_LOADED", [session.day]]
 	Clock.reset()
+	# Сохранились посреди дня — часы продолжают с того же часа.
+	Clock.advance_hours_within_day(session.hours_done)
 	changed.emit()
 	return true
 
@@ -294,6 +298,63 @@ func ship(from: String, to: String, good: String, amount: int, disguise: bool) -
 		changed.emit()
 
 
+func add_supply(supplier: String, good: String, amount: int, to: String, mode: String) -> void:
+	if session.add_supply(supplier, good, amount, to, mode):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_SUPPLY_SIGNED", [session.suppliers.get_def(supplier).name_key, amount,
+				session.market.get_good(good).name_key, session.properties.get_def(to).name_key]]])
+		changed.emit()
+
+
+func remove_supply(id: int) -> void:
+	if session.remove_supply(id):
+		Audio.ui("select")
+		changed.emit()
+
+
+func set_order(property_id: String, key: String, value: Variant) -> void:
+	if session.set_order(property_id, key, value):
+		Audio.ui("select")
+		changed.emit()
+
+
+func accept_order(id: int) -> void:
+	if session.accept_order(id):
+		Audio.ui("confirmation")
+		changed.emit()
+
+
+func deliver_order(id: int) -> void:
+	_report_and_refresh(session.deliver_order(id))
+	Audio.coin()
+
+
+func snitch_order(id: int) -> void:
+	_report_and_refresh(session.snitch_order(id))
+
+
+func drop_order(id: int) -> void:
+	_report_and_refresh(session.drop_order(id))
+
+
+func choose_situation(id: int, choice: String) -> void:
+	_report_and_refresh(session.choose_situation(id, choice))
+
+
+func _report_and_refresh(report: Array) -> void:
+	if report.is_empty():
+		return
+	_flush_popups()
+	reported.emit(report)
+	changed.emit()
+
+
+func set_route_shift(id: int, shift: String) -> void:
+	if session.set_route_shift(id, shift):
+		Audio.ui("select")
+		changed.emit()
+
+
 func remove_route(id: int) -> void:
 	if session.remove_route(id):
 		Audio.ui("select")
@@ -469,8 +530,31 @@ func lay_low() -> void:
 	Clock.finish_day()
 
 
+## Бизнес отработал прошедшие игровые часы (зовут часы раз в игровой час).
+func tick(hours_passed: float) -> void:
+	if session == null or not session.pending_check.is_empty() or not session.fight_result.is_empty():
+		return
+	var report := session.run_hours(floorf(hours_passed))
+	_flush_popups()
+	if not report.is_empty():
+		if report.any(func(entry: Array) -> bool: return entry[0] == "LOG_RANK_UP"):
+			Audio.ui("confirmation")
+		reported.emit(report)
+	changed.emit()
+
+
+func _flush_popups() -> void:
+	if session.popups.is_empty():
+		return
+	var popups := session.popups
+	session.popups = []
+	earned.emit(popups)
+	Audio.coin()
+
+
 func end_day() -> void:
 	var report := session.end_day()
+	session.popups = []
 	reported.emit(report)
 	changed.emit()
 	if not _check_finished():
