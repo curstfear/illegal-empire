@@ -463,8 +463,8 @@ func _build_properties() -> void:
 				_place(model, pos + facing * 0.75 + side * (0.85 - k * 0.4), 90.0 + rad_to_deg(atan2(facing.x, facing.z)), 1.0)
 
 
-## Булавки и подписи зданий: на продажу — оранжевая булавка, твоё — синяя булавка с названием
-## и синяя перекраска модели. Булавки слегка покачиваются.
+## Булавки и подписи зданий: на продажу — оранжевая булавка и «название · цена», твоё — синяя булавка
+## с названием и синяя перекраска модели. Булавки слегка покачиваются.
 func _refresh_property_tags() -> void:
 	if GameState.session == null:
 		return
@@ -472,7 +472,9 @@ func _refresh_property_tags() -> void:
 	for id: String in _property_tags:
 		var tag: MapTag = _property_tags[id]
 		var mine: bool = GameState.session.properties.is_mine(id)
-		tag.set_text(GameState.session.properties.get_def(id).name_key if mine else "")
+		var def := GameState.session.properties.get_def(id)
+		tag.set_text(tr(def.name_key) if mine else tr("PROP_FOR_SALE_TAG") % [tr(def.name_key), _money_text(int(def.buy_price))])
+		tag.set_dot(COLOR_MINE if mine else COLOR_FOR_SALE)
 		var pin: Node3D = _property_pins[id]
 		pin.position.y = _property_anchors[id].y + 0.25 + bob
 		var color := COLOR_MINE if mine else COLOR_FOR_SALE
@@ -481,6 +483,16 @@ func _refresh_property_tags() -> void:
 		if _property_owned.get(id, false) != mine and _property_nodes[id] != null:
 			_property_owned[id] = mine
 			soften(_property_nodes[id], COLOR_MINE, 0.7 if mine else 0.0)
+
+
+## 1500 → «1 500».
+static func _money_text(value: int) -> String:
+	var digits := str(value)
+	var result := ""
+	while digits.length() > 3:
+		result = " " + digits.right(3) + result
+		digits = digits.left(-3)
+	return digits + result
 
 
 ## Булавка на карте: шар на острие вниз, как метки в референсе.

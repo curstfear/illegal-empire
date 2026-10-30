@@ -180,7 +180,7 @@ PROP_STATION_LAB,Basement under the station,Подвал под вокзалом
 PROP_CAFE,"""Night Owl"" cafe",Кафе «Ночная сова»
 PROP_CLUB_LAB,Basement behind the club,Подвал за клубом
 PROP_FOREST_SHED,Forester's shed,Сарай лесника
-PROP_FOR_SALE_TAG,%s · for sale,%s · продаётся
+PROP_FOR_SALE_TAG,%s · $%s,%s · $%s
 PROP_KIND_WAREHOUSE,Warehouse,Склад
 PROP_KIND_LAB,Lab,Лаборатория
 PROP_KIND_FRONT,Front business,Бизнес-прикрытие
@@ -308,7 +308,7 @@ PROP_CLEANUP_HINT,Evidence makes raids likelier. Cleaning takes 2 h.,Улики 
 NEIGHBORS_FEW,few,мало
 NEIGHBORS_SOME,some,есть
 NEIGHBORS_MANY,many,много
-BUILDINGS_EMPTY,No buildings yet. Click a “for sale” pin in the city.,Пока нет зданий. Нажми на метку «продаётся» в городе.
+BUILDINGS_EMPTY,No buildings yet — pick one below or click an orange pin in the city.,Пока нет зданий — выбери ниже или нажми оранжевую метку в городе.
 NICK_GLOOMY,Gloomy,Хмурый
 NICK_QUICK,Quick,Шустрый
 NICK_BEARD,Beard,Борода
@@ -371,3 +371,7 @@ LOG_CREW_UNPAID,No money for %s's wage — they quit.,Нечем платить 
 LOG_CREW_NO_SHOW,%s didn't show up for work (hangover).,Не вышли на работу (похмелье): %s.
 LOG_CREW_FLED,%s panicked during the raid and ran off for good.,Испугались облавы и сбежали насовсем: %s.
 LOG_DEALER_SOLD,Dealer %s sold %d item(s) for $%s (dirty).,Дилер %s: продано %d шт. на $%s (грязными).
+PROP_GO_THERE_FIRST,"To buy or rent, first go to: %s.","Чтобы купить или арендовать, сначала перейди в район: %s."
+PROP_NEED_CLEAN,Not enough clean money: $%s more needed (or rent it).,Не хватает чистых: нужно ещё $%s (или возьми в аренду).
+BUILDINGS_MINE,Yours,Твои
+BUILDINGS_FOR_SALE,For sale and for rent,Продаются и сдаются

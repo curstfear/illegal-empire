@@ -2,7 +2,7 @@ class_name MapTag
 extends PanelContainer
 ## Подпись над зданием, как метки на карте в референсе: белая скруглённая плашка с мягкой тенью,
 ## чистый текст без обводки. Рисуется поверх 3D (в слое подписей города) и следует за точкой в мире.
-## Твоё — синяя точка слева; выбранный район или наведение — синий текст.
+## Цветная точка слева: синяя — твоё, оранжевая — продаётся; выбранный район или наведение — синий текст.
 
 const FONT := preload("res://assets/fonts/inter/Inter-SemiBold.otf")
 const COLOR_TEXT := Color(0.106, 0.122, 0.165)
@@ -57,6 +57,14 @@ func set_text(text: String) -> void:
 		return
 	_label.text = tr(text)
 	reset_size()
+
+
+## Точка слева: цвет или Color(0, 0, 0, 0) — без точки.
+func set_dot(color: Color) -> void:
+	_dot.visible = color.a > 0.0
+	if _dot.visible:
+		(_dot.get_theme_stylebox("panel") as StyleBoxFlat).bg_color = color
+		reset_size()
 
 
 func highlight(on: bool) -> void:

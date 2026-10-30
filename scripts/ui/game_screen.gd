@@ -850,11 +850,15 @@ func _refresh_property_card() -> void:
 		_card_tiles.add_child(_tile(tr("TILE_RENT"), "$%s / %s" % [_format_money(int(prop.rent)), tr("TILE_NIGHT")]))
 		_card_tiles.add_child(_tile(tr("TILE_CAPACITY"), str(int(prop.capacity))))
 		_card_tiles.add_child(_tile(tr("TILE_NEIGHBORS"), _neighbors_text(float(prop.get("neighbors", 1.0)))))
-		if here:
-			_prop_row([_prop_button(tr("BTN_BUY_PROPERTY") % _format_money(int(prop.buy_price)),
-					GameState.buy_property.bind(id), not s.can_buy_property(id), true),
-				_prop_button(tr("BTN_RENT_PROPERTY") % _format_money(int(prop.rent)),
-					GameState.rent_property.bind(id), not s.can_rent_property(id))])
+		# Кнопки видны всегда; купить можно, только стоя в районе здания.
+		_prop_row([_prop_button(tr("BTN_BUY_PROPERTY") % _format_money(int(prop.buy_price)),
+				GameState.buy_property.bind(id), not s.can_buy_property(id), true),
+			_prop_button(tr("BTN_RENT_PROPERTY") % _format_money(int(prop.rent)),
+				GameState.rent_property.bind(id), not s.can_rent_property(id))])
+		if not here:
+			_prop_note(tr("PROP_GO_THERE_FIRST") % tr(s.market.get_district(prop.district).name_key))
+		elif s.clean < int(prop.buy_price):
+			_prop_note(tr("PROP_NEED_CLEAN") % _format_money(int(prop.buy_price) - s.clean))
 		_prop_note(tr("PROP_BUY_HINT"))
 		return
 	# Плитки: склад и риски (у фасада — отмыв и налоговая).
@@ -1011,18 +1015,19 @@ func _prop_button(text: String, action: Callable, disabled: bool, primary: bool 
 	return button
 
 
-## Вкладка «Здания»: всё твоё — тип, район, статус, заполненность склада; клик открывает карточку.
+## Вкладка «Здания»: всё твоё — тип, район, статус, заполненность склада; ниже — что продаётся.
+## Клик по «›» открывает карточку здания.
 func _refresh_buildings() -> void:
 	var s := GameState.session
 	var props := s.properties
 	_clear(_buildings_list)
 	var mine := props.mine()
 	_tab_buttons.get_child(0).text = tr("TAB_BUILDINGS") + (" %d" % mine.size() if not mine.is_empty() else "")
+	_buildings_list.add_child(_small_label(tr("BUILDINGS_MINE").to_upper(), 10, COLOR_MUTED))
 	if mine.is_empty():
 		var empty := _small_label(tr("BUILDINGS_EMPTY"), 11, COLOR_MUTED)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_buildings_list.add_child(empty)
-		return
 	for prop: Dictionary in mine:
 		var id: String = prop.id
 		var st: Dictionary = props.state[id]
@@ -1067,6 +1072,28 @@ func _refresh_buildings() -> void:
 		row.add_child(open)
 		_buildings_list.add_child(row)
 		_buildings_list.add_child(HSeparator.new())
+	var for_sale := props.defs.filter(func(p: Dictionary) -> bool: return not props.is_mine(p.id))
+	if for_sale.is_empty():
+		return
+	_buildings_list.add_child(_small_label(tr("BUILDINGS_FOR_SALE").to_upper(), 10, COLOR_MUTED))
+	for prop: Dictionary in for_sale:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.add_child(_icon_square(KIND_ICONS[prop.kind], COLOR_WARN, 26))
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.add_child(_small_label(tr(prop.name_key), 12, COLOR_TEXT))
+		texts.add_child(_small_label(tr(s.market.get_district(prop.district).name_key) + " · " + tr("PROP_KIND_" + String(prop.kind).to_upper()), 10, COLOR_MUTED))
+		row.add_child(texts)
+		row.add_child(_small_label("$%s · $%s/%s" % [_format_money(int(prop.buy_price)), _format_money(int(prop.rent)), tr("TILE_NIGHT")], 11, COLOR_TEXT))
+		var open := Button.new()
+		open.text = "›"
+		open.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(open, 8)
+		open.pressed.connect(open_property_card.bind(String(prop.id)))
+		row.add_child(open)
+		_buildings_list.add_child(row)
 
 
 ## Вкладка «Люди»: бригада (место работы, уволить) и биржа (нанять).
