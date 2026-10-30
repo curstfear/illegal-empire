@@ -2039,9 +2039,16 @@ func _refresh_check() -> void:
 	_check_overlay.visible = not s.pending_check.is_empty() and s.status == GameSession.Status.PLAYING
 	if not _check_overlay.visible:
 		return
-	_check_text.text = tr("CHECK_TEXT") % [tr(s.market.get_district(s.district).name_key), _format_money(s.illegal_goods_value())]
+	# Досмотр на таможне: другой заголовок, бежать нельзя.
+	var customs: bool = s.pending_check.get("customs", false)
+	(_check_overlay.get_node("Center/Panel/Box/CheckTitle") as Label).text = tr("CHECK_CUSTOMS_TITLE" if customs else "CHECK_TITLE")
+	if customs:
+		_check_text.text = tr("CHECK_CUSTOMS_TEXT") % [tr(s.world.get_city(s.city).name_key), _format_money(s.illegal_goods_value())]
+	else:
+		_check_text.text = tr("CHECK_TEXT") % [tr(s.market.get_district(s.district).name_key), _format_money(s.illegal_goods_value())]
 	_bribe_button.text = tr("CHECK_BRIBE") % _format_money(s.pending_check.bribe)
 	_bribe_button.disabled = not s.can_bribe()
+	_flee_button.visible = not customs
 	_flee_button.text = tr("CHECK_FLEE") % roundi(s.flee_chance() * 100)
 
 

@@ -316,5 +316,28 @@
 	"flight_base": 60,
 	"flight_per_km": 0.08,
 	"flight_hours_base": 2,
-	"flight_km_per_hour": 800
+	"flight_km_per_hour": 800,
+
+	"passport_cost": 250,
+	"passport_days": 2,
+	"visas": {
+		"turkey": { "name_key": "VISA_TURKEY", "cost": 120, "days": 0, "valid": 30 },
+		"usa": { "name_key": "VISA_USA", "cost": 900, "days": 3, "valid": 60, "max_heat": 60, "arrest_days": 14 }
+	},
+	"forger_districts": ["station", "mrs_docks", "ist_bazaar"],
+	"fake_passport_cost": 400,
+	"fake_visa_cost": { "turkey": 90, "usa": 600 },
+	"fake_visa_valid": 20,
+	"fake_detect": { "passport": 0.15, "visa": 0.25 },
+	"fake_caught_fine": 400,
+	"fake_caught_heat": 20,
+	"customs": { "schengen": 0.12, "turkey": 0.25, "usa": 0.45 },
+	"customs_per_heat": 0.003,
+	"customs_per_1000": 0.05,
+	"customs_max": 0.8,
+	"customs_bribe_share": 0.4,
+	"customs_bribe_mult": { "schengen": 1.0, "turkey": 0.7, "usa": 2.0 },
+	"customs_heat": 10,
+	"smuggle_case_cost": 500,
+	"smuggle_case_factor": 0.5
 }

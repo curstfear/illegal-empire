@@ -236,6 +236,7 @@ func _ready() -> void:
 func _world_shots(out_dir: String) -> void:
 	GameState.new_game()
 	GameState.session.clean = 3000
+	GameState.session.documents.passport = "real"
 	var game := GAME_SCENE.instantiate()
 	add_child(game)
 	var screen: Control = game.get_node("Hud/GameScreen")
@@ -258,6 +259,18 @@ func _world_shots(out_dir: String) -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("8b_amsterdam.png"))
 	print("город: ", GameState.session.city, ", район ", GameState.session.district, ", узел города ", game.get_node("City").name)
+	# Таможня: прилёт в Марсель с товаром — досмотр.
+	var s := GameState.session
+	s.inventory.blue_dust = 4
+	s.balance.customs.schengen = 10.0
+	s.balance.customs_max = 1.0
+	GameState.fly("marseille")
+	await _frames(20)
+	_shot(out_dir.path_join("8c_customs.png"))
+	GameState.resolve_check("surrender")
+	screen._world_button.pressed.emit()
+	await _frames(10)
+	_shot(out_dir.path_join("8d_documents.png"))
 
 
 func _frames(count: int) -> void:

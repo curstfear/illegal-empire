@@ -58,11 +58,49 @@ func travel(district: String) -> void:
 func fly(city_id: String) -> void:
 	var hours := session.world.flight_hours(session.city, city_id)
 	var report := session.fly(city_id)
-	if not report.is_empty():
-		Audio.ui("confirmation")
-		reported.emit(report)
+	if report.is_empty():
+		return
+	reported.emit(report)
+	# Досмотр на таможне: часы встают, пока не решишь (день не кончится посреди досмотра).
+	if not session.pending_check.is_empty():
+		Audio.siren()
+		Clock.advance_hours_within_day(hours)
+		Clock.paused = true
 		changed.emit()
-		Clock.advance_hours(hours)
+		return
+	Audio.ui("error" if report[0][0] == "LOG_FAKE_CAUGHT" else "confirmation")
+	changed.emit()
+	Clock.advance_hours(hours)
+
+
+func apply_passport() -> void:
+	if session.apply_passport():
+		Audio.coin()
+		reported.emit([["LOG_PASSPORT_APPLIED", [int(session.documents.passport_ready)]]])
+		changed.emit()
+
+
+func apply_visa(zone: String) -> void:
+	if session.apply_visa(zone):
+		Audio.coin()
+		var ready: int = session.documents.visa_ready.get(zone, session.day)
+		reported.emit([["LOG_VISA_APPLIED", [session.balance.visas[zone].name_key, ready]]])
+		changed.emit()
+
+
+func buy_fake(kind: String, zone: String = "") -> void:
+	var ok := session.buy_fake_passport() if kind == "passport" else session.buy_fake_visa(zone)
+	if ok:
+		Audio.coin()
+		reported.emit([["LOG_FAKE_BOUGHT", ["FAKE_PASSPORT" if kind == "passport" else session.balance.visas[zone].name_key]]])
+		changed.emit()
+
+
+func buy_smuggle_case() -> void:
+	if session.buy_smuggle_case():
+		Audio.coin()
+		reported.emit([["LOG_CASE_BOUGHT", []]])
+		changed.emit()
 
 
 ## Подработка или сбор: занимает часы, и до конца дня их должно хватить.

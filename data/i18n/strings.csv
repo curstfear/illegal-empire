@@ -673,3 +673,37 @@ MAP_RANKING,%s around the world: cheapest to buy first,%s по миру: сна�
 MAP_BUY_AT,buy $%d,купить $%d
 MAP_SELL_AT,sell $%d,продать $%d
 MAP_HINT,Today's best market prices. Your own sales push them down; prices move every day.,"Лучшие цены на рынках сегодня. Твои продажи их сбивают, цены меняются каждый день."
+VISA_TURKEY,Turkish visa,виза в Турцию
+VISA_USA,US visa,виза в США
+FAKE_PASSPORT,passport,паспорт
+DOCS_TITLE,Documents,Документы
+DOCS_PASSPORT_NONE,No passport,Паспорта нет
+DOCS_PASSPORT_REAL,Passport,Паспорт
+DOCS_PASSPORT_FAKE,Passport (fake),Паспорт (поддельный)
+DOCS_PASSPORT_WAIT,Passport ready on day %d,Паспорт будет готов в день %d
+DOCS_VISA,%s: until day %d,%s: до дня %d
+DOCS_VISA_FAKE,%s (fake): until day %d,%s (поддельная): до дня %d
+DOCS_VISA_WAIT,%s: ready on day %d,%s: будет готова в день %d
+DOCS_VISA_NONE,%s: none,%s: нет
+DOCS_REFUSED,refused: high heat or a recent arrest,откажут: высокий розыск или недавний арест
+BTN_PASSPORT,"Passport $%s (%d days, only in Berlin)","Паспорт $%s (%d дн., только в Берлине)"
+BTN_VISA,Visa $%s,Виза $%s
+BTN_FAKE_PASSPORT,Fake passport $%s,Левый паспорт $%s
+BTN_FAKE_VISA,Fake visa $%s,Левая виза $%s
+BTN_CASE,Double-bottom suitcase $%s,Чемодан с двойным дном $%s
+DOCS_CASE,Double-bottom suitcase: customs check you half as often,Чемодан с двойным дном: досматривают вдвое реже
+DOCS_FORGER,"A forger works here: fakes now, but the border may spot them.","Здесь сидит подделыватель: подделки сразу, но на границе могут распознать."
+MAP_NEEDS,Needs: %s,Нужно: %s
+MAP_NEED_PASSPORT,passport,паспорт
+MAP_DOCS_OK,Documents: in order,Документы: в порядке
+MAP_CUSTOMS,Customs check with what you carry: %d%%,Шанс досмотра с твоим товаром: %d%%
+CHECK_CUSTOMS_TITLE,Customs!,Таможня!
+CHECK_CUSTOMS_TEXT,Customs in %s opened your bag. Goods worth $%s inside. No running from here.,Таможня в городе %s открыла твою сумку. Товара на $%s. Отсюда не убежишь.
+LOG_CUSTOMS_STOP,Customs pulled you aside.,Таможня отвела тебя в сторону.
+LOG_FAKE_CAUGHT,"Border control in %s spotted your fake papers: turned back, fine $%s, the fake taken.","Пограничники (%s) распознали подделку: развернули, штраф $%s, подделку забрали."
+LOG_PASSPORT_APPLIED,Passport application filed: ready on day %d.,Паспорт оформляется: будет готов в день %d.
+LOG_PASSPORT_READY,Your passport is ready.,Паспорт готов.
+LOG_VISA_APPLIED,"%s: application filed, ready on day %d.","%s: документы поданы, будет готова в день %d."
+LOG_VISA_READY,%s is ready.,Готова: %s.
+LOG_FAKE_BOUGHT,The forger made you a fake: %s.,Подделыватель сделал тебе: %s (подделка).
+LOG_CASE_BOUGHT,You bought a double-bottom suitcase.,Ты купил чемодан с двойным дном.

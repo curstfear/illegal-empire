@@ -47,6 +47,7 @@ var _hovered := ""
 var _globe := GlobeView.new()
 
 var _side := PanelContainer.new()
+var _side_scroll := ScrollContainer.new()
 var _side_box := VBoxContainer.new()
 var _bottom := PanelContainer.new()
 var _bottom_box := VBoxContainer.new()
@@ -127,8 +128,13 @@ func _build_ui() -> void:
 		style.set_border_width_all(1)
 		(pair[0] as PanelContainer).add_theme_stylebox_override("panel", style)
 		(pair[1] as VBoxContainer).add_theme_constant_override("separation", 6)
-		pair[0].add_child(pair[1])
 		add_child(pair[0])
+	# Карточка города длинная (цены, документы) — с прокруткой.
+	_side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_side_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_side_scroll.add_child(_side_box)
+	_side.add_child(_side_scroll)
+	_bottom.add_child(_bottom_box)
 
 
 ## Карта слева, карточка города справа, таблица цен снизу.
@@ -136,7 +142,7 @@ func _layout() -> void:
 	var side_w := 300.0
 	var bottom_h := 120.0
 	_side.position = Vector2(size.x - side_w - 20, 70)
-	_side.size = Vector2(side_w, 0)
+	_side.size = Vector2(side_w, size.y - 90)
 	_bottom.position = Vector2(20, size.y - bottom_h - 20)
 	_bottom.size = Vector2(size.x - side_w - 60, bottom_h)
 	_globe.position = Vector2(20, 70)
@@ -222,6 +228,20 @@ func _refresh_side() -> void:
 	else:
 		_side_box.add_child(_label(tr("WORLD_FLIGHT") % [str(s.world.flight_cost(s.city, city.id)),
 				str(s.world.flight_hours(s.city, city.id))], 12, TEXT))
+		if s.crosses_border(city.id):
+			if s.docs_ok(city.id):
+				_side_box.add_child(_label(tr("MAP_DOCS_OK"), 12, GOOD))
+			else:
+				var needs: Array = []
+				if not s.documents.has_passport():
+					needs.append(tr("MAP_NEED_PASSPORT"))
+				var zone := s.zone_of(city.id)
+				if Documents.needs_visa(zone, s.balance) and s.documents.visa(zone, s.day).is_empty():
+					needs.append(tr(s.balance.visas[zone].name_key))
+				_side_box.add_child(_label(tr("MAP_NEEDS") % ", ".join(needs), 12, BAD))
+			var customs := s.customs_chance(city.id)
+			if customs > 0.0:
+				_side_box.add_child(_label(tr("MAP_CUSTOMS") % roundi(customs * 100.0), 12, WARN))
 		var fly := Button.new()
 		fly.text = tr("BTN_FLY")
 		fly.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -252,6 +272,63 @@ func _refresh_side() -> void:
 		grid.add_child(_label("$" + str(s.city_price(city.id, g.id, true)), 11, TEXT))
 		grid.add_child(_label("$" + str(s.city_price(city.id, g.id, false)), 11, TEXT))
 	_side_box.add_child(grid)
+	_refresh_documents()
+
+
+## Документы: паспорт, визы, подделки (у подделывателя), чемодан с двойным дном.
+func _refresh_documents() -> void:
+	var s := GameState.session
+	var docs := s.documents
+	_side_box.add_child(_label(tr("DOCS_TITLE").to_upper(), 10, MUTED))
+	var passport_text := tr("DOCS_PASSPORT_NONE")
+	if docs.passport == "real":
+		passport_text = tr("DOCS_PASSPORT_REAL")
+	elif docs.passport == "fake":
+		passport_text = tr("DOCS_PASSPORT_FAKE")
+	elif docs.passport_ready > 0:
+		passport_text = tr("DOCS_PASSPORT_WAIT") % docs.passport_ready
+	_side_box.add_child(_label(passport_text, 12, TEXT if docs.has_passport() else WARN))
+	if docs.passport != "real" and docs.passport_ready == 0:
+		_doc_button(tr("BTN_PASSPORT") % [str(int(s.balance.passport_cost)), int(s.balance.passport_days)],
+				s.can_apply_passport(), GameState.apply_passport)
+	if s.at_forger() and not docs.has_passport():
+		_doc_button(tr("BTN_FAKE_PASSPORT") % str(int(s.balance.fake_passport_cost)), s.can_buy_fake_passport(),
+				GameState.buy_fake.bind("passport"))
+	for zone: String in s.balance.visas:
+		var info: Dictionary = s.balance.visas[zone]
+		var v := docs.visa(zone, s.day)
+		var text := tr("DOCS_VISA_NONE") % tr(info.name_key)
+		if not v.is_empty():
+			text = (tr("DOCS_VISA_FAKE") if v.kind == "fake" else tr("DOCS_VISA")) % [tr(info.name_key), int(v.until)]
+		elif docs.visa_ready.has(zone):
+			text = tr("DOCS_VISA_WAIT") % [tr(info.name_key), int(docs.visa_ready[zone])]
+		_side_box.add_child(_label(text, 12, TEXT if not v.is_empty() else MUTED))
+		if v.get("kind", "") != "real" and not docs.visa_ready.has(zone):
+			if s.visa_refused(zone):
+				_side_box.add_child(_label(tr("DOCS_REFUSED"), 11, BAD))
+			else:
+				_doc_button(tr("BTN_VISA") % str(int(info.cost)), s.can_apply_visa(zone), GameState.apply_visa.bind(zone))
+		if s.at_forger() and v.is_empty():
+			_doc_button(tr("BTN_FAKE_VISA") % str(int(s.balance.fake_visa_cost[zone])), s.can_buy_fake_visa(zone),
+					GameState.buy_fake.bind("visa", zone))
+	if s.at_forger():
+		var note := _label(tr("DOCS_FORGER"), 11, WARN)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_side_box.add_child(note)
+	if s.smuggle_case:
+		_side_box.add_child(_label(tr("DOCS_CASE"), 11, GOOD))
+	else:
+		_doc_button(tr("BTN_CASE") % str(int(s.balance.smuggle_case_cost)), s.can_buy_smuggle_case(), GameState.buy_smuggle_case)
+
+
+func _doc_button(text: String, enabled: bool, action: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	button.add_theme_font_size_override("font_size", 11)
+	button.disabled = not enabled
+	button.pressed.connect(action)
+	_side_box.add_child(button)
 
 
 ## Снизу: выбранный товар по городам — где дешевле купить, где дороже продать.

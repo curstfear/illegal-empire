@@ -82,6 +82,8 @@ func _init() -> void:
 	_test_flights()
 	_test_world_save()
 	_test_city_stats()
+	_test_documents()
+	_test_customs()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1778,6 +1780,8 @@ func _test_world() -> void:
 func _test_flights() -> void:
 	var s := _calm_session()
 	s.clean = 2000
+	_check(not s.can_fly("amsterdam"), "без паспорта за границу не улететь")
+	s.documents.passport = "real"
 	var cost := s.world.flight_cost("berlin", "amsterdam")
 	_check(cost < s.world.flight_cost("berlin", "miami"), "дальше — дороже")
 	_check(s.world.flight_hours("berlin", "amsterdam") < s.world.flight_hours("berlin", "miami"), "дальше — дольше")
@@ -1819,9 +1823,78 @@ func _test_city_stats() -> void:
 	_check(s.city_price("istanbul", "phones", false) > 0, "лучшая цена продажи есть")
 
 
+func _test_documents() -> void:
+	var s := _calm_session()
+	s.next_payment_day = 1000
+	s.clean = 5000
+	_check(s.apply_passport() and not s.documents.has_passport(), "паспорт оформляется не сразу")
+	s.end_day()
+	report_has_passport(s)
+	_check(s.can_fly("amsterdam") and s.can_fly("marseille"), "в Шенген — по паспорту")
+	_check(not s.can_fly("istanbul") and not s.can_fly("miami"), "в Турцию и США нужна виза")
+	_check(s.apply_visa("turkey") and s.can_fly("istanbul"), "виза в Турцию — сразу")
+	_check(s.apply_visa("usa") and not s.can_fly("miami"), "виза в США — несколько дней")
+	for i in int(s.balance.visas.usa.days):
+		s.end_day()
+	_check(s.can_fly("miami"), "виза в США готова")
+	var t := _calm_session()
+	t.clean = 5000
+	t.documents.passport = "real"
+	t.police.heat.clubs = 80.0
+	_check(t.visa_refused("usa") and not t.can_apply_visa("usa"), "с высоким розыском в визу США отказ")
+	t.police.heat.clubs = 0.0
+	t.last_arrest_day = t.day - 3
+	_check(t.visa_refused("usa"), "недавний арест — отказ")
+	_check(not t.visa_refused("turkey"), "турецкую визу дают всем")
+	# Подделки: только у подделывателя.
+	var f := _calm_session()
+	f.clean = 5000
+	_check(not f.can_buy_fake_passport(), "на рынке подделывателя нет")
+	f.travel("station")
+	_check(f.buy_fake_passport() and f.buy_fake_visa("usa") and f.can_fly("miami"), "левые паспорт и виза — сразу")
+	f.balance.fake_detect.passport = 1.0
+	var report := f.fly("miami")
+	_check(_has(report, "LOG_FAKE_CAUGHT") and f.city == "berlin" and not f.documents.has_passport(), "подделку распознали — развернули")
+
+
+func report_has_passport(s: GameSession) -> void:
+	_check(s.documents.passport == "real" or s.documents.passport_ready > s.day, "паспорт получен в срок")
+	if s.documents.passport != "real":
+		for i in 3:
+			s.end_day()
+		_check(s.documents.passport == "real", "паспорт готов через %d дн." % int(s.balance.passport_days))
+
+
+func _test_customs() -> void:
+	var s := _calm_session()
+	s.clean = 5000
+	s.documents.passport = "real"
+	_check(s.customs_chance("amsterdam") == 0.0, "без товара досмотра нет")
+	s.inventory.blue_dust = 5
+	var schengen := s.customs_chance("amsterdam")
+	s.documents.visas.usa = { "kind": "real", "until": 100 }
+	_check(schengen > 0.0 and s.customs_chance("miami") > schengen, "в США досматривают строже")
+	s.buy_smuggle_case()
+	_check(is_equal_approx(s.customs_chance("amsterdam"), schengen * 0.5), "чемодан с двойным дном — вдвое реже")
+	s.balance.customs.schengen = 10.0
+	s.balance.customs_max = 1.0
+	var report := s.fly("amsterdam")
+	_check(_has(report, "LOG_CUSTOMS_STOP") and s.pending_check.get("customs", false) and not s.can_act(), "досмотр на таможне")
+	_check(s.flee().is_empty() and not s.pending_check.is_empty(), "с таможни не убежать")
+	var heat: float = s.police.heat.ams_canals
+	s.surrender()
+	_check(s.inventory.blue_dust == 0 and s.police.heat.ams_canals > heat and s.can_act(), "сдал товар — запомнили")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session()
+	loaded.load_dict(data)
+	_check(loaded.documents.has_passport() and loaded.smuggle_case and loaded.documents.visas.has("usa"), "документы сохраняются")
+
+
 func _test_world_save() -> void:
 	var s := _calm_session()
 	s.clean = 2000
+	s.documents.passport = "real"
+	s.documents.visas.turkey = { "kind": "real", "until": 100 }
 	s.fly("istanbul")
 	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
 	var loaded := _calm_session()

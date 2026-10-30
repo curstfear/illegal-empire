@@ -53,6 +53,11 @@ func advance_hours(hours: float) -> void:
 		finish_day()
 
 
+## Прошло hours часов, но день не кончается (например, ждёт решение на таможне): часы встают за минуту до конца.
+func advance_hours_within_day(hours: float) -> void:
+	elapsed = minf(elapsed + hours / 24.0 * _day_length, _day_length - _day_length / 1440.0)
+
+
 ## Закончить день сразу (кнопка «Закончить день»).
 func finish_day() -> void:
 	elapsed = 0.0

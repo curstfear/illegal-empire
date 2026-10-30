@@ -10,7 +10,8 @@ extends RefCounted
 ## раненые и погибшие, отчёт о бое и выбор последствий; дипломатия — встречи с боссами, договоры
 ## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон)
 ## и полиция посложнее: детективы ведут дело, спецназ на крупных облавах, «крыша» — продажный полицейский;
-## мир из нескольких городов в разных странах (у каждого свои районы, рынок, полиция и банды), перелёты.
+## мир из нескольких городов в разных странах (у каждого свои районы, рынок, полиция и банды), перелёты,
+## документы (паспорт, визы, подделки) и таможня на границе.
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -31,52 +32,7 @@ var crew: Crew
 var logistics: Logistics
 var gangs: Gangs
 var world: World
-# --- Мир ---
-
-func can_fly(to_city: String) -> bool:
-	return can_act() and to_city != city and not world.get_city(to_city).is_empty() and money >= world.flight_cost(city, to_city)
-
-
-## Самый высокий розыск среди районов города (0–100).
-func city_heat(city_id: String) -> float:
-	var result := 0.0
-	for d: Dictionary in world.districts_of(city_id):
-		result = maxf(result, float(police.heat[d.id]))
-	return result
-
-
-## Твоё влияние в городе: среднее по его районам (0–100).
-func city_influence(city_id: String) -> float:
-	var list := world.districts_of(city_id)
-	var total := 0.0
-	for d: Dictionary in list:
-		total += gangs.share(d.id, Gangs.PLAYER)
-	return total / maxf(1.0, list.size())
-
-
-## Лучшая цена товара в городе: buy — самая низкая цена покупки, иначе — самая высокая цена продажи (0 — рынков нет).
-func city_price(city_id: String, good: String, buy: bool) -> int:
-	var best := 0
-	for d: Dictionary in world.districts_of(city_id):
-		if not d.has_market:
-			continue
-		var price := market.buy_price(d.id, good) if buy else market.sell_price(d.id, good)
-		if best == 0 or (price < best if buy else price > best):
-			best = price
-	return best
-
-
-## Перелёт в другой город: билет, часы в пути (их отсчитывают часы игры); прилетаешь в главный район.
-func fly(to_city: String) -> Array:
-	if not can_fly(to_city):
-		return []
-	var cost := world.flight_cost(city, to_city)
-	_spend(cost)
-	city = to_city
-	district = world.get_city(to_city).start
-	return [["LOG_FLEW", [world.get_city(to_city).name_key, cost]]]
-
-
+var documents := Documents.new()
 ## Подработки и сбор (data/activities.json).
 var activities: Array = []
 var rng := RandomNumberGenerator.new()
@@ -103,6 +59,10 @@ var inventory: Dictionary = {}
 var spent_on: Dictionary = {}
 ## Идёт проверка полиции: { "bribe": сумма }. Пока не решена, торговать нельзя.
 var pending_check: Dictionary = {}
+## Чемодан с двойным дном: на таможне досматривают реже.
+var smuggle_case: bool = false
+## День последнего ареста (для визы в США нужна чистая история).
+var last_arrest_day: int = -1000
 ## Итоги прошлых дней для графиков: все деньги (с вкладом) и самый большой розыск.
 var money_history: Array = []
 var heat_history: Array = []
@@ -1501,13 +1461,18 @@ func surrender() -> Array:
 	if pending_check.is_empty():
 		return []
 	_lose_illegal_goods()
-	police.add_heat(district, -balance.surrender_heat_drop)
+	# На таможне сдал товар — тебя запомнили; полиции — розыск меньше.
+	if pending_check.get("customs", false):
+		police.add_heat(district, float(balance.customs_heat))
+	else:
+		police.add_heat(district, -balance.surrender_heat_drop)
 	pending_check = {}
 	return [["LOG_SURRENDERED", []]]
 
 
 func flee() -> Array:
-	if pending_check.is_empty():
+	# С таможни не убежишь.
+	if pending_check.is_empty() or pending_check.get("customs", false):
 		return []
 	pending_check = {}
 	if rng.randf() < flee_chance():
@@ -1520,6 +1485,7 @@ func flee() -> Array:
 ## Дни в камере идут как обычные: аренда, проценты и срок платежа никуда не деваются.
 ## Адвокат в бригаде: штраф меньше, а опытный (от 3 ур.) сокращает срок на день.
 func arrest() -> Array:
+	last_arrest_day = day
 	_lose_illegal_goods()
 	var lawyer := crew.best_skill("lawyer")
 	var fine := floori(dirty * float(balance.arrest_dirty_fine) * maxf(0.0, 1.0 - lawyer * float(balance.lawyer_fine_per_skill)))
@@ -1672,10 +1638,191 @@ func end_day() -> Array:
 	crew.roll_candidates(rng, int(balance.crew_candidates))
 	report.insert(0, ["LOG_DAY_ENDED", [day]])
 	day += 1
+	report.append_array(documents.collect(day, balance))
 	energy = balance.energy_max
 	if not events.today.is_empty():
 		report.append(["LOG_EVENT", [events.today.text_key]])
 	return report
+
+
+# --- Мир ---
+
+func can_fly(to_city: String) -> bool:
+	return can_act() and to_city != city and not world.get_city(to_city).is_empty() \
+			and money >= world.flight_cost(city, to_city) and docs_ok(to_city)
+
+
+func zone_of(city_id: String) -> String:
+	return String(world.country_of(city_id).get("zone", ""))
+
+
+## Перелёт через границу: в другую страну.
+func crosses_border(to_city: String) -> bool:
+	return world.get_city(to_city).country != world.get_city(city).country
+
+
+## Есть ли документы для перелёта: паспорт за любую границу, виза — куда она нужна.
+func docs_ok(to_city: String) -> bool:
+	return not crosses_border(to_city) or documents.ready_for(zone_of(to_city), day, balance)
+
+
+## Шанс досмотра на таможне при прилёте с нелегальным товаром: строгость страны, розыск района прилёта,
+## стоимость товара; чемодан с двойным дном — реже.
+func customs_chance(to_city: String) -> float:
+	var value := 0.0
+	for good: Dictionary in market.goods:
+		if not good.legal:
+			value += float(good.base_price) * inventory[good.id]
+	if value <= 0.0 or not crosses_border(to_city):
+		return 0.0
+	var start: String = world.get_city(to_city).start
+	var chance := float(balance.customs[zone_of(to_city)]) + float(police.heat[start]) * float(balance.customs_per_heat) \
+			+ value / 1000.0 * float(balance.customs_per_1000)
+	if smuggle_case:
+		chance *= float(balance.smuggle_case_factor)
+	return minf(float(balance.customs_max), chance)
+
+
+## Перелёт в другой город: билет, часы в пути (их отсчитывают часы игры); прилетаешь в главный район.
+## На границе проверяют поддельные документы (распознали — разворот, штраф, подделку забрали)
+## и, если везёшь нелегальное, может быть досмотр (pending_check с customs — откупиться или сдать товар).
+func fly(to_city: String) -> Array:
+	if not can_fly(to_city):
+		return []
+	var cost := world.flight_cost(city, to_city)
+	_spend(cost)
+	var report: Array = []
+	if crosses_border(to_city):
+		for fake: String in documents.fakes_for(zone_of(to_city), day, balance):
+			if rng.randf() < float(balance.fake_detect[fake]):
+				if fake == "passport":
+					documents.passport = ""
+				else:
+					documents.visas.erase(zone_of(to_city))
+				var fine := mini(money, int(balance.fake_caught_fine))
+				_spend(fine)
+				police.add_heat(district, float(balance.fake_caught_heat))
+				return [["LOG_FAKE_CAUGHT", [world.get_city(to_city).name_key, fine]]]
+	var chance := customs_chance(to_city)
+	city = to_city
+	district = world.get_city(to_city).start
+	report.append(["LOG_FLEW", [world.get_city(to_city).name_key, cost]])
+	if rng.randf() < chance:
+		var bribe_value := illegal_goods_value() * float(balance.customs_bribe_share) \
+				* float(balance.customs_bribe_mult[zone_of(to_city)]) * skills.bribe_multiplier()
+		pending_check = { "bribe": maxi(50, roundi(bribe_value)), "customs": true }
+		report.append(["LOG_CUSTOMS_STOP", []])
+	return report
+
+
+## Паспорт оформляют только в родном городе, несколько дней.
+func can_apply_passport() -> bool:
+	return can_act() and documents.passport != "real" and documents.passport_ready == 0 and city == world.home \
+			and money >= int(balance.passport_cost)
+
+
+func apply_passport() -> bool:
+	if not can_apply_passport():
+		return false
+	_spend(int(balance.passport_cost))
+	documents.passport_ready = day + int(balance.passport_days)
+	return true
+
+
+## Виза: нужен паспорт. В США не дают при высоком розыске или недавнем аресте.
+func visa_refused(zone: String) -> bool:
+	var info: Dictionary = balance.visas[zone]
+	return (info.has("max_heat") and police.max_heat() >= float(info.max_heat)) \
+			or (info.has("arrest_days") and day - last_arrest_day < int(info.arrest_days))
+
+
+func can_apply_visa(zone: String) -> bool:
+	return can_act() and balance.visas.has(zone) and documents.has_passport() and documents.visa(zone, day).get("kind", "") != "real" \
+			and not documents.visa_ready.has(zone) and not visa_refused(zone) and money >= int(balance.visas[zone].cost)
+
+
+## Оформить визу: без ожидания — сразу, иначе через несколько дней.
+func apply_visa(zone: String) -> bool:
+	if not can_apply_visa(zone):
+		return false
+	var info: Dictionary = balance.visas[zone]
+	_spend(int(info.cost))
+	if int(info.days) == 0:
+		documents.visas[zone] = { "kind": "real", "until": day + int(info.valid) }
+	else:
+		documents.visa_ready[zone] = day + int(info.days)
+	return true
+
+
+## Подделыватель сидит в нескольких районах (balance.forger_districts).
+func at_forger() -> bool:
+	return balance.forger_districts.has(district)
+
+
+func can_buy_fake_passport() -> bool:
+	return can_act() and at_forger() and not documents.has_passport() and money >= int(balance.fake_passport_cost)
+
+
+func buy_fake_passport() -> bool:
+	if not can_buy_fake_passport():
+		return false
+	_spend(int(balance.fake_passport_cost))
+	documents.passport = "fake"
+	return true
+
+
+func can_buy_fake_visa(zone: String) -> bool:
+	return can_act() and at_forger() and balance.fake_visa_cost.has(zone) and documents.visa(zone, day).is_empty() \
+			and money >= int(balance.fake_visa_cost[zone])
+
+
+func buy_fake_visa(zone: String) -> bool:
+	if not can_buy_fake_visa(zone):
+		return false
+	_spend(int(balance.fake_visa_cost[zone]))
+	documents.visas[zone] = { "kind": "fake", "until": day + int(balance.fake_visa_valid) }
+	return true
+
+
+func can_buy_smuggle_case() -> bool:
+	return can_act() and not smuggle_case and money >= int(balance.smuggle_case_cost)
+
+
+func buy_smuggle_case() -> bool:
+	if not can_buy_smuggle_case():
+		return false
+	_spend(int(balance.smuggle_case_cost))
+	smuggle_case = true
+	return true
+
+
+## Самый высокий розыск среди районов города (0–100).
+func city_heat(city_id: String) -> float:
+	var result := 0.0
+	for d: Dictionary in world.districts_of(city_id):
+		result = maxf(result, float(police.heat[d.id]))
+	return result
+
+
+## Твоё влияние в городе: среднее по его районам (0–100).
+func city_influence(city_id: String) -> float:
+	var list := world.districts_of(city_id)
+	var total := 0.0
+	for d: Dictionary in list:
+		total += gangs.share(d.id, Gangs.PLAYER)
+	return total / maxf(1.0, list.size())
+
+
+## Лучшая цена товара в городе: buy — самая низкая цена покупки, иначе — самая высокая цена продажи (0 — рынков нет).
+func city_price(city_id: String, good: String, buy: bool) -> int:
+	var best := 0
+	for d: Dictionary in world.districts_of(city_id):
+		if not d.has_market:
+			continue
+		var price := market.buy_price(d.id, good) if buy else market.sell_price(d.id, good)
+		if best == 0 or (price < best if buy else price > best):
+			best = price
+	return best
 
 
 # --- Банды ---
@@ -2393,6 +2540,9 @@ func to_dict() -> Dictionary:
 		"inventory": inventory.duplicate(),
 		"spent_on": spent_on.duplicate(),
 		"pending_check": pending_check.duplicate(),
+		"documents": documents.to_dict(),
+		"smuggle_case": smuggle_case,
+		"last_arrest_day": last_arrest_day,
 		"money_history": money_history.duplicate(),
 		"heat_history": heat_history.duplicate(),
 		"gear": gear,
@@ -2416,6 +2566,9 @@ func load_dict(data: Dictionary) -> void:
 	crew.load_dict(data.get("crew", {}))
 	logistics.load_dict(data.get("logistics", {}))
 	gangs.load_dict(data.get("gangs", {}))
+	documents.load_dict(data.get("documents", {}))
+	smuggle_case = bool(data.get("smuggle_case", false))
+	last_arrest_day = int(data.get("last_arrest_day", -1000))
 	clean = int(data.clean)
 	dirty = int(data.dirty)
 	clean_earned = int(data.clean_earned)
@@ -2429,6 +2582,8 @@ func load_dict(data: Dictionary) -> void:
 	pending_check = {}
 	if not data.pending_check.is_empty():
 		pending_check = { "bribe": int(data.pending_check.bribe) }
+		if data.pending_check.get("customs", false):
+			pending_check.customs = true
 	money_history = data.get("money_history", []).map(func(v: Variant) -> int: return int(v))
 	heat_history = data.get("heat_history", []).map(func(v: Variant) -> float: return float(v))
 	gear = int(data.get("gear", 0))
