@@ -1,7 +1,8 @@
 extends Control
 ## Интерфейс партии поверх 3D-города, в стиле «белых карточек»: показатели слева сверху,
 ## часы и скорость справа сверху, карточка района или здания справа, трекер платежа снизу слева,
-## панель «Здания / Люди / Перевозки / Банды / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции.
+## панель «Здания / Люди / Перевозки / Банды / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции,
+## окно разборки (выбор тактики, потом отчёт о бое и последствия).
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
@@ -15,7 +16,7 @@ const LEVEL_COLORS := { "friend": Color(0.09, 0.6, 0.35), "neutral": Color(0.42,
 ## Цвета ролей в таблетках.
 const ROLE_COLORS := { "cook": Color(0.09, 0.6, 0.35), "dealer": Color(0.72, 0.46, 0.04), "guard": Color(0.184, 0.42, 1.0),
 		"courier": Color(0.55, 0.3, 0.85), "manager": Color(0.1, 0.55, 0.65), "accountant": Color(0.4, 0.5, 0.15),
-		"lawyer": Color(0.35, 0.38, 0.5), "scout": Color(0.85, 0.35, 0.55) }
+		"lawyer": Color(0.35, 0.38, 0.5), "scout": Color(0.85, 0.35, 0.55), "fighter": Color(0.75, 0.22, 0.2) }
 ## Всплывающие сообщения: сколько держится и сколько сразу на экране.
 const TOAST_SECONDS := 6.0
 const TOASTS_MAX := 4
@@ -130,6 +131,10 @@ var _routes_list := VBoxContainer.new()
 var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0 }
 ## Вкладка «Банды» (строится кодом).
 var _gangs_list := VBoxContainer.new()
+## Окно разборки (строится кодом): затемнение, содержимое и банда, на которую собираемся наехать ("" — не собираемся).
+var _fight_overlay := ColorRect.new()
+var _fight_box := VBoxContainer.new()
+var _fight_gang: String = ""
 
 
 func _ready() -> void:
@@ -147,6 +152,7 @@ func _ready() -> void:
 	_build_payment_card()
 	_build_routes_tab()
 	_build_gangs_tab()
+	_build_fight_overlay()
 	_build_tab_buttons()
 	_build_market()
 	_build_stall()
@@ -728,6 +734,7 @@ func _refresh() -> void:
 	_refresh_stall()
 	_refresh_skills()
 	_refresh_check()
+	_refresh_fight()
 
 
 ## Строки под числами: разница денег за день, отмыв, проценты, район, силы.
@@ -1192,6 +1199,8 @@ func _loyalty_row(person: Dictionary) -> VBoxContainer:
 	meters.add_child(_meter(tr("CREW_FATIGUE"), fatigue / 100.0,
 			COLOR_DOWN if fatigue >= float(s.balance.fatigue_tired) else COLOR_WARN))
 	meters.add_child(_small_label(tr("CREW_KNOWS") % roundi(s.knows_share(person) * 100.0), 10, COLOR_MUTED))
+	if int(person.wounded) > 0:
+		meters.add_child(_small_label(tr("CREW_WOUNDED") % int(person.wounded), 10, COLOR_DOWN))
 	box.add_child(meters)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 4)
@@ -1473,6 +1482,26 @@ func _refresh_gangs() -> void:
 	var hint := _small_label(tr("GANGS_HINT"), 10, COLOR_MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_gangs_list.add_child(hint)
+	var power := HBoxContainer.new()
+	power.add_theme_constant_override("separation", 6)
+	var power_label := _small_label(tr("GANGS_POWER") % [roundi(s.crew_power()),
+			s.fighters_ready().filter(func(p: Dictionary) -> bool: return p.role == "fighter").size(),
+			tr(s.balance.gear_levels[s.gear].name_key)], 11, COLOR_TEXT)
+	power_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	power.add_child(power_label)
+	var gear := Button.new()
+	if s.gear + 1 < s.balance.gear_levels.size():
+		var next: Dictionary = s.balance.gear_levels[s.gear + 1]
+		gear.text = tr("BTN_GEAR") % [tr(next.name_key), _format_money(int(next.cost))]
+	else:
+		gear.text = tr("BTN_GEAR_MAX")
+	gear.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(gear, 8)
+	gear.add_theme_font_size_override("font_size", 10)
+	gear.disabled = not s.can_buy_gear()
+	gear.pressed.connect(GameState.buy_gear)
+	power.add_child(gear)
+	_gangs_list.add_child(power)
 	_tab_buttons.get_child(TAB_INDEX.gangs).text = tr("TAB_GANGS") + (" %d" % gangs.offers.size() if not gangs.offers.is_empty() else "")
 	if not gangs.offers.is_empty():
 		_gangs_list.add_child(_small_label(tr("GANGS_OFFERS").to_upper(), 10, COLOR_MUTED))
@@ -1496,6 +1525,16 @@ func _refresh_gangs() -> void:
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title.add_child(name_label)
 		title.add_child(_pill(tr("GANG_LEVEL_" + level.to_upper()), LEVEL_COLORS[level]))
+		if s.fight_district(gang.id) != "":
+			var fight := Button.new()
+			fight.text = tr("BTN_FIGHT")
+			fight.tooltip_text = tr("BTN_FIGHT_TIP")
+			fight.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			_make_small(fight, 8)
+			fight.add_theme_font_size_override("font_size", 10)
+			fight.disabled = not GameState.can_fight(gang.id)
+			fight.pressed.connect(open_fight.bind(String(gang.id)))
+			title.add_child(fight)
 		texts.add_child(title)
 		texts.add_child(_small_label(tr("GANG_BOSS") % [tr(gang.boss_key), tr(gangs.temper(gang.id).name_key)], 10, COLOR_MUTED))
 		texts.add_child(_small_label(tr("GANG_INFO") % [int(st.people), _format_money(int(st.cash)), gangs.strength(gang.id)],
@@ -1531,6 +1570,111 @@ func _refresh_gangs() -> void:
 		legend.add_child(swatch)
 		legend.add_child(_small_label(item[0], 10, COLOR_MUTED))
 	_gangs_list.add_child(legend)
+
+
+func _build_fight_overlay() -> void:
+	_fight_overlay.color = _check_overlay.color
+	_fight_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fight_overlay.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(440, 0)
+	panel.add_theme_stylebox_override("panel", _check_overlay.get_node("Center/Panel").get_theme_stylebox("panel"))
+	_fight_box.add_theme_constant_override("separation", 10)
+	panel.add_child(_fight_box)
+	center.add_child(panel)
+	_fight_overlay.add_child(center)
+	add_child(_fight_overlay)
+	move_child(_fight_overlay, _check_overlay.get_index())
+
+
+## Собраться на разборку: окно с силами сторон и выбором тактики.
+func open_fight(gang_id: String) -> void:
+	_fight_gang = gang_id
+	_refresh_fight()
+
+
+## Окно разборки: перед боем — силы и тактики, после — отчёт о бое и что делать дальше.
+func _refresh_fight() -> void:
+	var s := GameState.session
+	var result := s.fight_result
+	_fight_overlay.visible = s.status == GameSession.Status.PLAYING and (not result.is_empty() or _fight_gang != "")
+	if not _fight_overlay.visible:
+		return
+	_clear(_fight_box)
+	if result.is_empty():
+		_fight_prep()
+	else:
+		_fight_gang = ""
+		_fight_report(result)
+
+
+func _fight_prep() -> void:
+	var s := GameState.session
+	var gang := s.gangs.get_def(_fight_gang)
+	_fight_title(tr("FIGHT_TITLE") % tr(gang.name_key), s.gangs.color(_fight_gang))
+	_fight_text(tr("FIGHT_PREP") % [tr(s.market.get_district(s.fight_district(_fight_gang)).name_key),
+			roundi(s.crew_power()), roundi(s.fight_defense(_fight_gang))])
+	for tactic: String in s.balance.fight_tactics:
+		var button := _fight_button(tr("FIGHT_TACTIC") % [tr(s.balance.fight_tactics[tactic].name_key),
+				roundi(s.fight_chance(_fight_gang, tactic) * 100.0)], _fight_with.bind(tactic))
+		button.tooltip_text = tr(String(s.balance.fight_tactics[tactic].name_key) + "_TIP")
+		button.disabled = not GameState.can_fight(_fight_gang)
+	_fight_button(tr("BTN_CANCEL"), open_fight.bind(""))
+
+
+func _fight_with(tactic: String) -> void:
+	var gang := _fight_gang
+	_fight_gang = ""
+	GameState.fight(gang, tactic)
+
+
+## Отчёт о бое: итог, силы сторон, твои раненые и погибшие, потери банды; после победы — три последствия.
+func _fight_report(result: Dictionary) -> void:
+	var s := GameState.session
+	var gang := s.gangs.get_def(result.gang)
+	_fight_title(tr("FIGHT_WON") if result.win else tr("FIGHT_LOST"), COLOR_UP if result.win else COLOR_DOWN)
+	_fight_text(tr("FIGHT_SIDES") % [tr(gang.name_key), int(result.power), int(result.defense)])
+	var losses: Array = []
+	if not result.wounded.is_empty():
+		losses.append(tr("FIGHT_WOUNDED_LIST") % ", ".join(result.wounded.map(func(n: String) -> String: return tr(n))))
+	if not result.dead.is_empty():
+		losses.append(tr("FIGHT_DEAD_LIST") % ", ".join(result.dead.map(func(n: String) -> String: return tr(n))))
+	_fight_text(tr("FIGHT_YOUR_LOSSES") % ("; ".join(losses) if not losses.is_empty() else tr("FIGHT_NO_LOSSES")),
+			COLOR_DOWN if not result.dead.is_empty() else COLOR_TEXT)
+	_fight_text(tr("FIGHT_GANG_LOSSES") % [int(result.gang_losses), int(result.heat)], COLOR_MUTED)
+	if not result.win:
+		_fight_button(tr("BTN_OK"), GameState.choose_fight_outcome.bind("ok"))
+		return
+	_fight_text(tr("FIGHT_CHOOSE"))
+	var tribute := roundi(int(s.gangs.state[result.gang].cash) * float(s.balance.fight_tribute_share))
+	_fight_button(tr("BTN_FIGHT_TAKE") % int(s.balance.fight_take_influence), GameState.choose_fight_outcome.bind("take"))
+	_fight_button(tr("BTN_FIGHT_TRIBUTE") % _format_money(tribute), GameState.choose_fight_outcome.bind("tribute"))
+	_fight_button(tr("BTN_FIGHT_MERCY"), GameState.choose_fight_outcome.bind("mercy"))
+
+
+func _fight_title(text: String, color: Color) -> void:
+	var title := _small_label(text, 22, color)
+	_bold(title)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fight_box.add_child(title)
+
+
+func _fight_text(text: String, color: Color = COLOR_TEXT) -> void:
+	var label := _small_label(text, 13, color)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_fight_box.add_child(label)
+
+
+func _fight_button(text: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	button.pressed.connect(action)
+	_fight_box.add_child(button)
+	return button
 
 
 ## Строка требования или предложения банды: что хотят, до какого дня, кнопки «да» и «нет».

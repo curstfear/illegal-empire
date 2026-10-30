@@ -114,6 +114,13 @@ func player_gain(district: String, amount: float, push: float = -1.0) -> String:
 	return rival
 
 
+## Отнять влияние у конкретной банды силой (после разборки): её очки переходят тебе.
+func take_from(district: String, gang_id: String, amount: float) -> void:
+	var taken := minf(amount, share(district, gang_id))
+	influence[district][gang_id] = share(district, gang_id) - taken
+	influence[district][PLAYER] = share(district, PLAYER) + taken
+
+
 func relation(id: String) -> float:
 	return float(state[id].relation)
 

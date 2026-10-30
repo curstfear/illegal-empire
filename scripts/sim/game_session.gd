@@ -6,7 +6,8 @@ extends RefCounted
 ## бригада (повара, дилеры, охрана, курьеры, менеджеры, бухгалтеры, адвокаты, разведчики;
 ## лояльность, страх, усталость, рост, предательство), перевозки (в том числе на рынок)
 ## и банды (хозяева районов, отношение к тебе, твоё влияние; ночью требуют долю, сбивают цены,
-## нападают на здания и перевозки, переманивают людей, предлагают сделки).
+## нападают на здания и перевозки, переманивают людей, предлагают сделки; разборки с ними — бойцы, снаряжение,
+## раненые и погибшие, отчёт о бое и выбор последствий).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -53,6 +54,12 @@ var pending_check: Dictionary = {}
 ## Итоги прошлых дней для графиков: все деньги (с вкладом) и самый большой розыск.
 var money_history: Array = []
 var heat_history: Array = []
+## Снаряжение бригады: уровень 0–3 (balance.gear_levels), усиливает бойцов и охрану в драке.
+var gear: int = 0
+## Итог последней разборки, пока игрок не закрыл отчёт: { gang, district, tactic, win, power, defense,
+## wounded: [клички], dead: [клички], gang_losses, heat }. Пока он есть, действовать нельзя
+## (после победы надо выбрать последствия).
+var fight_result: Dictionary = {}
 
 var money: int:
 	get:
@@ -113,7 +120,7 @@ func _remember_day() -> void:
 
 
 func can_act() -> bool:
-	return status == Status.PLAYING and pending_check.is_empty()
+	return status == Status.PLAYING and pending_check.is_empty() and fight_result.is_empty()
 
 
 # --- Рынок ---
@@ -1151,6 +1158,11 @@ func _roll_presence() -> Array:
 	var report: Array = []
 	crew.present.clear()
 	for person: Dictionary in crew.people:
+		# Раненый лечится: ночь не работает, срок уменьшается.
+		if int(person.wounded) > 0:
+			person.wounded = int(person.wounded) - 1
+			crew.present[person.id] = false
+			continue
 		if int(person.off_day) == day:
 			crew.present[person.id] = false
 			continue
@@ -1697,9 +1709,10 @@ func _gang_dump(id: String) -> Array:
 func gang_attack_chance(id: String, property_id: String) -> float:
 	var attack := float(balance.gang_attack_base) + gangs.strength(id) * float(balance.gang_attack_share)
 	var defense := 0.0
-	for guard: Dictionary in crew.working_at(property_id, "guard"):
-		if crew.present.get(guard.id, true):
-			defense += int(guard.skill) * float(balance.guard_defense_per_skill)
+	for person: Dictionary in _defenders(property_id):
+		var per_skill := float(balance.defense_fighter_per_skill) if person.role == "fighter" else float(balance.guard_defense_per_skill)
+		defense += int(person.skill) * per_skill
+	defense *= gear_power()
 	if properties.has_upgrade(property_id, "alarm"):
 		defense += float(balance.alarm_defense)
 	return attack / (attack + defense)
@@ -1715,9 +1728,12 @@ func _gang_attack(id: String, anywhere: bool = false) -> Array:
 	targets.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return properties.stock_used(a.id) > properties.stock_used(b.id))
 	var prop: Dictionary = targets[0]
 	var gang := gangs.get_def(id)
+	var defenders := _defenders(prop.id)
 	if rng.randf() >= gang_attack_chance(id, prop.id):
 		gangs.state[id].people = maxi(1, int(gangs.state[id].people) - 1)
-		return [["LOG_GANG_RAID_REPELLED", [gang.name_key, prop.name_key]]]
+		var held: Array = [["LOG_GANG_RAID_REPELLED", [gang.name_key, prop.name_key]]]
+		held.append_array(_wound_defenders(defenders, float(balance.defender_wound_won)))
+		return held
 	var taken := 0
 	var stock: Dictionary = properties.state[prop.id].stock
 	for good: String in stock.keys():
@@ -1726,7 +1742,173 @@ func _gang_attack(id: String, anywhere: bool = false) -> Array:
 		taken += n
 	for person: Dictionary in crew.working_at(prop.id):
 		_change_loyalty(person, float(balance.gang_attack_loyalty))
-	return [["LOG_GANG_RAID", [gang.name_key, prop.name_key, taken]]]
+	var raided: Array = [["LOG_GANG_RAID", [gang.name_key, prop.name_key, taken]]]
+	raided.append_array(_wound_defenders(defenders, float(balance.defender_wound_lost)))
+	return raided
+
+
+## Кто вышел защищать здание от банды: охранники и бойцы на месте.
+func _defenders(property_id: String) -> Array:
+	return crew.working_at(property_id).filter(func(p: Dictionary) -> bool:
+		return p.role in ["guard", "fighter"] and crew.present.get(p.id, true) and int(p.wounded) == 0)
+
+
+func _wound_defenders(defenders: Array, chance: float) -> Array:
+	var report: Array = []
+	for person: Dictionary in defenders:
+		if rng.randf() < chance:
+			person.wounded = rng.randi_range(int(balance.fight_wound_days[0]), int(balance.fight_wound_days[1]))
+			report.append(["LOG_FIGHT_WOUNDED", [person.nick, int(person.wounded)]])
+	return report
+
+
+# --- Разборки ---
+
+func gear_power() -> float:
+	return float(balance.gear_levels[gear].power)
+
+
+func can_buy_gear() -> bool:
+	return can_act() and gear + 1 < balance.gear_levels.size() and money >= int(balance.gear_levels[gear + 1].cost)
+
+
+func buy_gear() -> bool:
+	if not can_buy_gear():
+		return false
+	_spend(int(balance.gear_levels[gear + 1].cost))
+	gear += 1
+	return true
+
+
+## Кто пойдёт на разборку днём: бойцы и охранники, не раненые и не на выходном.
+func fighters_ready() -> Array:
+	return crew.people.filter(func(p: Dictionary) -> bool:
+		return p.role in ["fighter", "guard"] and int(p.wounded) == 0 and int(p.off_day) != day)
+
+
+## Сила бригады: бойцы сильнее охранников; снаряжение и Лидерство усиливают.
+func crew_power() -> float:
+	var power := 0.0
+	for person: Dictionary in fighters_ready():
+		var per_skill := float(balance.fighter_power_per_skill) if person.role == "fighter" else float(balance.guard_power_per_skill)
+		power += int(person.skill) * per_skill
+	return power * gear_power() * (1.0 + skills.level("leadership") * float(balance.leadership_power_per_level))
+
+
+## Район банды, куда наезжать: где у неё больше всего влияния ("" — земель нет).
+func fight_district(gang_id: String) -> String:
+	var best := ""
+	for where: String in gangs.territories(gang_id):
+		if best == "" or gangs.share(where, gang_id) > gangs.share(best, gang_id):
+			best = where
+	return best
+
+
+## Сколько банда выставит в своём районе: часть её силы, тем больше, чем крепче она там держится.
+func fight_defense(gang_id: String) -> float:
+	var where := fight_district(gang_id)
+	var share := gangs.share(where, gang_id) if where != "" else 0.0
+	return gangs.strength(gang_id) * (float(balance.fight_defense_base) + float(balance.fight_defense_share) * share / 100.0)
+
+
+## Сила с учётом тактики: хитростью — слабее, но с разведчиком без потерь в силе.
+func fight_power(tactic: String) -> float:
+	var info: Dictionary = balance.fight_tactics[tactic]
+	var mult := float(info.power)
+	if info.has("scout_power") and crew.best_skill("scout") > 0:
+		mult = float(info.scout_power)
+	return crew_power() * mult
+
+
+func fight_chance(gang_id: String, tactic: String) -> float:
+	var power := fight_power(tactic)
+	var defense := fight_defense(gang_id)
+	return power / (power + defense) if power + defense > 0.0 else 0.0
+
+
+func can_fight(gang_id: String) -> bool:
+	return can_act() and energy >= int(balance.fight_energy) and not fighters_ready().filter(
+			func(p: Dictionary) -> bool: return p.role == "fighter").is_empty() and fight_district(gang_id) != ""
+
+
+## Разборка: твои бойцы и охрана против банды в её районе. Сила каждой стороны чуть колеблется.
+## Потери: раненые выбывают на несколько дней, погибшие уходят из бригады (остальные злятся и боятся).
+## Банда теряет людей; после победы надо выбрать последствия (choose_fight_outcome).
+func fight(gang_id: String, tactic: String) -> Array:
+	if not can_fight(gang_id) or not balance.fight_tactics.has(tactic):
+		return []
+	var info: Dictionary = balance.fight_tactics[tactic]
+	var where := fight_district(gang_id)
+	var spread := float(balance.fight_roll_spread)
+	var power := fight_power(tactic)
+	var defense := fight_defense(gang_id)
+	var win := power * rng.randf_range(1.0 - spread, 1.0 + spread) > defense * rng.randf_range(1.0 - spread, 1.0 + spread)
+	energy -= int(balance.fight_energy)
+	var heat := float(info.heat) * skills.heat_multiplier()
+	police.add_heat(where, heat)
+	gangs.change_relation(gang_id, -float(balance.fight_relation) - (0.0 if win else float(balance.fight_lost_relation)))
+	skills.add_xp("leadership", int(balance.xp_leadership))
+	var mult := float(info.wound) * (1.0 if win else float(balance.fight_lost_mult))
+	var wounded: Array = []
+	var dead: Array = []
+	for person: Dictionary in fighters_ready():
+		if rng.randf() < float(balance.fight_death_chance) * mult:
+			dead.append(person.nick)
+			crew.fire(person.id)
+		elif rng.randf() < float(balance.fight_wound_chance) * mult:
+			person.wounded = rng.randi_range(int(balance.fight_wound_days[0]), int(balance.fight_wound_days[1]))
+			wounded.append(person.nick)
+	for person: Dictionary in crew.people:
+		if not dead.is_empty():
+			_change_loyalty(person, float(balance.fight_death_loyalty) * dead.size())
+		var fear := float(balance.fight_death_fear) * dead.size() + (float(balance.fight_win_fear) if win else 0.0)
+		person.fear = clampf(float(person.fear) + fear, 0.0, 100.0)
+	if not dead.is_empty():
+		_drop_broken_routes()
+	var losses: Array = balance.fight_gang_losses_win if win else balance.fight_gang_losses_lose
+	var gang_losses := rng.randi_range(int(losses[0]), int(losses[1]))
+	gangs.state[gang_id].people = maxi(1, int(gangs.state[gang_id].people) - gang_losses)
+	fight_result = { "gang": gang_id, "district": where, "tactic": tactic, "win": win, "power": roundi(power),
+			"defense": roundi(defense), "wounded": wounded, "dead": dead, "gang_losses": gang_losses, "heat": roundi(heat) }
+	var gang := gangs.get_def(gang_id)
+	var report: Array = [["LOG_FIGHT_WON" if win else "LOG_FIGHT_LOST", [gang.name_key, market.get_district(where).name_key]]]
+	for nick: String in dead:
+		report.append(["LOG_FIGHT_DIED", [nick]])
+	for nick: String in wounded:
+		report.append(["LOG_FIGHT_WOUNDED_DAYS", [nick]])
+	return report
+
+
+## Что сделать после разборки. Победа: "take" — забрать влияние в районе, "tribute" — взять выкуп из общака,
+## "mercy" — отпустить (обида меньше). Поражение — только "ok".
+func choose_fight_outcome(option: String) -> Array:
+	if fight_result.is_empty():
+		return []
+	var result := fight_result
+	var id: String = result.gang
+	var gang := gangs.get_def(id)
+	if not result.win:
+		fight_result = {}
+		return []
+	match option:
+		"take":
+			gangs.take_from(result.district, id, float(balance.fight_take_influence))
+			gangs.change_relation(id, -float(balance.fight_take_relation))
+			fight_result = {}
+			return [["LOG_FIGHT_TOOK", [gang.name_key, market.get_district(result.district).name_key]]]
+		"tribute":
+			var amount := roundi(int(gangs.state[id].cash) * float(balance.fight_tribute_share))
+			gangs.state[id].cash = int(gangs.state[id].cash) - amount
+			dirty += amount
+			gangs.change_relation(id, -float(balance.fight_tribute_relation))
+			fight_result = {}
+			return [["LOG_FIGHT_TRIBUTE", [gang.name_key, amount]]]
+		"mercy":
+			gangs.take_from(result.district, id, float(balance.fight_mercy_influence))
+			gangs.change_relation(id, float(balance.fight_mercy_relation))
+			fight_result = {}
+			return [["LOG_FIGHT_MERCY", [gang.name_key]]]
+	return []
 
 
 ## Переманивают самого недовольного из твоих людей (если лояльность ниже порога).
@@ -1843,6 +2025,8 @@ func to_dict() -> Dictionary:
 		"pending_check": pending_check.duplicate(),
 		"money_history": money_history.duplicate(),
 		"heat_history": heat_history.duplicate(),
+		"gear": gear,
+		"fight_result": fight_result.duplicate(true),
 		"rng_state": str(rng.state),
 		"market": market.to_dict(),
 		"police": police.to_dict(),
@@ -1876,6 +2060,12 @@ func load_dict(data: Dictionary) -> void:
 		pending_check = { "bribe": int(data.pending_check.bribe) }
 	money_history = data.get("money_history", []).map(func(v: Variant) -> int: return int(v))
 	heat_history = data.get("heat_history", []).map(func(v: Variant) -> float: return float(v))
+	gear = int(data.get("gear", 0))
+	fight_result = data.get("fight_result", {})
+	if not fight_result.is_empty():
+		fight_result.win = bool(fight_result.win)
+		for key: String in ["power", "defense", "gang_losses", "heat"]:
+			fight_result[key] = int(fight_result[key])
 	rng.state = int(data.rng_state)
 	police.load_dict(data.police)
 	events.load_dict(data.events)

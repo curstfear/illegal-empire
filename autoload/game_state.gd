@@ -303,6 +303,37 @@ func answer_offer(id: int, accept: bool) -> void:
 		changed.emit()
 
 
+func buy_gear() -> void:
+	if session.buy_gear():
+		Audio.coin()
+		reported.emit([["LOG_GEAR_BOUGHT", [session.balance.gear_levels[session.gear].name_key]]])
+		changed.emit()
+
+
+func can_fight(gang_id: String) -> bool:
+	return session.can_fight(gang_id) and Clock.hours_left() >= float(session.balance.fight_hours)
+
+
+## Разборка идёт несколько часов; пока отчёт о бое не закрыт, часы стоят.
+func fight(gang_id: String, tactic: String) -> void:
+	if not can_fight(gang_id):
+		return
+	var report := session.fight(gang_id, tactic)
+	Audio.ui("confirmation" if session.fight_result.win else "error")
+	reported.emit(report)
+	Clock.paused = true
+	changed.emit()
+
+
+func choose_fight_outcome(option: String) -> void:
+	var report := session.choose_fight_outcome(option)
+	if session.fight_result.is_empty():
+		reported.emit(report)
+		Clock.paused = false
+		changed.emit()
+		Clock.advance_hours(session.balance.fight_hours)
+
+
 func resolve_check(choice: String) -> void:
 	var day_before := session.day
 	var report: Array = session.call(choice)

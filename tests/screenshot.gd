@@ -147,6 +147,31 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("4g_gangs.png"))
 
+	# Разборка: трое бойцов, окно выбора тактики, потом отчёт о бое.
+	s.clean += 3000
+	s.balance.crew_max = 10
+	for i in 3:
+		s.crew.roll_candidates(s.rng, 3)
+		var fighter: Dictionary = s.crew.candidates[0]
+		fighter.role = "fighter"
+		fighter.skill = 3
+		GameState.hire(int(fighter.id))
+	GameState.buy_gear()
+	s.energy = 100
+	screen.open_tab("gangs")
+	screen.open_fight("neon")
+	await _frames(10)
+	_shot(out_dir.path_join("4h_fight_prep.png"))
+	s.balance.fight_wound_chance = 0.5
+	GameState.fight("neon", "head_on")
+	await _frames(10)
+	_shot(out_dir.path_join("4i_fight_report.png"))
+	print("разборка: ", s.fight_result)
+	GameState.choose_fight_outcome("take" if s.fight_result.win else "ok")
+	screen.open_tab("crew")
+	await _frames(10)
+	_shot(out_dir.path_join("4j_crew_wounded.png"))
+
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")

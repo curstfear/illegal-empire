@@ -220,5 +220,44 @@
 	"gang_deal_units": 10,
 	"gang_deal_price": 0.7,
 	"gang_deal_relation": 3,
-	"gang_ambush_loot_share": 0.3
+	"gang_ambush_loot_share": 0.3,
+
+	"fighter_power_per_skill": 15,
+	"guard_power_per_skill": 6,
+	"leadership_power_per_level": 0.04,
+	"gear_levels": [
+		{ "name_key": "GEAR_0", "cost": 0, "power": 1.0 },
+		{ "name_key": "GEAR_1", "cost": 800, "power": 1.3 },
+		{ "name_key": "GEAR_2", "cost": 2000, "power": 1.6 },
+		{ "name_key": "GEAR_3", "cost": 4000, "power": 2.0 }
+	],
+	"fight_hours": 3,
+	"fight_energy": 25,
+	"fight_defense_base": 0.4,
+	"fight_defense_share": 0.6,
+	"fight_roll_spread": 0.25,
+	"fight_tactics": {
+		"head_on": { "name_key": "TACTIC_HEAD_ON", "power": 1.0, "wound": 1.0, "heat": 20 },
+		"cunning": { "name_key": "TACTIC_CUNNING", "power": 0.8, "scout_power": 1.0, "wound": 0.5, "heat": 8 }
+	},
+	"fight_wound_chance": 0.25,
+	"fight_death_chance": 0.05,
+	"fight_lost_mult": 2.0,
+	"fight_wound_days": [2, 4],
+	"fight_gang_losses_win": [2, 4],
+	"fight_gang_losses_lose": [0, 1],
+	"fight_relation": 20,
+	"fight_lost_relation": 5,
+	"fight_death_loyalty": -6,
+	"fight_death_fear": 10,
+	"fight_win_fear": -5,
+	"fight_take_influence": 25,
+	"fight_take_relation": 15,
+	"fight_tribute_share": 0.3,
+	"fight_tribute_relation": 5,
+	"fight_mercy_relation": 15,
+	"fight_mercy_influence": 5,
+	"defense_fighter_per_skill": 15,
+	"defender_wound_lost": 0.3,
+	"defender_wound_won": 0.1
 }

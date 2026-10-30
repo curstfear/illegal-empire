@@ -1,16 +1,16 @@
 class_name Crew
 extends RefCounted
-## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник, курьер, менеджер, бухгалтер, адвокат, разведчик).
+## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник, курьер, менеджер, бухгалтер, адвокат, разведчик, боец).
 ## У человека: кличка, роль, навык 1–5, черта характера, зарплата за день, место работы (id здания или ""),
 ## лояльность, страх и усталость (0–100), «что знает» (ночей в бригаде), опыт к следующему уровню,
-## день последней премии и день выходного.
+## день последней премии, день выходного и сколько дней ещё лечиться после разборки.
 ## Деньги, розыск и случайности считает GameSession — здесь только состояние и правила.
 
 ## Роли и черты из data/crew.json; клички — ключи перевода.
 var roles: Dictionary = {}
 var traits: Dictionary = {}
 var nicknames: Array = []
-## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job, loyalty, fear, knows, bonus_day, xp, fatigue, off_day }.
+## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job, loyalty, fear, knows, bonus_day, xp, fatigue, off_day, wounded }.
 var people: Array = []
 var candidates: Array = []
 ## Кто из нанятых вышел на работу этой ночью (пьющий может не прийти). Не сохраняется.
@@ -47,7 +47,7 @@ func _make_person(rng: RandomNumberGenerator) -> Dictionary:
 	var person := { "id": _next_id, "nick": nicknames[rng.randi() % nicknames.size()], "role": role,
 			"skill": skill, "trait": trait_id, "wage": wage, "job": "",
 			"loyalty": float(traits[trait_id].get("loyalty", _loyalty_start)), "fear": 0.0, "knows": 0, "bonus_day": 0,
-			"xp": 0, "fatigue": 0.0, "off_day": 0 }
+			"xp": 0, "fatigue": 0.0, "off_day": 0, "wounded": 0 }
 	_next_id += 1
 	return person
 
@@ -151,5 +151,6 @@ func _restore(list: Array) -> Array:
 				"trait": String(p.trait), "wage": int(p.wage), "job": String(p.job),
 				"loyalty": float(p.get("loyalty", traits[p.trait].get("loyalty", _loyalty_start))),
 				"fear": float(p.get("fear", 0.0)), "knows": int(p.get("knows", 0)), "bonus_day": int(p.get("bonus_day", 0)),
-				"xp": int(p.get("xp", 0)), "fatigue": float(p.get("fatigue", 0.0)), "off_day": int(p.get("off_day", 0)) })
+				"xp": int(p.get("xp", 0)), "fatigue": float(p.get("fatigue", 0.0)), "off_day": int(p.get("off_day", 0)),
+				"wounded": int(p.get("wounded", 0)) })
 	return result

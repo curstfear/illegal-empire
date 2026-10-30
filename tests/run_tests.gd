@@ -65,6 +65,10 @@ func _init() -> void:
 	_test_gang_attack()
 	_test_gang_poach_dump_deal()
 	_test_gang_ambush()
+	_test_fighters_and_gear()
+	_test_fight_win_outcomes()
+	_test_fight_loss_and_wounds()
+	_test_fight_defense_and_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1371,6 +1375,113 @@ func _test_gang_ambush() -> void:
 	s.gangs.change_relation("bazaar", 100.0)
 	_check(s.route_ambush_chance(route, 10) == 0.0, "с друзьями на обоих концах засад нет")
 	_check(s._ambusher(route) != "", "засаду устраивает банда района")
+
+
+## Партия с бойцами: count бойцов навыка skill (без случайных дел банд).
+func _fight_session(count: int, skill: int = 3) -> GameSession:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.clean = 20000
+	for i in count:
+		s.crew.roll_candidates(s.rng, 3)
+		s.hire(_candidate(s, "fighter", "loyal", skill))
+	return s
+
+
+func _test_fighters_and_gear() -> void:
+	var s := _fight_session(0)
+	_check(not s.can_fight("neon"), "без бойцов на разборку не пойти")
+	s.crew.roll_candidates(s.rng, 3)
+	s.hire(_candidate(s, "guard", "loyal", 3))
+	_check(not s.can_fight("neon"), "одной охраны мало — нужен боец")
+	var guards_only := s.crew_power()
+	s.crew.roll_candidates(s.rng, 3)
+	s.hire(_candidate(s, "fighter", "loyal", 3))
+	_check(s.can_fight("neon"), "с бойцом — можно")
+	_check(s.crew_power() - guards_only > guards_only, "боец сильнее охранника")
+	var plain := s.crew_power()
+	_check(s.buy_gear() and s.gear == 1 and s.crew_power() > plain, "снаряжение усиливает бригаду")
+	_check(is_equal_approx(s.fight_power("cunning"), s.crew_power() * 0.8), "хитростью без разведчика — слабее")
+	s.crew.roll_candidates(s.rng, 3)
+	s.hire(_candidate(s, "scout", "loyal", 2))
+	_check(is_equal_approx(s.fight_power("cunning"), s.crew_power()), "с разведчиком хитростью — в полную силу")
+	_check(s.fight_district("neon") == "clubs" and s.fight_district("nobody") == "", "наезжать на банду — в её район")
+	_check(s.fight_chance("neon", "head_on") > 0.0 and s.fight_chance("neon", "head_on") < 1.0, "шанс победы между 0 и 1")
+	s.energy = 0
+	_check(not s.can_fight("neon"), "без сил на разборку не пойти")
+
+
+func _test_fight_win_outcomes() -> void:
+	for option: String in ["take", "tribute", "mercy"]:
+		var s := _fight_session(3)
+		s.balance.fight_wound_chance = 0.0
+		s.balance.fight_death_chance = 0.0
+		s.gangs.state.neon.people = 1
+		s.gangs.state.neon.cash = 1000
+		var relation := s.gangs.relation("neon")
+		var share := s.gangs.share("clubs", "neon")
+		var heat: float = s.police.heat.clubs
+		var report := s.fight("neon", "head_on")
+		_check(_has(report, "LOG_FIGHT_WON") and s.fight_result.win, "сильная бригада побеждает слабую банду (%s)" % option)
+		_check(not s.can_act(), "пока не выбрал последствия, действовать нельзя (%s)" % option)
+		_check(s.police.heat.clubs > heat and s.gangs.relation("neon") < relation, "разборка — розыск и обида (%s)" % option)
+		var dirty := s.dirty
+		var after := s.gangs.relation("neon")
+		s.choose_fight_outcome(option)
+		_check(s.can_act(), "выбрал — можно играть дальше (%s)" % option)
+		match option:
+			"take":
+				_check(s.gangs.share("clubs", "neon") <= share - float(s.balance.fight_take_influence) + 0.001,
+						"забрал землю — у банды меньше влияния")
+			"tribute":
+				_check(s.dirty == dirty + 300 and int(s.gangs.state.neon.cash) == 700, "выкуп — 30%% общака грязными")
+			"mercy":
+				_check(s.gangs.relation("neon") > after, "отпустил — обида меньше")
+
+
+func _test_fight_loss_and_wounds() -> void:
+	var s := _fight_session(2, 1)
+	s.gangs.state.rails.people = 20
+	s.gangs.state.rails.cash = 50000
+	s.balance.fight_wound_chance = 1.0
+	s.balance.fight_death_chance = 0.0
+	var report := s.fight("rails", "head_on")
+	_check(_has(report, "LOG_FIGHT_LOST") and not s.fight_result.win, "слабая бригада проигрывает сильной банде")
+	_check(s.fight_result.wounded.size() == 2 and s.fighters_ready().is_empty(), "раненые не готовы к новой разборке")
+	s.choose_fight_outcome("ok")
+	_check(s.can_act(), "поражение — закрыл отчёт и играешь дальше")
+	var days := 0
+	while not s.fighters_ready().size() == 2 and days < 10:
+		s.end_day()
+		days += 1
+	_check(days >= int(s.balance.fight_wound_days[0]) and days <= int(s.balance.fight_wound_days[1]), "раненые лечатся несколько дней")
+	var t := _fight_session(2)
+	t.balance.fight_death_chance = 1.0
+	report = t.fight("neon", "head_on")
+	_check(_has(report, "LOG_FIGHT_DIED") and t.crew.people.is_empty(), "погибшие уходят из бригады")
+
+
+func _test_fight_defense_and_save() -> void:
+	var s := _fight_session(0)
+	s.travel("clubs")
+	s.buy_property("club_lab")
+	s.properties.add_stock("club_lab", "blue_dust", 10)
+	var bare := s.gang_attack_chance("neon", "club_lab")
+	s.crew.roll_candidates(s.rng, 3)
+	var fighter := _candidate(s, "fighter", "loyal", 3)
+	s.hire(fighter)
+	s.assign(fighter, "club_lab")
+	_check(s.gang_attack_chance("neon", "club_lab") < bare, "боец в здании защищает от налёта")
+	s.balance.gang_attack_base = 100000.0
+	s.balance.defender_wound_lost = 1.0
+	var report := s._gang_attack("neon")
+	_check(_has(report, "LOG_FIGHT_WOUNDED") and int(s.crew.get_person(fighter).wounded) > 0, "налёт удался — защитник ранен")
+	s.buy_gear()
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _fight_session(0)
+	loaded.load_dict(data)
+	_check(loaded.gear == 1 and int(loaded.crew.get_person(fighter).wounded) == int(s.crew.get_person(fighter).wounded),
+			"снаряжение и раны сохраняются")
 
 
 func _test_save_and_load() -> void:

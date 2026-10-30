@@ -514,3 +514,48 @@ BTN_REFUSE,Refuse,Отказать
 BTN_BUY_DEAL,Buy,Купить
 BTN_DECLINE,No,Нет
 GANG_REVENGE,holds a grudge — will strike tonight,затаили обиду — ночью ударят
+ROLE_FIGHTER,Fighter,Боец
+ROLE_LETTER_FIGHTER,F,Б
+ROLE_DESC_FIGHTER,Goes to fights with gangs; at a building defends it from gang raids.,Ходит на разборки с бандами; в здании защищает его от налётов банд.
+GEAR_0,no gear,без снаряжения
+GEAR_1,vests and bats,жилеты и биты
+GEAR_2,armour and radios,броня и рации
+GEAR_3,full kit,полная экипировка
+GANGS_POWER,Your strength: %d · fighters ready: %d · gear: %s,Твоя сила: %d · бойцов готово: %d · снаряжение: %s
+BTN_GEAR,Upgrade gear: %s ($%s),Снаряжение: %s ($%s)
+BTN_GEAR_MAX,Gear: best,Снаряжение: лучшее
+BTN_FIGHT,Move on them,Наехать
+BTN_FIGHT_TIP,"A fight in their district. Needs at least one fighter, 3 hours and 25 energy.","Разборка в их районе. Нужен хотя бы один боец, 3 часа и 25 сил."
+FIGHT_TITLE,Fight with %s,Разборка: %s
+FIGHT_PREP,"District: %s
+Your strength: %d · theirs here: about %d","Район: %s
+Твоя сила: %d · их здесь: около %d"
+FIGHT_TACTIC,%s — chance %d%%,%s — шанс %d%%
+TACTIC_HEAD_ON,Head-on,В лоб
+TACTIC_CUNNING,By cunning,Хитростью
+TACTIC_HEAD_ON_TIP,"Full strength, but more wounded and more police attention.","Вся сила, но больше раненых и сильнее розыск."
+TACTIC_CUNNING_TIP,"Weaker (a scout keeps full strength), half as many wounded, less heat.","Слабее (с разведчиком — в полную силу), раненых вдвое меньше, розыск слабее."
+BTN_CANCEL,Cancel,Отмена
+FIGHT_WON,Victory,Победа
+FIGHT_LOST,Defeat,Поражение
+FIGHT_SIDES,%s · your strength %d against %d,%s · твоя сила %d против %d
+FIGHT_YOUR_LOSSES,Your losses: %s,Твои потери: %s
+FIGHT_NO_LOSSES,none,без потерь
+FIGHT_WOUNDED_LIST,wounded — %s,ранены — %s
+FIGHT_DEAD_LIST,killed — %s,погибли — %s
+FIGHT_GANG_LOSSES,They lost people: %d · heat +%d,У них выбыло людей: %d · розыск +%d
+FIGHT_CHOOSE,What next?,Что дальше?
+BTN_FIGHT_TAKE,Take the turf (+%d influence),Забрать землю (+%d влияния)
+BTN_FIGHT_TRIBUTE,Take a ransom ($%s),Взять выкуп ($%s)
+BTN_FIGHT_MERCY,Let them go (less bad blood),Отпустить (обида меньше)
+BTN_OK,OK,Понятно
+CREW_WOUNDED,wounded: %d d.,ранен: %d дн.
+LOG_GEAR_BOUGHT,Crew gear upgraded: %s.,Снаряжение бригады: %s.
+LOG_FIGHT_WON,You beat %s in %s.,Ты победил банду %s в районе %s.
+LOG_FIGHT_LOST,%s beat you back in %s.,Банда %s отбилась от тебя в районе %s.
+LOG_FIGHT_DIED,%s did not come back from the fight.,%s не вернулся с разборки.
+LOG_FIGHT_WOUNDED_DAYS,%s was wounded in the fight.,%s ранен в разборке.
+LOG_FIGHT_WOUNDED,%s was wounded and is out for %d day(s).,%s ранен и выбыл на %d дн.
+LOG_FIGHT_TOOK,You pushed %s out of part of %s.,Ты потеснил банду %s в районе %s.
+LOG_FIGHT_TRIBUTE,%s paid you a ransom: $%s.,Банда %s заплатила выкуп: $%s.
+LOG_FIGHT_MERCY,You let %s go. They will remember that.,Ты отпустил банду %s. Они это запомнят.
