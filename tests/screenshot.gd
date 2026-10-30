@@ -183,6 +183,15 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("4k_diplomacy.png"))
 
+	# Полиция: детективы ведут дело в клубах, «крыша» куплена.
+	s.police.heat.clubs = 75.0
+	s.police.dossier.clubs = 35.0
+	GameState.hire_krysha("clubs")
+	screen.open_card("clubs")
+	await _frames(10)
+	_shot(out_dir.path_join("4l_police_card.png"))
+	s.police.heat.clubs = 20.0
+
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")

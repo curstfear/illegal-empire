@@ -9,10 +9,10 @@
 	],
 	"tempers": {
 		"greedy": { "name_key": "TEMPER_GREEDY", "anger": 1.0, "forgive": 1.0, "betray": 0.02,
-			"actions": { "demand": 4, "dump": 2, "attack": 1, "poach": 1 } },
+			"actions": { "demand": 4, "dump": 2, "attack": 1, "poach": 1, "retake": 2 } },
 		"cautious": { "name_key": "TEMPER_CAUTIOUS", "anger": 0.7, "forgive": 1.5, "betray": 0.01,
-			"actions": { "demand": 2, "dump": 3, "attack": 1, "poach": 2 } },
+			"actions": { "demand": 2, "dump": 3, "attack": 1, "poach": 2, "retake": 2 } },
 		"hothead": { "name_key": "TEMPER_HOTHEAD", "anger": 1.5, "forgive": 0.6, "betray": 0.03,
-			"actions": { "demand": 1, "dump": 1, "attack": 3, "poach": 1 } }
+			"actions": { "demand": 1, "dump": 1, "attack": 3, "poach": 1, "retake": 3 } }
 	}
 }

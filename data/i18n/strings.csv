@@ -586,3 +586,28 @@ LOG_TREATY_ENDED,The pact with %s is over: %s.,Договор с бандой %s
 LOG_TREATY_BETRAYED,%s (boss %s) broke the %s. Expect an attack.,%s (босс %s) нарушили договор: %s. Жди налёта.
 LOG_TAX_PAID,Peace tax paid to %s: $%s.,Налог за мир банде %s: $%s.
 LOG_TAX_MISSED,Not enough money for the peace tax: the pact with %s is off and they want revenge.,"Не хватило денег на налог за мир: договор с бандой %s сорван, они хотят мести."
+TILE_DOSSIER,Detectives' case,Дело детективов
+TILE_DOSSIER_NONE,none,нет
+TILE_KRYSHA,Inside cop,«Крыша»
+TILE_KRYSHA_UNTIL,paid to day %d,оплачена до дня %d
+SECTION_POLICE,Police,Полиция
+POLICE_DETECTIVES,"Detectives are working here: evidence piles up in your spots, raids come more often. At 100 the case goes to the SWAT team.","Здесь работают детективы: улики в твоих точках копятся, облавы чаще. На 100 дело уйдёт спецназу."
+POLICE_KRYSHA_OFF,No inside cop here.,Своего человека в полиции здесь нет.
+POLICE_KRYSHA_ON,Your inside cop is paid to day %d.,Твоя «крыша» оплачена до дня %d.
+BTN_KRYSHA_HIRE,Buy a cop ($%s/wk),Купить «крышу» ($%s/нед)
+BTN_KRYSHA_DROP,Let go,Отказаться
+BTN_KRYSHA_TIP,"A crooked cop: warns about raids, fewer checks, heat fades faster, the case grows slower. Paid weekly; can sell you out — more likely the thicker the case.","Продажный полицейский: предупреждает об облавах, проверок меньше, розыск спадает быстрее, дело растёт медленнее. Платишь раз в неделю; может сдать — тем вероятнее, чем толще дело."
+LOG_KRYSHA_HIRED,You now have an inside cop in %s: $%s a week.,Теперь у тебя «крыша» в районе %s: $%s в неделю.
+LOG_KRYSHA_DROPPED,You stopped paying your cop in %s.,Ты перестал платить «крыше» в районе %s.
+LOG_KRYSHA_PAID,Paid your cop in %s: $%s.,Заплачено «крыше» в районе %s: $%s.
+LOG_KRYSHA_LEFT,"Nothing to pay your cop in %s with — they walked away, and the heat went up.","Нечем платить «крыше» в районе %s — ушла, а розыск вырос."
+LOG_KRYSHA_RATTED,Your cop in %s sold you out to the detectives.,Твоя «крыша» в районе %s сдала тебя детективам.
+LOG_KRYSHA_WARNED,Your cop warned you about a raid on %s — everything was moved in time.,«Крыша» предупредила об облаве на %s — всё успели вывезти.
+LOG_DETECTIVES_START,Detectives have opened a case on you in %s.,Детективы завели на тебя дело в районе %s.
+LOG_CASE_RAID,The case in %s is closed: the SWAT team hits %d of your spots.,Дело в районе %s закрыто: спецназ берёт твои точки (%d).
+LOG_CASE_EMPTY,The detectives in %s found nothing to hold on to and shelved the case.,"Детективы в районе %s не нашли, за что зацепиться, и отложили дело."
+LOG_SWAT_RAID,"SWAT raid on %s: everything illegal taken, the stash found too.","Облава спецназа на %s: забрали всё нелегальное, нашли и тайник."
+LOG_GANG_RETAKE,%s won back ground in %s: your influence −%d.,%s отбили землю в районе %s: твоё влияние −%d.
+BTN_HUSH,Hush up the case ($%s),Замять дело ($%s)
+BTN_HUSH_TIP,Your inside cop loses papers: the case shrinks by 50.,«Крыша» теряет бумаги: дело худеет на 50.
+LOG_CASE_HUSHED,Your cop hushed up part of the case in %s: $%s.,«Крыша» замяла часть дела в районе %s: $%s.

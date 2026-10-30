@@ -8,7 +8,8 @@ extends RefCounted
 ## и банды (хозяева районов, отношение к тебе, твоё влияние; ночью требуют долю, сбивают цены,
 ## нападают на здания и перевозки, переманивают людей, предлагают сделки; разборки с ними — бойцы, снаряжение,
 ## раненые и погибшие, отчёт о бое и выбор последствий; дипломатия — встречи с боссами, договоры
-## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон).
+## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон)
+## и полиция посложнее: детективы ведут дело, спецназ на крупных облавах, «крыша» — продажный полицейский.
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -600,10 +601,19 @@ func _run_properties() -> Array:
 			report.append_array(_run_batches(prop))
 		report.append_array(_run_dealers(prop, goods_legal))
 		var illegal := properties.has_illegal(id, goods_legal)
-		if illegal and _property_raided(prop, snitched):
-			var hidden := _lose_property_goods(id, goods_legal)
+		var raided := illegal and _property_raided(prop, snitched)
+		# «Крыша» предупреждает об облаве — успевают всё вывезти.
+		if raided and police.has_krysha(where) and rng.randf() < float(balance.krysha_warn):
+			raided = false
+			report.append(["LOG_KRYSHA_WARNED", [prop.name_key]])
+		if raided:
+			var swat := is_swat(id)
+			var defenders := _defenders(id)
+			var hidden := _lose_property_goods(id, goods_legal, swat)
 			police.add_heat(where, balance.activity_bust_heat)
-			report.append(["LOG_PROPERTY_RAID", [prop.name_key]])
+			report.append(["LOG_SWAT_RAID" if swat else "LOG_PROPERTY_RAID", [prop.name_key]])
+			if swat:
+				report.append_array(_wound_defenders(defenders, float(balance.swat_wound)))
 			# Трусливые при облаве сбегают насовсем, остальные злятся.
 			for person: Dictionary in crew.working_at(id):
 				if crew.trait_value(person, "flees", false):
@@ -1015,6 +1025,8 @@ func route_police_chance(route: Dictionary) -> float:
 	var vehicle := logistics.get_vehicle(route.vehicle)
 	var courier := crew.get_person(route.courier)
 	var chance := float(balance.route_police_base) * float(balance.vehicles[vehicle.type].notice)
+	if police.has_krysha(place_district(route.from)) or police.has_krysha(place_district(route.to)):
+		chance *= float(balance.krysha_check)
 	var heat := 0.0
 	var force := 0.0
 	for place: String in [route.from, route.to]:
@@ -1320,10 +1332,20 @@ func raid_chance(id: String, snitched: bool = false) -> float:
 	for guard: Dictionary in crew.working_at(id, "guard"):
 		if crew.present.get(guard.id, true):
 			guarded += int(guard.skill) * float(balance.guard_raid_per_skill)
+	if is_swat(id):
+		guarded *= float(balance.swat_guard_factor)
 	chance *= 1.0 - minf(0.8, guarded)
+	chance *= 1.0 + float(police.dossier[where]) * float(balance.dossier_raid_per_point)
 	if snitched:
 		chance *= float(balance.snitch_raid_mult)
 	return minf(1.0, chance)
+
+
+## Облаву на здание ведёт спецназ: розыск района высокий или товара внутри много.
+## Охрана против спецназа помогает вдвое хуже, тайник находят, защитников ранят.
+func is_swat(id: String) -> bool:
+	var where: String = properties.get_def(id).district
+	return police.stars(where) >= int(balance.swat_stars) or properties.stock_used(id) >= int(balance.swat_stock)
 
 
 func _property_raided(prop: Dictionary, snitched: bool) -> bool:
@@ -1331,9 +1353,9 @@ func _property_raided(prop: Dictionary, snitched: bool) -> bool:
 
 
 ## Облава забирает нелегальное. Что влезло в тайник — уцелело. Возвращает, сколько штук спасено.
-func _lose_property_goods(id: String, goods_legal: Dictionary) -> int:
+func _lose_property_goods(id: String, goods_legal: Dictionary, find_stash: bool = false) -> int:
 	var s: Dictionary = properties.state[id]
-	var places := int(balance.upgrades.stash.places) if properties.has_upgrade(id, "stash") else 0
+	var places := int(balance.upgrades.stash.places) if properties.has_upgrade(id, "stash") and not find_stash else 0
 	var saved := 0
 	for good: String in s.stock.keys():
 		if goods_legal.get(good, true):
@@ -1581,6 +1603,7 @@ func end_day() -> Array:
 		report.append(["LOG_PAYMENT_OK", []])
 		next_payment_day += int(balance.payment_interval_days)
 		paid_this_period = 0
+	report.append_array(_run_police())
 	_remember_day()
 	police.decay(balance.heat_decay)
 	events.roll(rng)
@@ -1672,7 +1695,7 @@ func _gang_turn(id: String) -> Array:
 		return _gang_deal(id)
 	if rng.randf() >= float(balance.gang_act_chance[level]):
 		return []
-	var allowed: Array = ["demand"] if level == "neutral" else ["demand", "dump", "attack", "poach"]
+	var allowed: Array = ["demand"] if level == "neutral" else ["demand", "dump", "attack", "poach", "retake"]
 	while not allowed.is_empty():
 		var action := gangs.pick_action(id, allowed, rng)
 		allowed.erase(action)
@@ -1697,6 +1720,22 @@ func _gang_demand(id: String) -> Array:
 			"expires": day + int(balance.gang_offer_days) })
 	var gang := gangs.get_def(id)
 	return [["LOG_GANG_DEMAND", [gang.name_key, gang.boss_key, amount]]]
+
+
+## Банда отбивает землю: забирает часть твоего влияния в районе, где у неё есть доля (сначала — дома).
+## Твоя сила бригады отпугивает: чем сильнее, тем меньше отберут.
+func _gang_retake(id: String) -> Array:
+	var home: String = gangs.get_def(id).home
+	var places: Array = gangs.influence.keys().filter(func(d: String) -> bool:
+		return gangs.share(d, Gangs.PLAYER) > 0.0 and gangs.share(d, id) > 0.0)
+	if places.is_empty():
+		return []
+	var where: String = home if places.has(home) else places[0]
+	var amount := float(balance.gang_retake) / (1.0 + crew_power() * float(balance.gang_retake_defense_per_power))
+	var taken := minf(amount, gangs.share(where, Gangs.PLAYER))
+	gangs.influence[where][Gangs.PLAYER] = gangs.share(where, Gangs.PLAYER) - taken
+	gangs.influence[where][id] = gangs.share(where, id) + taken
+	return [["LOG_GANG_RETAKE", [gangs.get_def(id).name_key, market.get_district(where).name_key, roundi(taken)]]]
 
 
 ## Банда сбрасывает на своём рынке самый дорогой нелегальный товар — цена падает.
@@ -1899,6 +1938,113 @@ func fight(gang_id: String, tactic: String) -> Array:
 		report.append(["LOG_FIGHT_DIED", [nick]])
 	for nick: String in wounded:
 		report.append(["LOG_FIGHT_WOUNDED_DAYS", [nick]])
+	return report
+
+
+# --- Полиция: детективы, спецназ, «крыша» ---
+
+func krysha_fee(where: String) -> int:
+	return roundi(float(balance.krysha_fee) * float(market.get_district(where).police))
+
+
+func can_hire_krysha(where: String) -> bool:
+	return can_act() and not police.has_krysha(where) and money >= krysha_fee(where)
+
+
+## Купить «крышу» в районе: первая неделя сразу.
+func hire_krysha(where: String) -> bool:
+	if not can_hire_krysha(where):
+		return false
+	_spend(krysha_fee(where))
+	police.krysha[where] = day + 7
+	return true
+
+
+func drop_krysha(where: String) -> bool:
+	if not can_act() or not police.has_krysha(where):
+		return false
+	police.krysha.erase(where)
+	return true
+
+
+## Шанс, что «крыша» сдаст тебя этой ночью: тем выше, чем толще дело детективов.
+## «Крыша» может замять дело детективов: дорого (от толщины дела), дело худеет на hush_amount.
+func hush_cost(where: String) -> int:
+	return roundi(float(police.dossier[where]) * float(balance.hush_cost_per_point))
+
+
+func can_hush(where: String) -> bool:
+	return can_act() and police.has_krysha(where) and float(police.dossier[where]) > 0.0 and money >= hush_cost(where)
+
+
+func hush_case(where: String) -> bool:
+	if not can_hush(where):
+		return false
+	_spend(hush_cost(where))
+	police.add_dossier(where, -float(balance.hush_amount))
+	return true
+
+
+func krysha_rat_chance(where: String) -> float:
+	return float(balance.krysha_rat_base) + float(police.dossier[where]) * float(balance.krysha_rat_per_dossier)
+
+
+## Ночь у полиции. «Крыша»: оплата раз в неделю (нечем — уходит, розыск растёт), может сдать (дело толстеет),
+## гасит розыск района. Детективы при высоком розыске ведут дело: улики в твоих нелегальных точках растут;
+## дело дошло до конца — спецназ берёт все нелегальные точки района. Адвокат и «крыша» дело замедляют.
+func _run_police() -> Array:
+	var report: Array = []
+	var goods_legal := {}
+	for good: Dictionary in market.goods:
+		goods_legal[good.id] = good.legal
+	for where: String in police.heat.keys():
+		var name_key: String = market.get_district(where).name_key
+		if police.has_krysha(where):
+			if int(police.krysha[where]) <= day:
+				var fee := krysha_fee(where)
+				if money < fee:
+					police.krysha.erase(where)
+					police.add_heat(where, float(balance.krysha_leave_heat))
+					report.append(["LOG_KRYSHA_LEFT", [name_key]])
+				else:
+					_spend(fee)
+					police.krysha[where] = int(police.krysha[where]) + 7
+					report.append(["LOG_KRYSHA_PAID", [name_key, fee]])
+			if police.has_krysha(where) and rng.randf() < krysha_rat_chance(where):
+				police.krysha.erase(where)
+				police.add_dossier(where, float(balance.krysha_rat_dossier))
+				report.append(["LOG_KRYSHA_RATTED", [name_key]])
+			if police.has_krysha(where):
+				police.add_heat(where, -float(balance.krysha_heat_decay))
+		var spots := properties.mine().filter(func(p: Dictionary) -> bool:
+			return p.district == where and properties.has_illegal(p.id, goods_legal))
+		if not police.detectives_on(where):
+			police.add_dossier(where, -float(balance.dossier_decay))
+			continue
+		if float(police.dossier[where]) == 0.0:
+			report.append(["LOG_DETECTIVES_START", [name_key]])
+		var grow := (float(police.heat[where]) - float(balance.detective_stars) * 20.0) * float(balance.dossier_per_heat) \
+				+ spots.size() * float(balance.dossier_per_property)
+		grow *= maxf(0.0, 1.0 - crew.best_skill("lawyer") * float(balance.lawyer_dossier_per_skill))
+		if police.has_krysha(where):
+			grow *= float(balance.krysha_dossier)
+		police.add_dossier(where, maxf(1.0, grow))
+		for prop: Dictionary in spots:
+			var st: Dictionary = properties.state[prop.id]
+			st.evidence = minf(100.0, float(st.evidence) + float(balance.dossier_evidence))
+		if float(police.dossier[where]) < float(balance.dossier_case):
+			continue
+		police.dossier[where] = float(balance.dossier_after_case)
+		if spots.is_empty():
+			report.append(["LOG_CASE_EMPTY", [name_key]])
+			continue
+		report.append(["LOG_CASE_RAID", [name_key, spots.size()]])
+		for prop: Dictionary in spots:
+			var defenders := _defenders(prop.id)
+			_lose_property_goods(prop.id, goods_legal, true)
+			police.add_heat(where, float(balance.swat_heat))
+			report.append(["LOG_SWAT_RAID", [prop.name_key]])
+			report.append_array(_wound_defenders(defenders, float(balance.swat_wound)))
 	return report
 
 

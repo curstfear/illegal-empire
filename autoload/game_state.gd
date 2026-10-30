@@ -363,6 +363,30 @@ func cancel_treaty(gang_id: String) -> void:
 		changed.emit()
 
 
+# --- Полиция ---
+
+func hire_krysha(where: String) -> void:
+	var fee := session.krysha_fee(where)
+	if session.hire_krysha(where):
+		Audio.coin()
+		reported.emit([["LOG_KRYSHA_HIRED", [session.market.get_district(where).name_key, fee]]])
+		changed.emit()
+
+
+func hush_case(where: String) -> void:
+	var cost := session.hush_cost(where)
+	if session.hush_case(where):
+		Audio.coin()
+		reported.emit([["LOG_CASE_HUSHED", [session.market.get_district(where).name_key, cost]]])
+		changed.emit()
+
+
+func drop_krysha(where: String) -> void:
+	if session.drop_krysha(where):
+		reported.emit([["LOG_KRYSHA_DROPPED", [session.market.get_district(where).name_key]]])
+		changed.emit()
+
+
 func resolve_check(choice: String) -> void:
 	var day_before := session.day
 	var report: Array = session.call(choice)

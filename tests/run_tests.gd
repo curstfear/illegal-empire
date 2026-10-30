@@ -73,6 +73,11 @@ func _init() -> void:
 	_test_treaties()
 	_test_peace_tax()
 	_test_treaty_betrayal()
+	_test_detectives()
+	_test_swat()
+	_test_krysha()
+	_test_retake_and_hush()
+	_test_police_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1597,6 +1602,153 @@ func _test_treaty_betrayal() -> void:
 	u.sign_treaty("rails", "nonaggression")
 	var cancel := u.cancel_treaty("rails")
 	_check(_has(cancel, "LOG_TREATY_BROKEN_BY_YOU"), "досрочно разорвал ненападение — предательство")
+
+
+## Партия с лабораторией в клубах, где лежит нелегальное, без случайных облав.
+func _police_session() -> GameSession:
+	var s := _calm_session()
+	_quiet_gangs(s)
+	s.next_payment_day = 1000
+	s.clean = 20000
+	s.travel("clubs")
+	s.buy_property("club_lab")
+	s.properties.add_stock("club_lab", "blue_dust", 5)
+	return s
+
+
+func _test_detectives() -> void:
+	var s := _police_session()
+	s.end_day()
+	_check(s.police.dossier.clubs == 0.0, "при низком розыске дела нет")
+	s.police.heat.clubs = 90.0
+	var evidence: float = s.properties.state.club_lab.evidence
+	var report := s.end_day()
+	_check(_has(report, "LOG_DETECTIVES_START") and s.police.dossier.clubs > 0.0, "3+ звезды — детективы заводят дело")
+	_check(s.properties.state.club_lab.evidence > evidence + float(s.balance.evidence_per_night), "слежка — улик больше")
+	s.balance.check_base = 0.1
+	var plain := s.raid_chance("club_lab")
+	s.police.dossier.clubs = 80.0
+	_check(s.raid_chance("club_lab") > plain, "толстое дело — облавы чаще")
+	s.balance.check_base = 0.0
+	var lawyered := _police_session()
+	lawyered.crew.roll_candidates(lawyered.rng, 3)
+	lawyered.hire(_candidate(lawyered, "lawyer", "loyal", 5))
+	lawyered.police.heat.clubs = 90.0
+	var bare := _police_session()
+	bare.police.heat.clubs = 90.0
+	lawyered.end_day()
+	bare.end_day()
+	_check(lawyered.police.dossier.clubs < bare.police.dossier.clubs, "адвокат замедляет дело")
+	s.police.dossier.clubs = 99.5
+	s.police.heat.clubs = 90.0
+	s.properties.add_stock("club_lab", "blue_dust", 5)
+	report = s.end_day()
+	_check(_has(report, "LOG_CASE_RAID") and s.properties.stock_of("club_lab", "blue_dust") == 0, "дело закрыто — спецназ забрал всё")
+	_check(s.police.dossier.clubs == float(s.balance.dossier_after_case), "после облавы дело начинается не с нуля")
+	s.police.heat.clubs = 0.0
+	s.end_day()
+	_check(s.police.dossier.clubs < float(s.balance.dossier_after_case), "розыск упал — дело остывает")
+
+
+func _test_swat() -> void:
+	var s := _police_session()
+	_check(not s.is_swat("club_lab"), "мелкая точка при низком розыске — обычная облава")
+	s.properties.add_stock("club_lab", "moon_moss", 40)
+	_check(s.is_swat("club_lab"), "много товара — облаву ведёт спецназ")
+	s.properties.add_stock("club_lab", "moon_moss", -40)
+	s.police.heat.clubs = 85.0
+	_check(s.is_swat("club_lab"), "4+ звезды — спецназ")
+	s.crew.roll_candidates(s.rng, 3)
+	var guard := _candidate(s, "guard", "loyal", 4)
+	s.hire(guard)
+	s.assign(guard, "club_lab")
+	s.police.heat.clubs = 79.0
+	s.balance.check_base = 0.1
+	var normal := s.raid_chance("club_lab")
+	s.properties.add_stock("club_lab", "moon_moss", 40)
+	_check(s.raid_chance("club_lab") > normal, "против спецназа охрана помогает хуже")
+	s.buy_upgrade("club_lab", "stash")
+	s.balance.check_base = 100.0
+	s.balance.check_max = 100.0
+	s.balance.swat_wound = 1.0
+	var report := s.end_day()
+	_check(_has(report, "LOG_SWAT_RAID") and s.properties.stock_of("club_lab", "blue_dust") == 0, "спецназ находит тайник")
+	_check(int(s.crew.get_person(guard).wounded) > 0, "спецназ ранит охрану")
+
+
+func _test_krysha() -> void:
+	var s := _police_session()
+	var fee := s.krysha_fee("clubs")
+	var check := s.police.check_chance("clubs", 1.0)
+	var clean := s.clean
+	_check(s.hire_krysha("clubs") and s.clean == clean - fee, "«крыша» — оплата сразу за неделю")
+	_check(s.police.check_chance("clubs", 1.0) < check or check == 0.0, "с «крышей» проверок меньше")
+	s.balance.krysha_rat_base = 0.0
+	s.balance.krysha_rat_per_dossier = 0.0
+	s.police.heat.clubs = 30.0
+	var other := _police_session()
+	other.police.heat.clubs = 30.0
+	s.end_day()
+	other.end_day()
+	_check(s.police.heat.clubs < other.police.heat.clubs, "с «крышей» розыск спадает быстрее")
+	s.balance.check_base = 100.0
+	s.balance.check_max = 100.0
+	s.balance.krysha_warn = 1.0
+	var report := s.end_day()
+	_check(_has(report, "LOG_KRYSHA_WARNED") and s.properties.stock_of("club_lab", "blue_dust") == 5, "«крыша» предупредила об облаве")
+	s.balance.check_base = 0.0
+	report = []
+	for i in 6:
+		report.append_array(s.end_day())
+	_check(_has(report, "LOG_KRYSHA_PAID"), "через неделю — снова платишь")
+	s.balance.krysha_rat_base = 1.0
+	report = s.end_day()
+	_check(_has(report, "LOG_KRYSHA_RATTED") and not s.police.has_krysha("clubs") and s.police.dossier.clubs > 0.0,
+			"«крыша» сдала — дело толстеет")
+	var poor := _police_session()
+	poor.hire_krysha("clubs")
+	poor.clean = 0
+	poor.dirty = 0
+	report = []
+	for i in 8:
+		report.append_array(poor.end_day())
+	_check(_has(report, "LOG_KRYSHA_LEFT") and not poor.police.has_krysha("clubs"), "нечем платить — «крыша» ушла")
+
+
+func _test_retake_and_hush() -> void:
+	var s := _police_session()
+	s.gangs.player_gain("clubs", 20.0)
+	var mine := s.gangs.share("clubs", Gangs.PLAYER)
+	var report := s._gang_retake("neon")
+	_check(_has(report, "LOG_GANG_RETAKE") and s.gangs.share("clubs", Gangs.PLAYER) < mine, "банда отбивает землю")
+	var lost := mine - s.gangs.share("clubs", Gangs.PLAYER)
+	_check(s._gang_retake("bazaar").is_empty(), "где у банды нет доли — не отбирает")
+	for i in 3:
+		s.crew.roll_candidates(s.rng, 3)
+		s.hire(_candidate(s, "fighter", "loyal", 3))
+	var before := s.gangs.share("clubs", Gangs.PLAYER)
+	s._gang_retake("neon")
+	_check(before - s.gangs.share("clubs", Gangs.PLAYER) < lost, "сильная бригада — отбирают меньше")
+	s.police.dossier.clubs = 70.0
+	_check(not s.can_hush("clubs"), "без «крыши» дело не замять")
+	s.hire_krysha("clubs")
+	var cost := s.hush_cost("clubs")
+	var clean := s.clean
+	_check(s.hush_case("clubs") and s.police.dossier.clubs == 20.0 and s.clean == clean - cost, "«крыша» замяла дело")
+
+
+func _test_police_save() -> void:
+	var s := _police_session()
+	s.hire_krysha("station")
+	s.police.dossier.clubs = 42.0
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _police_session()
+	loaded.load_dict(data)
+	_check(loaded.police.has_krysha("station") and loaded.police.dossier.clubs == 42.0, "дело и «крыша» сохраняются")
+	var old := _police_session()
+	old.load_dict(data)
+	old.police.load_dict({ "market": 33.0 })
+	_check(old.police.heat.market == 33.0, "старое сохранение розыска читается")
 
 
 func _test_save_and_load() -> void:

@@ -816,16 +816,64 @@ func _refresh_card() -> void:
 	_card_tiles.add_child(_tile(tr("TILE_OWNER"), _owner_title(_card_district)))
 	var mine_share := s.gangs.share(_card_district, Gangs.PLAYER)
 	_card_tiles.add_child(_tile(tr("TILE_YOUR_INFLUENCE"), "%d / 100" % roundi(mine_share), mine_share / 100.0))
+	var dossier: float = s.police.dossier[_card_district]
+	_card_tiles.add_child(_tile(tr("TILE_DOSSIER"), "%d / 100" % roundi(dossier) if dossier > 0.0 else tr("TILE_DOSSIER_NONE"),
+			dossier / 100.0 if dossier > 0.0 else -1.0, COLOR_DOWN))
+	_card_tiles.add_child(_tile(tr("TILE_KRYSHA"), tr("TILE_KRYSHA_UNTIL") % int(s.police.krysha[_card_district])
+			if s.police.has_krysha(_card_district) else tr("TILE_NO")))
 	_card_travel_button.visible = not here
 	_card_travel_button.disabled = not s.can_act()
 	_card_market_button.visible = here and s.has_market()
 	_card_market_button.disabled = _market_window.visible
 	_activities_grid.visible = here
 	_clear(_prop_box)
+	_police_section(_card_district)
 	if here and not s.local_activities().is_empty():
 		_section(tr("SECTION_JOBS"))
 		_activities_grid.get_parent().move_child(_prop_box, _activities_grid.get_index())
 	_build_activities()
+
+
+## В карточке района: детективы (если ведут дело) и «крыша» — нанять или отказаться.
+func _police_section(where: String) -> void:
+	var s := GameState.session
+	_section(tr("SECTION_POLICE"))
+	if s.police.detectives_on(where):
+		var note := _small_label(tr("POLICE_DETECTIVES"), 10, COLOR_DOWN)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_prop_box.add_child(note)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var info := _small_label(tr("POLICE_KRYSHA_ON") % int(s.police.krysha[where]) if s.police.has_krysha(where)
+			else tr("POLICE_KRYSHA_OFF"), 11, COLOR_TEXT)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(info)
+	var button := Button.new()
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(button, 8)
+	button.add_theme_font_size_override("font_size", 10)
+	button.tooltip_text = tr("BTN_KRYSHA_TIP")
+	if s.police.has_krysha(where):
+		button.text = tr("BTN_KRYSHA_DROP")
+		button.disabled = not s.can_act()
+		button.pressed.connect(GameState.drop_krysha.bind(where))
+	else:
+		button.text = tr("BTN_KRYSHA_HIRE") % _format_money(s.krysha_fee(where))
+		button.disabled = not s.can_hire_krysha(where)
+		button.pressed.connect(GameState.hire_krysha.bind(where))
+	row.add_child(button)
+	_prop_box.add_child(row)
+	if s.police.has_krysha(where) and float(s.police.dossier[where]) > 0.0:
+		var hush := Button.new()
+		hush.text = tr("BTN_HUSH") % _format_money(s.hush_cost(where))
+		hush.tooltip_text = tr("BTN_HUSH_TIP")
+		hush.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(hush, 8)
+		hush.add_theme_font_size_override("font_size", 10)
+		hush.disabled = not s.can_hush(where)
+		hush.pressed.connect(GameState.hush_case.bind(where))
+		_prop_box.add_child(hush)
 
 
 func _district_activity_count(district: String) -> int:
