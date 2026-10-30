@@ -81,6 +81,7 @@ func _init() -> void:
 	_test_world()
 	_test_flights()
 	_test_world_save()
+	_test_city_stats()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1802,6 +1803,20 @@ func _test_flights() -> void:
 	_check(not r.can_add_route("market_warehouse", "@ams_canals", "cigarettes", r.logistics.vehicles[0].id, courier),
 			"маршрут в другой город пока нельзя")
 	_check(r.can_add_route("market_warehouse", "@clubs", "cigarettes", r.logistics.vehicles[0].id, courier), "маршрут внутри города — можно")
+
+
+func _test_city_stats() -> void:
+	var s := _calm_session()
+	s.police.heat.mia_port = 70.0
+	s.police.heat.mia_beach = 30.0
+	_check(s.city_heat("miami") == 70.0 and s.city_heat("berlin") == 0.0, "розыск города — по самому горячему району")
+	s.gangs.player_gain("ams_park", 40.0)
+	_check(is_equal_approx(s.city_influence("amsterdam"), 10.0), "влияние в городе — среднее по районам")
+	var cheapest := s.city_price("istanbul", "phones", true)
+	for d: Dictionary in s.world.districts_of("istanbul"):
+		if d.has_market:
+			_check(s.market.buy_price(d.id, "phones") >= cheapest, "лучшая цена покупки — самая низкая (%s)" % d.id)
+	_check(s.city_price("istanbul", "phones", false) > 0, "лучшая цена продажи есть")
 
 
 func _test_world_save() -> void:

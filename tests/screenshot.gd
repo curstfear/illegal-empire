@@ -1,15 +1,23 @@
 extends Node
-## Служебный прогон партии со скриншотами (для проверки глазами).
-## Godot --path . res://tests/screenshot.tscn -- <папка_для_png>
+## Служебный прогон партии со скриншотами (для проверки глазами). Окно само закрывается в конце.
+## Godot --path . res://tests/screenshot.tscn -- <папка_для_png> [часть]
+## Часть: "all" (по умолчанию, вся партия — минуты две) или "world" (только мировая карта — секунд 15).
+## Чтобы окно не мешало: --resolution 960x540 --position 0,0 перед --path.
 
 const GAME_SCENE := preload("res://scenes/game.tscn")
 
 
 func _ready() -> void:
-	var out_dir: String = OS.get_cmdline_user_args()[0] if not OS.get_cmdline_user_args().is_empty() else "user://"
+	var args := OS.get_cmdline_user_args()
+	var out_dir: String = args[0] if not args.is_empty() else "user://"
+	var part: String = args[1] if args.size() > 1 else "all"
 	# Если сценарий упадёт посередине — окно не висит, а закрывается само.
-	get_tree().create_timer(180.0).timeout.connect(get_tree().quit.bind(1))
+	get_tree().create_timer(150.0 if part == "all" else 45.0).timeout.connect(get_tree().quit.bind(1))
 	TranslationServer.set_locale("ru")
+	if part == "world":
+		await _world_shots(out_dir)
+		get_tree().quit()
+		return
 	GameState.new_game()
 	var game := GAME_SCENE.instantiate()
 	add_child(game)
@@ -218,18 +226,31 @@ func _ready() -> void:
 	_shot(out_dir.path_join("7_end.png"))
 	print("continue: ", GameState.continue_game(), ", day ", GameState.session.day, ", status ", GameState.session.status)
 
-	# Мир: окно городов, перелёт в Амстердам — город пересобирается.
 	game.queue_free()
 	await _frames(2)
+	await _world_shots(out_dir)
+	get_tree().quit()
+
+
+## Мир: карта, слой розыска с дугой до Майами, перелёт в Амстердам — город пересобирается.
+func _world_shots(out_dir: String) -> void:
 	GameState.new_game()
 	GameState.session.clean = 3000
-	game = GAME_SCENE.instantiate()
+	var game := GAME_SCENE.instantiate()
 	add_child(game)
-	screen = game.get_node("Hud/GameScreen")
+	var screen: Control = game.get_node("Hud/GameScreen")
 	await _frames(10)
 	screen._world_button.pressed.emit()
 	await _frames(10)
 	_shot(out_dir.path_join("8_world.png"))
+	screen._world_overlay.mode = "heat"
+	screen._world_overlay._selected = "miami"
+	screen._world_overlay._hovered = "miami"
+	screen._world_overlay.refresh()
+	screen._world_overlay._globe._zoom(1.2)
+	screen._world_overlay._globe._turn(Vector2(60, 0))
+	await _frames(5)
+	_shot(out_dir.path_join("8a_world_heat.png"))
 	screen._world_overlay.visible = false
 	GameState.fly("amsterdam")
 	await _frames(20)
@@ -237,7 +258,6 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("8b_amsterdam.png"))
 	print("город: ", GameState.session.city, ", район ", GameState.session.district, ", узел города ", game.get_node("City").name)
-	get_tree().quit()
 
 
 func _frames(count: int) -> void:

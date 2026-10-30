@@ -135,10 +135,9 @@ var _gangs_list := VBoxContainer.new()
 var _fight_overlay := ColorRect.new()
 var _fight_box := VBoxContainer.new()
 var _fight_gang: String = ""
-## Окно «Мир»: список городов с перелётом (строится кодом).
+## Кнопка «Мир» и мировая карта.
 var _world_button := Button.new()
-var _world_overlay := ColorRect.new()
-var _world_box := VBoxContainer.new()
+var _world_overlay := WorldMap.new()
 
 
 func _ready() -> void:
@@ -740,7 +739,6 @@ func _refresh() -> void:
 	_refresh_skills()
 	_refresh_check()
 	_refresh_fight()
-	_refresh_world()
 
 
 ## Строки под числами: разница денег за день, отмыв, проценты, район, силы.
@@ -1629,7 +1627,7 @@ func _refresh_gangs() -> void:
 	_gangs_list.add_child(legend)
 
 
-## Кнопка «Мир» рядом с «Сохранить» и окно со списком городов.
+## Кнопка «Мир» рядом с «Сохранить» и мировая карта на весь экран.
 func _build_world() -> void:
 	_world_button.tooltip_text = tr("BTN_WORLD")
 	_world_button.custom_minimum_size = Vector2(30, 30)
@@ -1638,70 +1636,15 @@ func _build_world() -> void:
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 7)
 	_world_button.add_child(icon)
 	_world_button.pressed.connect(func() -> void:
-		_world_overlay.visible = not _world_overlay.visible
-		_refresh_world())
+		if _world_overlay.visible:
+			_world_overlay.visible = false
+		else:
+			_world_overlay.open())
 	_save_button.get_parent().add_child(_world_button)
 	_save_button.get_parent().move_child(_world_button, _save_button.get_index())
-	_world_overlay.color = _check_overlay.color
-	_world_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_world_overlay.visible = false
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520, 0)
-	panel.add_theme_stylebox_override("panel", _check_overlay.get_node("Center/Panel").get_theme_stylebox("panel"))
-	_world_box.add_theme_constant_override("separation", 8)
-	panel.add_child(_world_box)
-	center.add_child(panel)
-	_world_overlay.add_child(center)
 	add_child(_world_overlay)
 	move_child(_world_overlay, _check_overlay.get_index())
-
-
-## Список городов: страна, где ты, билет и часы в пути, кнопка «Лететь».
-func _refresh_world() -> void:
-	if not _world_overlay.visible:
-		return
-	var s := GameState.session
-	_clear(_world_box)
-	var title := _small_label(tr("WORLD_TITLE"), 22, COLOR_ACCENT)
-	_bold(title)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_world_box.add_child(title)
-	for city: Dictionary in s.world.cities:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		var texts := VBoxContainer.new()
-		texts.add_theme_constant_override("separation", -2)
-		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var name_label := _small_label(tr(city.name_key), 14, COLOR_TEXT)
-		_bold(name_label)
-		texts.add_child(name_label)
-		var gangs: Array = s.gangs.defs.filter(func(g: Dictionary) -> bool: return s.world.city_of(g.home) == city.id)
-		texts.add_child(_small_label(tr(s.world.get_country(city.country).name_key) + " · "
-				+ tr("WORLD_GANGS") % ", ".join(gangs.map(func(g: Dictionary) -> String: return tr(g.name_key))), 10, COLOR_MUTED))
-		row.add_child(texts)
-		if city.id == s.city:
-			row.add_child(_pill(tr("PILL_HERE"), COLOR_UP))
-		else:
-			row.add_child(_small_label(tr("WORLD_FLIGHT") % [_format_money(s.world.flight_cost(s.city, city.id)),
-					str(s.world.flight_hours(s.city, city.id))], 11, COLOR_MUTED))
-			var fly := Button.new()
-			fly.text = tr("BTN_FLY")
-			fly.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-			_make_small(fly, 8)
-			fly.disabled = not s.can_fly(city.id)
-			var id: String = city.id
-			fly.pressed.connect(func() -> void:
-				_world_overlay.visible = false
-				GameState.fly(id))
-			row.add_child(fly)
-		_world_box.add_child(row)
-	var close := Button.new()
-	close.text = tr("BTN_CLOSE")
-	close.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	close.pressed.connect(func() -> void: _world_overlay.visible = false)
-	_world_box.add_child(close)
 
 
 func _build_fight_overlay() -> void:

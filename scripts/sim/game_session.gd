@@ -37,6 +37,35 @@ func can_fly(to_city: String) -> bool:
 	return can_act() and to_city != city and not world.get_city(to_city).is_empty() and money >= world.flight_cost(city, to_city)
 
 
+## Самый высокий розыск среди районов города (0–100).
+func city_heat(city_id: String) -> float:
+	var result := 0.0
+	for d: Dictionary in world.districts_of(city_id):
+		result = maxf(result, float(police.heat[d.id]))
+	return result
+
+
+## Твоё влияние в городе: среднее по его районам (0–100).
+func city_influence(city_id: String) -> float:
+	var list := world.districts_of(city_id)
+	var total := 0.0
+	for d: Dictionary in list:
+		total += gangs.share(d.id, Gangs.PLAYER)
+	return total / maxf(1.0, list.size())
+
+
+## Лучшая цена товара в городе: buy — самая низкая цена покупки, иначе — самая высокая цена продажи (0 — рынков нет).
+func city_price(city_id: String, good: String, buy: bool) -> int:
+	var best := 0
+	for d: Dictionary in world.districts_of(city_id):
+		if not d.has_market:
+			continue
+		var price := market.buy_price(d.id, good) if buy else market.sell_price(d.id, good)
+		if best == 0 or (price < best if buy else price > best):
+			best = price
+	return best
+
+
 ## Перелёт в другой город: билет, часы в пути (их отсчитывают часы игры); прилетаешь в главный район.
 func fly(to_city: String) -> Array:
 	if not can_fly(to_city):

@@ -661,3 +661,15 @@ WORLD_FLIGHT,$%s · %s h,$%s · %s ч
 BTN_FLY,Fly,Лететь
 BTN_CLOSE,Close,Закрыть
 LOG_FLEW,You flew to %s. Ticket: $%s.,Ты прилетел в город %s. Билет: $%s.
+MAP_MODE_HEAT,Heat,Розыск
+MAP_MODE_INFLUENCE,Your influence,Твоё влияние
+MAP_MODE_PRICE,Prices:,Цены:
+MAP_INFLUENCE,influence %d,влияние %d
+MAP_HEAT,Heat: %s,Розыск: %s
+MAP_YOUR_INFLUENCE,Your influence: %d / 100,Твоё влияние: %d / 100
+MAP_GANGS,Gangs,Банды
+MAP_PRICES,Best prices in the city,Лучшие цены в городе
+MAP_RANKING,%s around the world: cheapest to buy first,%s по миру: сначала где дешевле купить
+MAP_BUY_AT,buy $%d,купить $%d
+MAP_SELL_AT,sell $%d,продать $%d
+MAP_HINT,Today's best market prices. Your own sales push them down; prices move every day.,"Лучшие цены на рынках сегодня. Твои продажи их сбивают, цены меняются каждый день."

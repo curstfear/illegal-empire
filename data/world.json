@@ -44,7 +44,8 @@
 			"lat": 52.37,
 			"lon": 4.9,
 			"layout": "res://data/cities/amsterdam.json",
-			"start": "ams_canals"
+			"start": "ams_canals",
+			"label": "left"
 		},
 		{
 			"id": "marseille",
