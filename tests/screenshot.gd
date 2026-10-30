@@ -7,6 +7,8 @@ const GAME_SCENE := preload("res://scenes/game.tscn")
 
 func _ready() -> void:
 	var out_dir: String = OS.get_cmdline_user_args()[0] if not OS.get_cmdline_user_args().is_empty() else "user://"
+	# Если сценарий упадёт посередине — окно не висит, а закрывается само.
+	get_tree().create_timer(180.0).timeout.connect(get_tree().quit.bind(1))
 	TranslationServer.set_locale("ru")
 	GameState.new_game()
 	var game := GAME_SCENE.instantiate()
@@ -89,6 +91,31 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("4c_crew.png"))
 	print("бригада: ", s.crew.people.map(func(p: Dictionary) -> String: return "%s/%s/%s" % [p.role, p.trait, p.job]))
+
+	# Перевозки: курьер и менеджер, фургон с тайником, маршрут сарай → прачечная.
+	s.clean += 8000
+	s.crew.roll_candidates(s.rng, 3)
+	for role: String in ["courier", "manager"]:
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = role
+		GameState.hire(int(candidate.id))
+	var manager: Dictionary = s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "manager")[0]
+	GameState.assign(int(manager.id), "forest_shed")
+	GameState.give_bonus(int(manager.id))
+	GameState.pressure(int(s.crew.people[0].id))
+	GameState.buy_vehicle("van")
+	GameState.add_hidden(int(s.logistics.vehicles[0].id))
+	GameState.buy_vehicle("scooter")
+	screen.open_tab("crew")
+	await _frames(10)
+	_shot(out_dir.path_join("4d_crew_loyalty.png"))
+	print("после найма: ", s.crew.people.map(func(p: Dictionary) -> String: return p.role), " деньги ", s.money)
+	var courier: Dictionary = s.crew.people.filter(func(p: Dictionary) -> bool: return p.role == "courier")[0]
+	GameState.add_route("forest_shed", "laundromat", "moon_pollen", int(s.logistics.vehicles[0].id), int(courier.id))
+	screen.open_tab("routes")
+	await _frames(10)
+	_shot(out_dir.path_join("4e_routes.png"))
+	print("маршруты: ", s.logistics.routes)
 
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()

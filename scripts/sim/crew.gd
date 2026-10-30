@@ -1,14 +1,15 @@
 class_name Crew
 extends RefCounted
-## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник).
-## У человека: кличка, роль, навык 1–5, черта характера, зарплата за день и место работы (id здания или "").
+## Бригада: кандидаты на бирже и нанятые люди (повар, дилер, охранник, курьер, менеджер).
+## У человека: кличка, роль, навык 1–5, черта характера, зарплата за день, место работы (id здания или ""),
+## лояльность и страх (0–100), «что знает» (ночей в бригаде) и день последней премии.
 ## Деньги, розыск и случайности считает GameSession — здесь только состояние и правила.
 
 ## Роли и черты из data/crew.json; клички — ключи перевода.
 var roles: Dictionary = {}
 var traits: Dictionary = {}
 var nicknames: Array = []
-## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job }.
+## Нанятые и кандидаты: { id, nick, role, skill, trait, wage, job, loyalty, fear, knows, bonus_day }.
 var people: Array = []
 var candidates: Array = []
 ## Кто из нанятых вышел на работу этой ночью (пьющий может не прийти). Не сохраняется.
@@ -16,13 +17,15 @@ var present: Dictionary = {}
 
 var _next_id := 1
 var _skill_max := 5
+var _loyalty_start := 55.0
 
 
-func _init(data: Dictionary, skill_max: int) -> void:
+func _init(data: Dictionary, skill_max: int, loyalty_start: float) -> void:
 	roles = data.roles
 	traits = data.traits
 	nicknames = data.nicknames
 	_skill_max = skill_max
+	_loyalty_start = loyalty_start
 
 
 ## Новые кандидаты на бирже (старые уходят).
@@ -42,7 +45,8 @@ func _make_person(rng: RandomNumberGenerator) -> Dictionary:
 	var info: Dictionary = roles[role]
 	var wage := roundi((float(info.wage_base) + float(info.wage_per_skill) * skill) * float(traits[trait_id].wage))
 	var person := { "id": _next_id, "nick": nicknames[rng.randi() % nicknames.size()], "role": role,
-			"skill": skill, "trait": trait_id, "wage": wage, "job": "" }
+			"skill": skill, "trait": trait_id, "wage": wage, "job": "",
+			"loyalty": float(traits[trait_id].get("loyalty", _loyalty_start)), "fear": 0.0, "knows": 0, "bonus_day": 0 }
 	_next_id += 1
 	return person
 
@@ -128,5 +132,7 @@ func _restore(list: Array) -> Array:
 		if not roles.has(p.role) or not traits.has(p.trait):
 			continue
 		result.append({ "id": int(p.id), "nick": String(p.nick), "role": String(p.role), "skill": int(p.skill),
-				"trait": String(p.trait), "wage": int(p.wage), "job": String(p.job) })
+				"trait": String(p.trait), "wage": int(p.wage), "job": String(p.job),
+				"loyalty": float(p.get("loyalty", traits[p.trait].get("loyalty", _loyalty_start))),
+				"fear": float(p.get("fear", 0.0)), "knows": int(p.get("knows", 0)), "bonus_day": int(p.get("bonus_day", 0)) })
 	return result

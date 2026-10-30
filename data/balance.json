@@ -112,5 +112,44 @@
 	"dealer_units_per_skill": 1,
 	"dealer_price_base": 0.75,
 	"dealer_price_per_skill": 0.04,
-	"dealer_heat_share": 0.6
+	"dealer_heat_share": 0.6,
+
+	"loyalty_start": 55,
+	"loyalty_paid": 1,
+	"loyalty_raid": -12,
+	"loyalty_ambush": -15,
+	"bonus_wage_days": 2,
+	"bonus_loyalty": 20,
+	"pressure_fear": 35,
+	"pressure_loyalty": -10,
+	"fear_decay": 6,
+	"fear_resent": 70,
+	"betray_loyalty": 30,
+	"betray_chance_per_point": 0.015,
+	"fear_betray_cut": 0.008,
+	"knows_max": 30,
+	"betray_snitch_heat": 10,
+	"betray_snitch_evidence": 30,
+	"betray_steal_share": 0.3,
+	"betray_steal_cash_share": 0.15,
+	"fired_snitch_loyalty": 40,
+	"fired_snitch_chance": 0.5,
+
+	"manager_evidence_per_skill": 4,
+
+	"vehicles": {
+		"scooter": { "name_key": "VEHICLE_SCOOTER", "price": 600, "capacity": 20, "notice": 0.6, "breakdown": 0.08 },
+		"car": { "name_key": "VEHICLE_CAR", "price": 2500, "capacity": 50, "notice": 1.0, "breakdown": 0.04 },
+		"van": { "name_key": "VEHICLE_VAN", "price": 5000, "capacity": 120, "notice": 1.4, "breakdown": 0.05 }
+	},
+	"vehicles_max": 4,
+	"hidden_compartment_cost": 400,
+	"hidden_compartment_factor": 0.5,
+	"route_police_base": 0.04,
+	"route_heat_per_point": 0.02,
+	"route_courier_skill_cut": 0.08,
+	"route_bust_heat": 10,
+	"route_ambush_base": 0.02,
+	"route_ambush_per_1000": 0.03,
+	"route_ambush_max": 0.15
 }

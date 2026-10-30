@@ -174,9 +174,52 @@ func hire(id: int) -> void:
 
 
 func fire(id: int) -> void:
-	var person := session.crew.get_person(id)
-	if session.fire(id):
-		reported.emit([["LOG_CREW_FIRED", [person.nick]]])
+	var report := session.fire(id)
+	if not report.is_empty():
+		reported.emit(report)
+		changed.emit()
+
+
+func give_bonus(id: int) -> void:
+	var cost := session.bonus_cost(id)
+	if session.give_bonus(id):
+		Audio.coin()
+		reported.emit([["LOG_BONUS_GIVEN", [session.crew.get_person(id).nick, cost]]])
+		changed.emit()
+
+
+func pressure(id: int) -> void:
+	var report := session.pressure(id)
+	if not report.is_empty():
+		Audio.ui("select")
+		reported.emit(report)
+		changed.emit()
+
+
+# --- Перевозки ---
+
+func buy_vehicle(type: String) -> void:
+	if session.buy_vehicle(type):
+		Audio.coin()
+		reported.emit([["LOG_VEHICLE_BOUGHT", [session.balance.vehicles[type].name_key]]])
+		changed.emit()
+
+
+func add_hidden(vehicle_id: int) -> void:
+	if session.add_hidden(vehicle_id):
+		Audio.ui("confirmation")
+		changed.emit()
+
+
+func add_route(from: String, to: String, good: String, vehicle_id: int, courier_id: int) -> void:
+	if session.add_route(from, to, good, vehicle_id, courier_id):
+		Audio.ui("confirmation")
+		changed.emit()
+
+
+func remove_route(id: int) -> void:
+	if session.remove_route(id):
+		Audio.ui("select")
 		changed.emit()
 
 

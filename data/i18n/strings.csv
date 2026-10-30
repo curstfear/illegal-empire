@@ -344,17 +344,17 @@ ROLE_DESC_COOK,"Works in a lab: fewer defects, more great batches (3% per skill 
 ROLE_DESC_DEALER,"Sells illegal goods from the building's storage every night (2 + skill units, at 75–95% of the district price). Dirty cash, adds heat.","Каждую ночь продаёт нелегальное со склада здания (2 + навык штук, по 75–95% цены района). Деньги грязные, розыск растёт."
 ROLE_DESC_GUARD,Guards a building: raid chance −10% per skill level.,Охраняет здание: облава реже на 10% за уровень навыка.
 TRAIT_GREEDY,greedy,жадный
-TRAIT_GREEDY_DESC,"+1 skill, but wage +30%","+1 к навыку, но зарплата +30%"
+TRAIT_GREEDY_DESC,"+1 skill, but wage +30%; loyalty slips a little every night; a traitor steals","+1 к навыку, но зарплата +30%; лояльность понемногу тает; предав — ворует"
 TRAIT_LOYAL,loyal,верный
-TRAIT_LOYAL_DESC,wage −10%,зарплата −10%
+TRAIT_LOYAL_DESC,wage −10%; starts loyal and grows more loyal every night,зарплата −10%; сразу верен и с каждой ночью ещё вернее
 TRAIT_DRINKER,drinker,пьёт
 TRAIT_DRINKER_DESC,"cheap (−20%), but skips work 1 night in 5","дешёвый (−20%), но 1 ночь из 5 не выходит"
 TRAIT_SLY,sly,хитрый
-TRAIT_SLY_DESC,as a dealer sells 15% dearer; wage +10%,дилером продаёт на 15% дороже; зарплата +10%
+TRAIT_SLY_DESC,as a dealer sells 15% dearer; wage +10%; a traitor steals,дилером продаёт на 15% дороже; зарплата +10%; предав — ворует
 TRAIT_HOTHEAD,hothead,вспыльчивый
-TRAIT_HOTHEAD_DESC,"+1 skill, but makes noise: +4 heat a night","+1 к навыку, но шумит: +4 розыска за ночь"
+TRAIT_HOTHEAD_DESC,"+1 skill, but makes noise: +4 heat a night; may quit if you lean on him","+1 к навыку, но шумит: +4 розыска за ночь; на давление может уйти"
 TRAIT_COWARD,coward,трусливый
-TRAIT_COWARD_DESC,"cheap (−25%), but runs away for good during a raid","дешёвый (−25%), но при облаве сбегает насовсем"
+TRAIT_COWARD_DESC,"cheap (−25%), but runs away during a raid; pressure scares him twice as much; a traitor snitches","дешёвый (−25%), но при облаве сбегает; давление пугает вдвое; предав — доносит"
 CREW_MINE,Your crew %d/%d · wages $%s a night,Бригада %d/%d · зарплаты $%s за ночь
 CREW_EMPTY,Nobody yet. Hire people below and put them to work in your buildings.,Пока никого. Найми людей ниже и поставь в свои здания.
 CREW_CANDIDATES,Looking for work today,Ищут работу сегодня
@@ -375,3 +375,55 @@ PROP_GO_THERE_FIRST,"To buy or rent, first go to: %s.","Чтобы купить 
 PROP_NEED_CLEAN,Not enough clean money: $%s more needed (or rent it).,Не хватает чистых: нужно ещё $%s (или возьми в аренду).
 BUILDINGS_MINE,Yours,Твои
 BUILDINGS_FOR_SALE,For sale and for rent,Продаются и сдаются
+ROLE_COURIER,Courier,Курьер
+ROLE_MANAGER,Manager,Менеджер
+ROLE_LETTER_COURIER,R,К
+ROLE_LETTER_MANAGER,M,М
+ROLE_DESC_COURIER,Drives a route every night: carries goods between your buildings. Skill lowers the chance of a police stop (8% per level).,Каждую ночь возит товар по маршруту между твоими зданиями. Навык снижает риск остановки патрулём (8% за уровень).
+ROLE_DESC_MANAGER,"Runs a building for you every night: cleans up evidence (4 per skill level), restarts brewing from stock, sends dirty cash to the laundering till of a front.","Ведёт здание за тебя каждую ночь: прибирает улики (4 за уровень навыка), сам запускает варку из запасов, в фасаде сдаёт грязные в кассу отмыва."
+CREW_LOYALTY,Loyalty,Лояльность
+CREW_FEAR,Fear,Страх
+CREW_KNOWS,knows %d%%,знает %d%%
+CREW_STATS_TIP,"Loyalty grows with paid wages and bonuses, drops after raids, ambushes and pressure. Below 30 a person may steal, snitch or leave for rivals. Fear holds them back. The more they know, the worse a snitch.","Лояльность растёт от зарплаты и премий, падает от облав, засад и давления. Ниже 30 человек может украсть, донести или уйти к конкурентам. Страх сдерживает. Чем больше знает — тем опаснее донос."
+BTN_BONUS,Bonus $%s,Премия $%s
+BTN_PRESSURE,Lean on,Надавить
+BTN_PRESSURE_TIP,"Fear +35 (betrays less), loyalty −10. A hothead may quit.","Страх +35 (предаёт реже), лояльность −10. Вспыльчивый может уйти."
+CREW_ON_ROUTE,On a route,На маршруте
+CREW_NO_ROUTE,No route,Без маршрута
+TAB_ROUTES,Transport,Перевозки
+ROUTES_VEHICLES,Your vehicles %d/%d,Твой транспорт %d/%d
+ROUTES_NO_VEHICLES,No vehicles yet. Buy one below.,Пока нет транспорта. Купи ниже.
+ROUTES_SHOP,Buy a vehicle,Купить транспорт
+VEHICLE_SCOOTER,Scooter,Скутер
+VEHICLE_CAR,Car,Легковая
+VEHICLE_VAN,Van,Фургон
+VEHICLE_INFO,%d places · conspicuous ×%s,%d мест · заметность ×%s
+BTN_BUY_VEHICLE,Buy $%s,Купить $%s
+BTN_HIDDEN,Hidden compartment $%s,Тайник $%s
+BTN_HIDDEN_TIP,A false bottom: police find the cargo half as often.,Ложное дно: патруль находит груз вдвое реже.
+PILL_HIDDEN,compartment,тайник
+PILL_REPAIR,in repair,в ремонте
+PILL_BUSY,on a route,на маршруте
+PILL_FREE,free,свободна
+ROUTES_LIST,Routes,Маршруты
+ROUTES_EMPTY,No routes. A courier carries goods every night between two of your buildings.,Маршрутов нет. Курьер каждую ночь возит товар между двумя твоими зданиями.
+ROUTES_NEW,New route,Новый маршрут
+ROUTES_NEED,"You need two of your buildings, a free vehicle and a free courier (hire one in the Crew tab).","Нужны два своих здания, свободная машина и свободный курьер (нанять — во вкладке «Люди»)."
+ROUTE_INFO,%s · up to %d a night · police %d%% · ambush up to %d%%,%s · до %d шт. за ночь · патруль %d%% · засада до %d%%
+BTN_ADD_ROUTE,Start route,Запустить
+BTN_REMOVE_ROUTE,Stop route,Остановить маршрут
+LOG_FIRED_SNITCHED,%s took the firing badly and went to the police. Heat is up.,%s обиделся на увольнение и пошёл в полицию. Розыск вырос.
+LOG_BONUS_GIVEN,Bonus for %s: $%s. Loyalty is up.,"Премия: %s, $%s. Лояльность выросла."
+LOG_PRESSURED,"You leaned on %s. Scared, but resentful.","Надавил на %s. Боится, но затаил обиду."
+LOG_PRESSURE_QUIT,%s blew up at the pressure and quit.,%s вспылил от давления и ушёл.
+LOG_BETRAY_SNITCH,%s snitched to the police and vanished. Heat and evidence are up.,%s донёс в полицию и пропал. Розыск и улики выросли.
+LOG_BETRAY_LEFT,%s left to work for rivals.,%s ушёл работать к конкурентам.
+LOG_BETRAY_STOLE_GOODS,%s stole %d item(s) from %s and ran off.,%s украл %d шт. товара (%s) и сбежал.
+LOG_BETRAY_STOLE_CASH,%s stole $%s of dirty cash and ran off.,%s украл $%s грязными и сбежал.
+LOG_MANAGER_BREW,Manager %s started %d batch(es): %s.,"Менеджер %s запустил варку: %d парт., %s."
+LOG_MANAGER_LAUNDER,Manager %s sent $%s dirty to the laundering till.,Менеджер %s сдал в отмыв $%s грязными.
+LOG_VEHICLE_BOUGHT,Bought: %s.,Куплено: %s.
+LOG_ROUTE_BREAKDOWN,"%s: the %s broke down, no trip tonight.","%s: сломался транспорт (%s), сегодня рейса нет."
+LOG_ROUTE_BUSTED,"Police stopped courier %s: %d item(s) of %s seized, courier arrested, vehicle impounded.","Патруль остановил курьера %s: забрали %d шт. (%s), курьер арестован, машина на штрафстоянке."
+LOG_ROUTE_AMBUSH,Rivals ambushed courier %s and took %d item(s) of %s.,Конкуренты устроили засаду курьеру %s и отобрали %d шт. (%s).
+LOG_ROUTE_DELIVERED,Courier %s delivered %d item(s) of %s: %s → %s.,Курьер %s перевёз %d шт. (%s): %s → %s.

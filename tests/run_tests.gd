@@ -46,6 +46,12 @@ func _init() -> void:
 	_test_crew_work()
 	_test_crew_traits()
 	_test_crew_save()
+	_test_loyalty()
+	_test_betrayal()
+	_test_manager()
+	_test_routes()
+	_test_route_risks()
+	_test_logistics_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -568,7 +574,7 @@ func _test_crew_hiring() -> void:
 			"не хватило денег на зарплату — один ушёл")
 	s.sell_property("market_warehouse")
 	_check(s.crew.people.all(func(p: Dictionary) -> bool: return p.job == ""), "склад продан — люди без места")
-	_check(s.fire(s.crew.people[0].id) and s.crew.people.is_empty(), "уволили")
+	_check(not s.fire(s.crew.people[0].id).is_empty() and s.crew.people.is_empty(), "уволили")
 
 
 func _test_crew_work() -> void:
@@ -666,6 +672,221 @@ func _test_crew_save() -> void:
 	var loaded := _rich_session()
 	loaded.load_dict(data)
 	_check(JSON.stringify(loaded.crew.to_dict()) == JSON.stringify(s.crew.to_dict()), "бригада и биржа сохраняются")
+
+
+func _has(report: Array, key: String) -> bool:
+	return report.any(func(e: Array) -> bool: return e[0] == key)
+
+
+func _test_loyalty() -> void:
+	var s := _rich_session()
+	var loyal := _candidate(s, "guard", "loyal", 2)
+	_check(is_equal_approx(float(s.crew.get_candidate(loyal).loyalty), 75.0), "у верного лояльность 75")
+	s.hire(loyal)
+	var greedy := _candidate(s, "guard", "greedy", 2)
+	s.crew.get_candidate(greedy).loyalty = 40.0
+	s.hire(greedy)
+	s.end_day()
+	_check(is_equal_approx(float(s.crew.get_person(loyal).loyalty), 77.0), "за оплаченную ночь верный +2")
+	_check(is_equal_approx(float(s.crew.get_person(greedy).loyalty), 40.0), "жадный: +1 за зарплату, −1 за жадность")
+	_check(int(s.crew.get_person(loyal).knows) == 1, "за ночь узнал больше")
+	var clean_before := s.clean
+	_check(s.give_bonus(greedy) and s.clean == clean_before - 100, "премия — два дня зарплаты")
+	_check(is_equal_approx(float(s.crew.get_person(greedy).loyalty), 60.0), "премия: лояльность +20")
+	_check(not s.can_give_bonus(greedy), "вторая премия в тот же день — нельзя")
+	s.pressure(loyal)
+	_check(is_equal_approx(float(s.crew.get_person(loyal).fear), 35.0), "надавили: страх 35")
+	_check(is_equal_approx(float(s.crew.get_person(loyal).loyalty), 67.0), "надавили: лояльность −10")
+	var person := s.crew.get_person(loyal)
+	person.loyalty = 10.0
+	person.fear = 0.0
+	var free := s.betray_chance(person)
+	person.fear = 80.0
+	_check(free > 0.0 and s.betray_chance(person) < free, "страх снижает шанс предательства")
+	person.loyalty = 50.0
+	_check(s.betray_chance(person) == 0.0, "лояльный не предаёт")
+	var hot := _candidate(s, "guard", "hothead", 2)
+	s.hire(hot)
+	s.crew.traits.hothead.quits_on_pressure = 1.0
+	_check(_has(s.pressure(hot), "LOG_PRESSURE_QUIT") and s.crew.get_person(hot).is_empty(), "вспыльчивый на давление ушёл")
+
+
+func _test_betrayal() -> void:
+	# Жадный ворует со склада, где работает, и пропадает.
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	s.inventory.cigarettes = 10
+	s.store_goods("market_warehouse", "cigarettes")
+	var thief := _candidate(s, "guard", "greedy", 2)
+	s.hire(thief)
+	s.assign(thief, "market_warehouse")
+	s.crew.get_person(thief).loyalty = 0.0
+	s.balance.betray_chance_per_point = 1.0
+	var report := s.end_day()
+	_check(_has(report, "LOG_BETRAY_STOLE_GOODS") and s.crew.people.is_empty(), "нелояльный жадный украл и сбежал")
+	_check(s.properties.stock_of("market_warehouse", "cigarettes") == 7, "унёс 30%% товара")
+
+	# Трус доносит: розыск района и улики в здании.
+	var c := _rich_session()
+	c.buy_property("market_warehouse")
+	var rat := _candidate(c, "guard", "coward", 1)
+	c.hire(rat)
+	c.assign(rat, "market_warehouse")
+	c.crew.get_person(rat).loyalty = 0.0
+	c.crew.get_person(rat).knows = 20
+	c.balance.betray_chance_per_point = 1.0
+	var heat_before: float = c.police.heat.market
+	report = c.end_day()
+	_check(_has(report, "LOG_BETRAY_SNITCH"), "трус донёс")
+	_check(c.police.heat.market > heat_before + 15.0, "донос поднял розыск (знал много)")
+	_check(c.properties.state.market_warehouse.evidence >= 30.0, "донос — улики в здании")
+
+	# Обиженный при увольнении может сдать.
+	var f := _rich_session()
+	var angry := _candidate(f, "dealer", "loyal", 2)
+	f.hire(angry)
+	f.crew.get_person(angry).loyalty = 0.0
+	f.crew.get_person(angry).knows = 30
+	f.balance.fired_snitch_chance = 1.0
+	_check(_has(f.fire(angry), "LOG_FIRED_SNITCHED"), "уволенный обиженный, знающий всё, донёс")
+
+
+func _test_manager() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.inventory.moon_moss = 6
+	s.store_goods("forest_shed", "moon_moss")
+	s.properties.state.forest_shed.evidence = 20.0
+	var boss := _candidate(s, "manager", "loyal", 3)
+	s.hire(boss)
+	_check(s.assign(boss, "forest_shed"), "менеджера — в лабораторию")
+	var report := s.end_day()
+	_check(_has(report, "LOG_MANAGER_BREW"), "менеджер сам запустил варку")
+	_check(s.properties.stock_of("forest_shed", "moon_pollen") >= 2 and s.properties.stock_of("forest_shed", "moon_moss") < 3,
+			"мох ушёл в варку — к утру пыльца")
+	_check(s.properties.state.forest_shed.evidence <= 8.0 + float(s.balance.evidence_per_night), "менеджер прибрал улики")
+
+	var f := _rich_session()
+	f.buy_property("laundromat")
+	f.dirty = 1000
+	var accountant := _candidate(f, "manager", "loyal", 2)
+	f.hire(accountant)
+	f.assign(accountant, "laundromat")
+	report = f.end_day()
+	_check(_has(report, "LOG_MANAGER_LAUNDER") and _has(report, "LOG_LAUNDERED"), "менеджер фасада сам сдал грязные в отмыв")
+
+
+## Две своих точки и курьер на скутере с маршрутом склад → склад.
+func _route_session() -> GameSession:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	s.travel("station")
+	s.buy_property("station_warehouse")
+	s.travel("market")
+	s.balance.vehicles.scooter.breakdown = 0.0
+	s.balance.route_police_base = 0.0
+	s.balance.route_ambush_base = 0.0
+	s.balance.route_ambush_per_1000 = 0.0
+	return s
+
+
+func _test_routes() -> void:
+	var s := _route_session()
+	var clean_before := s.clean
+	_check(s.buy_vehicle("scooter") and s.clean == clean_before - 600, "купили скутер за $600")
+	var vehicle: int = s.logistics.vehicles[0].id
+	var guard := _candidate(s, "guard", "loyal", 2)
+	s.hire(guard)
+	_check(not s.can_add_route("market_warehouse", "station_warehouse", "cigarettes", vehicle, guard), "охранник — не курьер")
+	var courier := _candidate(s, "courier", "loyal", 2)
+	s.hire(courier)
+	_check(not s.can_add_route("market_warehouse", "market_warehouse", "cigarettes", vehicle, courier), "в то же здание — нельзя")
+	_check(not s.can_add_route("market_warehouse", "cafe", "cigarettes", vehicle, courier), "в чужое здание — нельзя")
+	_check(s.add_route("market_warehouse", "station_warehouse", "cigarettes", vehicle, courier), "маршрут создан")
+	var other := _candidate(s, "courier", "loyal", 2)
+	s.hire(other)
+	_check(not s.can_add_route("station_warehouse", "market_warehouse", "cigarettes", vehicle, other), "машина занята")
+	s.inventory.cigarettes = 30
+	s.store_goods("market_warehouse", "cigarettes")
+	var report := s.end_day()
+	_check(_has(report, "LOG_ROUTE_DELIVERED"), "курьер довёз")
+	_check(s.properties.stock_of("station_warehouse", "cigarettes") == 20 and s.properties.stock_of("market_warehouse", "cigarettes") == 10,
+			"за ночь скутер увёз 20 пачек")
+	s.fire(courier)
+	_check(s.logistics.routes.is_empty(), "курьера уволили — маршрут закрыт")
+	_check(s.can_add_hidden(vehicle) and s.add_hidden(vehicle) and s.logistics.get_vehicle(vehicle).hidden, "тайник в скутере")
+
+
+func _test_route_risks() -> void:
+	var s := _route_session()
+	s.buy_vehicle("van")
+	var vehicle: int = s.logistics.vehicles[0].id
+	var courier := _candidate(s, "courier", "loyal", 0)
+	s.hire(courier)
+	s.add_route("market_warehouse", "station_warehouse", "cigarettes", vehicle, courier)
+	s.balance.route_police_base = 0.1
+	var route: Dictionary = s.logistics.routes[0]
+	var plain := s.route_police_chance(route)
+	s.logistics.get_vehicle(vehicle).hidden = true
+	_check(is_equal_approx(s.route_police_chance(route), plain * 0.5), "тайник: патруль находит вдвое реже")
+	s.crew.get_person(courier).skill = 5
+	_check(s.route_police_chance(route) < plain * 0.5, "опытный курьер — риск ниже")
+	route.good = "mushrooms"
+	_check(s.route_police_chance(route) == 0.0, "легальный груз полиции не интересен")
+	route.good = "cigarettes"
+
+	s.balance.route_police_base = 100.0
+	s.inventory.cigarettes = 20
+	s.store_goods("market_warehouse", "cigarettes")
+	var report := s.end_day()
+	_check(_has(report, "LOG_ROUTE_BUSTED"), "патруль поймал курьера")
+	_check(s.crew.get_person(courier).is_empty() and s.logistics.vehicles.is_empty() and s.logistics.routes.is_empty(),
+			"курьер сел, машина на штрафстоянке, маршрута нет")
+	_check(s.properties.stock_of("market_warehouse", "cigarettes") == 0, "груз забрали")
+
+	var a := _route_session()
+	a.buy_vehicle("car")
+	var car: int = a.logistics.vehicles[0].id
+	var runner := _candidate(a, "courier", "loyal", 2)
+	a.hire(runner)
+	a.add_route("market_warehouse", "station_warehouse", "cigarettes", car, runner)
+	a.balance.route_ambush_base = 1.0
+	a.balance.route_ambush_max = 1.0
+	a.inventory.cigarettes = 10
+	a.store_goods("market_warehouse", "cigarettes")
+	report = a.end_day()
+	_check(_has(report, "LOG_ROUTE_AMBUSH") and a.properties.stock_of("station_warehouse", "cigarettes") == 0, "засада: груз отобрали")
+	_check(float(a.crew.get_person(runner).loyalty) < 75.0, "после засады курьер недоволен")
+
+	var b := _route_session()
+	b.buy_vehicle("scooter")
+	var scooter: int = b.logistics.vehicles[0].id
+	var slow := _candidate(b, "courier", "loyal", 2)
+	b.hire(slow)
+	b.add_route("market_warehouse", "station_warehouse", "mushrooms", scooter, slow)
+	b.balance.vehicles.scooter.breakdown = 1.0
+	b.inventory.mushrooms = 10
+	b.store_goods("market_warehouse", "mushrooms")
+	report = b.end_day()
+	_check(_has(report, "LOG_ROUTE_BREAKDOWN") and b.properties.stock_of("station_warehouse", "mushrooms") == 0, "поломка: в эту ночь не поехал")
+
+
+func _test_logistics_save() -> void:
+	var s := _route_session()
+	s.buy_vehicle("car")
+	var vehicle: int = s.logistics.vehicles[0].id
+	s.add_hidden(vehicle)
+	var courier := _candidate(s, "courier", "sly", 3)
+	s.hire(courier)
+	s.add_route("market_warehouse", "station_warehouse", "phones", vehicle, courier)
+	s.give_bonus(courier)
+	s.pressure(courier)
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _route_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.logistics.to_dict()) == JSON.stringify(s.logistics.to_dict()), "машины и маршруты сохраняются")
+	_check(JSON.stringify(loaded.crew.to_dict()) == JSON.stringify(s.crew.to_dict()), "лояльность и страх сохраняются")
 
 
 func _test_property_sale() -> void:

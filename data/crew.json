@@ -2,15 +2,17 @@
 	"roles": {
 		"cook": { "name_key": "ROLE_COOK", "wage_base": 40, "wage_per_skill": 10, "works_in": ["lab"] },
 		"dealer": { "name_key": "ROLE_DEALER", "wage_base": 30, "wage_per_skill": 8, "works_in": ["warehouse", "lab", "front"] },
-		"guard": { "name_key": "ROLE_GUARD", "wage_base": 25, "wage_per_skill": 8, "works_in": ["warehouse", "lab", "front"] }
+		"guard": { "name_key": "ROLE_GUARD", "wage_base": 25, "wage_per_skill": 8, "works_in": ["warehouse", "lab", "front"] },
+		"courier": { "name_key": "ROLE_COURIER", "wage_base": 30, "wage_per_skill": 8, "works_in": [] },
+		"manager": { "name_key": "ROLE_MANAGER", "wage_base": 70, "wage_per_skill": 15, "works_in": ["warehouse", "lab", "front"] }
 	},
 	"traits": {
-		"greedy": { "name_key": "TRAIT_GREEDY", "wage": 1.3, "skill": 1 },
-		"loyal": { "name_key": "TRAIT_LOYAL", "wage": 0.9, "skill": 0 },
+		"greedy": { "name_key": "TRAIT_GREEDY", "wage": 1.3, "skill": 1, "loyalty": 40, "drift": -1, "betray": "steal" },
+		"loyal": { "name_key": "TRAIT_LOYAL", "wage": 0.9, "skill": 0, "loyalty": 75, "drift": 1 },
 		"drinker": { "name_key": "TRAIT_DRINKER", "wage": 0.8, "skill": 0, "no_show": 0.2 },
-		"sly": { "name_key": "TRAIT_SLY", "wage": 1.1, "skill": 0, "price": 0.15 },
-		"hothead": { "name_key": "TRAIT_HOTHEAD", "wage": 1.0, "skill": 1, "heat": 4 },
-		"coward": { "name_key": "TRAIT_COWARD", "wage": 0.75, "skill": 0, "flees": true }
+		"sly": { "name_key": "TRAIT_SLY", "wage": 1.1, "skill": 0, "price": 0.15, "betray": "steal" },
+		"hothead": { "name_key": "TRAIT_HOTHEAD", "wage": 1.0, "skill": 1, "heat": 4, "quits_on_pressure": 0.3 },
+		"coward": { "name_key": "TRAIT_COWARD", "wage": 0.75, "skill": 0, "flees": true, "fear_mult": 2.0, "betray": "snitch" }
 	},
 	"nicknames": [
 		"NICK_GLOOMY", "NICK_QUICK", "NICK_BEARD", "NICK_PROFESSOR", "NICK_QUIET", "NICK_BOAR",

@@ -1,16 +1,17 @@
 extends Control
 ## Интерфейс партии поверх 3D-города, в стиле «белых карточек»: показатели слева сверху,
 ## часы и скорость справа сверху, карточка района или здания справа, трекер платежа снизу слева,
-## панель «Здания / Люди / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции.
+## панель «Здания / Люди / Перевозки / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции.
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const FONT_BOLD := preload("res://assets/fonts/inter/Inter-SemiBold.otf")
 ## Вкладки нижней правой панели.
-const TABS: Array[String] = ["TAB_BUILDINGS", "TAB_CREW", "TAB_MONEY", "TAB_STALL", "TAB_SKILLS", "TAB_LOG"]
-const TAB_INDEX := { "buildings": 0, "crew": 1, "money": 2, "stall": 3, "skills": 4, "log": 5 }
+const TABS: Array[String] = ["TAB_BUILDINGS", "TAB_CREW", "TAB_ROUTES", "TAB_MONEY", "TAB_STALL", "TAB_SKILLS", "TAB_LOG"]
+const TAB_INDEX := { "buildings": 0, "crew": 1, "routes": 2, "money": 3, "stall": 4, "skills": 5, "log": 6 }
 ## Цвета ролей в таблетках.
-const ROLE_COLORS := { "cook": Color(0.09, 0.6, 0.35), "dealer": Color(0.72, 0.46, 0.04), "guard": Color(0.184, 0.42, 1.0) }
+const ROLE_COLORS := { "cook": Color(0.09, 0.6, 0.35), "dealer": Color(0.72, 0.46, 0.04), "guard": Color(0.184, 0.42, 1.0),
+		"courier": Color(0.55, 0.3, 0.85), "manager": Color(0.1, 0.55, 0.65) }
 ## Всплывающие сообщения: сколько держится и сколько сразу на экране.
 const TOAST_SECONDS := 6.0
 const TOASTS_MAX := 4
@@ -120,6 +121,9 @@ var _activity_buttons: Dictionary = {}
 var _stall_rows: Dictionary = {}
 ## Строки навыков по id: { "name": Label, "bar": ProgressBar, "effect": Label }.
 var _skill_rows: Dictionary = {}
+## Вкладка «Перевозки» (строится кодом) и выбор в форме нового маршрута.
+var _routes_list := VBoxContainer.new()
+var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0 }
 
 
 func _ready() -> void:
@@ -135,6 +139,7 @@ func _ready() -> void:
 	_build_top_bar()
 	_wrap_event_label()
 	_build_payment_card()
+	_build_routes_tab()
 	_build_tab_buttons()
 	_build_market()
 	_build_stall()
@@ -711,6 +716,7 @@ func _refresh() -> void:
 	_save_button.disabled = not can_act
 	_refresh_buildings()
 	_refresh_crew()
+	_refresh_routes()
 	_refresh_stall()
 	_refresh_skills()
 	_refresh_check()
@@ -1112,7 +1118,14 @@ func _refresh_crew() -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
 		row.add_child(_person_cell(person))
-		row.add_child(_job_picker(person))
+		if person.role == "courier":
+			var route := s.logistics.route_of(int(person.id))
+			var where := _small_label(tr("CREW_ON_ROUTE") if not route.is_empty() else tr("CREW_NO_ROUTE"), 11,
+					COLOR_TEXT if not route.is_empty() else COLOR_MUTED)
+			where.custom_minimum_size.x = 132
+			row.add_child(where)
+		else:
+			row.add_child(_job_picker(person))
 		var fire := Button.new()
 		fire.text = "✕"
 		fire.tooltip_text = tr("BTN_FIRE")
@@ -1122,6 +1135,7 @@ func _refresh_crew() -> void:
 		fire.pressed.connect(GameState.fire.bind(int(person.id)))
 		row.add_child(fire)
 		_crew_list.add_child(row)
+		_crew_list.add_child(_loyalty_row(person))
 	_crew_list.add_child(HSeparator.new())
 	_crew_list.add_child(_small_label(tr("CREW_CANDIDATES").to_upper(), 10, COLOR_MUTED))
 	for person: Dictionary in crew.candidates:
@@ -1136,6 +1150,64 @@ func _refresh_crew() -> void:
 		hire.pressed.connect(GameState.hire.bind(int(person.id)))
 		row.add_child(hire)
 		_crew_list.add_child(row)
+
+
+## Под человеком: лояльность и страх полосками, сколько знает, кнопки «Премия» и «Надавить».
+func _loyalty_row(person: Dictionary) -> HBoxContainer:
+	var s := GameState.session
+	var id := int(person.id)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.tooltip_text = tr("CREW_STATS_TIP")
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	var spacer := Control.new()
+	spacer.custom_minimum_size.x = 26
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(spacer)
+	var loyalty := float(person.loyalty)
+	var loyalty_color := COLOR_UP if loyalty >= 50.0 else (COLOR_WARN if loyalty >= float(s.balance.betray_loyalty) else COLOR_DOWN)
+	row.add_child(_meter(tr("CREW_LOYALTY"), loyalty / 100.0, loyalty_color))
+	row.add_child(_meter(tr("CREW_FEAR"), float(person.fear) / 100.0, COLOR_MUTED))
+	row.add_child(_small_label(tr("CREW_KNOWS") % roundi(s.knows_share(person) * 100.0), 10, COLOR_MUTED))
+	var bonus := Button.new()
+	bonus.text = tr("BTN_BONUS") % _format_money(s.bonus_cost(id))
+	bonus.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(bonus, 6)
+	bonus.add_theme_font_size_override("font_size", 10)
+	bonus.disabled = not s.can_give_bonus(id)
+	bonus.pressed.connect(GameState.give_bonus.bind(id))
+	row.add_child(bonus)
+	var press := Button.new()
+	press.text = tr("BTN_PRESSURE")
+	press.tooltip_text = tr("BTN_PRESSURE_TIP")
+	press.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(press, 6)
+	press.add_theme_font_size_override("font_size", 10)
+	press.disabled = not s.can_pressure(id)
+	press.pressed.connect(GameState.pressure.bind(id))
+	row.add_child(press)
+	return row
+
+
+## Подпись и узкая цветная полоска (0–1).
+func _meter(caption: String, value: float, color: Color) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 1)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(_small_label("%s %d" % [caption, roundi(value * 100.0)], 10, COLOR_MUTED))
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0, 4)
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	bar.value = clampf(value, 0.0, 1.0)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill: StyleBoxFlat = get_theme_stylebox("fill", "ProgressBar").duplicate()
+	fill.bg_color = color
+	bar.add_theme_stylebox_override("fill", fill)
+	box.add_child(bar)
+	return box
 
 
 ## Человек: иконка роли, кличка, навык звёздами, черта, зарплата; подсказка — что делает роль и черта.
@@ -1211,6 +1283,184 @@ func _job_picker(person: Dictionary) -> OptionButton:
 	picker.disabled = not s.can_act()
 	picker.item_selected.connect(func(index: int) -> void:
 		GameState.assign(int(person.id), String(picker.get_item_metadata(index))))
+	return picker
+
+
+# --- Перевозки ---
+
+## Вкладка «Перевозки» строится кодом и встаёт третьей, после «Людей».
+func _build_routes_tab() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = "RoutesTab"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_routes_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_routes_list.add_theme_constant_override("separation", 4)
+	scroll.add_child(_routes_list)
+	_tabs.add_child(scroll)
+	_tabs.move_child(scroll, TAB_INDEX.routes)
+
+
+## Вкладка «Перевозки»: свой транспорт (тайник), магазин машин, маршруты и форма нового маршрута.
+func _refresh_routes() -> void:
+	var s := GameState.session
+	var logistics := s.logistics
+	var vehicle_types: Dictionary = s.balance.vehicles
+	_clear(_routes_list)
+	_tab_buttons.get_child(TAB_INDEX.routes).text = tr("TAB_ROUTES") \
+			+ (" %d" % logistics.routes.size() if not logistics.routes.is_empty() else "")
+	_routes_list.add_child(_small_label((tr("ROUTES_VEHICLES") % [logistics.vehicles.size(), int(s.balance.vehicles_max)]).to_upper(),
+			10, COLOR_MUTED))
+	if logistics.vehicles.is_empty():
+		_routes_list.add_child(_small_label(tr("ROUTES_NO_VEHICLES"), 11, COLOR_MUTED))
+	for vehicle: Dictionary in logistics.vehicles:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(_icon_square("van", COLOR_ACCENT, 22))
+		var name_label := _small_label("%s #%d" % [tr(vehicle_types[vehicle.type].name_key), int(vehicle.id)], 12, COLOR_TEXT)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_label)
+		if int(vehicle.broken) > 0:
+			row.add_child(_pill(tr("PILL_REPAIR"), COLOR_DOWN))
+		elif logistics.vehicle_busy(int(vehicle.id)):
+			row.add_child(_pill(tr("PILL_BUSY"), COLOR_ACCENT))
+		else:
+			row.add_child(_pill(tr("PILL_FREE"), COLOR_MUTED))
+		if vehicle.hidden:
+			row.add_child(_pill(tr("PILL_HIDDEN"), COLOR_UP))
+		else:
+			var hidden := Button.new()
+			hidden.text = tr("BTN_HIDDEN") % _format_money(int(s.balance.hidden_compartment_cost))
+			hidden.tooltip_text = tr("BTN_HIDDEN_TIP")
+			hidden.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			_make_small(hidden, 6)
+			hidden.add_theme_font_size_override("font_size", 10)
+			hidden.disabled = not s.can_add_hidden(int(vehicle.id))
+			hidden.pressed.connect(GameState.add_hidden.bind(int(vehicle.id)))
+			row.add_child(hidden)
+		_routes_list.add_child(row)
+	_routes_list.add_child(_small_label(tr("ROUTES_SHOP").to_upper(), 10, COLOR_MUTED))
+	for type: String in vehicle_types:
+		var info: Dictionary = vehicle_types[type]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(_icon_square("van", COLOR_WARN, 22))
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.add_child(_small_label(tr(info.name_key), 12, COLOR_TEXT))
+		texts.add_child(_small_label(tr("VEHICLE_INFO") % [int(info.capacity), str(info.notice)], 10, COLOR_MUTED))
+		row.add_child(texts)
+		var buy := Button.new()
+		buy.text = tr("BTN_BUY_VEHICLE") % _format_money(int(info.price))
+		buy.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(buy, 8)
+		buy.disabled = not s.can_buy_vehicle(type)
+		buy.pressed.connect(GameState.buy_vehicle.bind(type))
+		row.add_child(buy)
+		_routes_list.add_child(row)
+	_routes_list.add_child(HSeparator.new())
+	_routes_list.add_child(_small_label(tr("ROUTES_LIST").to_upper(), 10, COLOR_MUTED))
+	if logistics.routes.is_empty():
+		var empty := _small_label(tr("ROUTES_EMPTY"), 11, COLOR_MUTED)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_routes_list.add_child(empty)
+	for route: Dictionary in logistics.routes:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.add_child(_small_label("%s → %s" % [tr(s.properties.get_def(route.from).name_key), tr(s.properties.get_def(route.to).name_key)],
+				12, COLOR_TEXT))
+		var amount := s.route_amount(route)
+		texts.add_child(_small_label(tr("ROUTE_INFO") % [tr(s.market.get_good(route.good).name_key),
+				logistics.capacity(logistics.get_vehicle(route.vehicle)) / s.good_size(route.good),
+				roundi(s.route_police_chance(route) * 100.0), roundi(s.route_ambush_chance(route, maxi(amount, 1)) * 100.0)],
+				10, COLOR_MUTED))
+		texts.add_child(_small_label("%s · %s #%d" % [tr(s.crew.get_person(route.courier).nick),
+				tr(vehicle_types[logistics.get_vehicle(route.vehicle).type].name_key), int(route.vehicle)], 10, COLOR_MUTED))
+		row.add_child(texts)
+		var stop := Button.new()
+		stop.text = "✕"
+		stop.tooltip_text = tr("BTN_REMOVE_ROUTE")
+		stop.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(stop, 7)
+		stop.disabled = not s.can_act()
+		stop.pressed.connect(GameState.remove_route.bind(int(route.id)))
+		row.add_child(stop)
+		_routes_list.add_child(row)
+	_build_route_form()
+
+
+## Форма «Новый маршрут»: откуда, куда, что, на чём, кто везёт.
+func _build_route_form() -> void:
+	var s := GameState.session
+	var mine := s.properties.mine()
+	var vehicles := s.logistics.vehicles.filter(func(v: Dictionary) -> bool: return not s.logistics.vehicle_busy(int(v.id)))
+	var couriers := s.crew.people.filter(func(p: Dictionary) -> bool:
+		return p.role == "courier" and not s.logistics.courier_busy(int(p.id)))
+	_routes_list.add_child(_small_label(tr("ROUTES_NEW").to_upper(), 10, COLOR_MUTED))
+	if mine.size() < 2 or vehicles.is_empty() or couriers.is_empty():
+		var need := _small_label(tr("ROUTES_NEED"), 11, COLOR_MUTED)
+		need.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_routes_list.add_child(need)
+		return
+	var places: Array = mine.map(func(p: Dictionary) -> Array: return [p.id, tr(p.name_key)])
+	var goods: Array = s.market.goods.map(func(g: Dictionary) -> Array: return [g.id, tr(g.name_key)])
+	var vehicle_items: Array = vehicles.map(func(v: Dictionary) -> Array:
+		return [int(v.id), "%s #%d" % [tr(s.balance.vehicles[v.type].name_key), int(v.id)]])
+	var courier_items: Array = couriers.map(func(p: Dictionary) -> Array: return [int(p.id), tr(p.nick)])
+	# Если выбранное пропало (продали здание, курьер ушёл) — берём первое подходящее.
+	_fix_choice("from", places, 0)
+	_fix_choice("to", places, 1)
+	_fix_choice("good", goods, 0)
+	_fix_choice("vehicle", vehicle_items, 0)
+	_fix_choice("courier", courier_items, 0)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 4)
+	top.add_child(_form_picker("from", places))
+	top.add_child(_small_label("→", 12, COLOR_MUTED))
+	top.add_child(_form_picker("to", places))
+	_routes_list.add_child(top)
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 4)
+	bottom.add_child(_form_picker("good", goods))
+	bottom.add_child(_form_picker("vehicle", vehicle_items))
+	bottom.add_child(_form_picker("courier", courier_items))
+	var start := Button.new()
+	start.text = tr("BTN_ADD_ROUTE")
+	start.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(start, 8)
+	var f := _route_form
+	start.disabled = not s.can_add_route(f.from, f.to, f.good, f.vehicle, f.courier)
+	start.pressed.connect(func() -> void: GameState.add_route(f.from, f.to, f.good, f.vehicle, f.courier))
+	bottom.add_child(start)
+	_routes_list.add_child(bottom)
+
+
+## Оставить выбор, если он есть в списке; иначе — пункт fallback (или первый).
+func _fix_choice(key: String, items: Array, fallback: int) -> void:
+	if items.any(func(item: Array) -> bool: return item[0] == _route_form[key]):
+		return
+	_route_form[key] = items[mini(fallback, items.size() - 1)][0]
+
+
+## Выпадающий список формы маршрута: items — [значение, подпись].
+func _form_picker(key: String, items: Array) -> OptionButton:
+	var picker := OptionButton.new()
+	picker.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	picker.add_theme_font_size_override("font_size", 11)
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	picker.fit_to_longest_item = false
+	picker.clip_text = true
+	for item: Array in items:
+		picker.add_item(item[1])
+		picker.set_item_metadata(picker.item_count - 1, item[0])
+		if item[0] == _route_form[key]:
+			picker.select(picker.item_count - 1)
+	picker.item_selected.connect(func(index: int) -> void:
+		_route_form[key] = picker.get_item_metadata(index)
+		_refresh_routes())
 	return picker
 
 
@@ -1369,7 +1619,7 @@ func _show_toast(text: String) -> void:
 	tween.tween_callback(pill.queue_free)
 
 
-## Открыть вкладку нижней правой панели (0 здания, 1 деньги, 2 ларёк, 3 навыки, 4 журнал).
+## Открыть вкладку нижней правой панели (номера — в TAB_INDEX).
 func open_drawer(tab: int) -> void:
 	_tabs.current_tab = tab
 	for i in _tab_buttons.get_child_count():

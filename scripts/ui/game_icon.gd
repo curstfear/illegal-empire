@@ -4,7 +4,7 @@ extends Control
 ## деньги, розыск, силы, долг, время, товары.
 
 ## Какую иконку рисовать: clean, dirty, debt, heat, energy, day,
-## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust.
+## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, district, warehouse, lab, front, van.
 var kind := ""
 
 
@@ -128,6 +128,15 @@ func _draw() -> void:
 				var x := -s * 0.42 + i * s * 0.21
 				draw_rect(Rect2(c + Vector2(x, -s * 0.38), Vector2(s * 0.21, s * 0.3)), orange if i % 2 == 0 else Color.WHITE)
 			draw_rect(Rect2(c + Vector2(-s * 0.12, s * 0.12), Vector2(s * 0.24, s * 0.28)), orange.darkened(0.2))
+		"van":
+			# Фургон сбоку: кузов, кабина с окном, два колеса.
+			var violet := Color(0.55, 0.3, 0.85)
+			_rounded_rect(Rect2(c + Vector2(-s * 0.44, -s * 0.3), Vector2(s * 0.6, s * 0.5)), s * 0.08, violet)
+			_rounded_rect(Rect2(c + Vector2(s * 0.12, -s * 0.12), Vector2(s * 0.32, s * 0.32)), s * 0.08, violet.darkened(0.15))
+			draw_rect(Rect2(c + Vector2(s * 0.22, -s * 0.06), Vector2(s * 0.14, s * 0.1)), Color(1, 1, 1, 0.85))
+			for x in [-0.24, 0.26]:
+				draw_circle(c + Vector2(s * x, s * 0.26), s * 0.12, Color(0.16, 0.18, 0.26))
+				draw_circle(c + Vector2(s * x, s * 0.26), s * 0.05, Color(0.85, 0.86, 0.9))
 
 
 func _coin(c: Vector2, s: float, color: Color) -> void:
