@@ -460,3 +460,35 @@ LOG_LAWYER_HELPED,Your lawyer helped: smaller fine.,Адвокат помог: �
 LOG_LAWYER_FREED,The lawyer got courier %s out — back at work.,Адвокат вытащил курьера %s — снова в деле.
 LOG_COURIER_JAILED,Courier %s is arrested.,Курьер %s арестован.
 LOG_ROUTE_SOLD,Courier %s sold %d item(s) of %s at the market (%s): $%s.,Курьер %s продал %d шт. (%s) на рынке (%s): $%s.
+TAB_GANGS,Gangs,Банды
+GANG_BAZAAR,Bazaar Crew,Базарные
+GANG_RAILS,Railmen,Путейцы
+GANG_NEON,Neon,Неон
+BOSS_BAZAAR,Auntie Kettlebell,Тётя Гиря
+BOSS_RAILS,Grandpa Semaphore,Дед Семафор
+BOSS_NEON,The Prince,Принц
+TEMPER_GREEDY,greedy: everything has a price,жадная: всё решают деньги
+TEMPER_CAUTIOUS,"cautious: slow to anger, quick to forgive","осторожный: злится медленно, отходит быстро"
+TEMPER_HOTHEAD,hothead: takes offence at everything,вспыльчивый: обижается на всё
+GANG_LEVEL_FRIEND,friends,дружба
+GANG_LEVEL_NEUTRAL,neutral,нейтралитет
+GANG_LEVEL_RIVAL,rivals,соперники
+GANG_LEVEL_ENEMY,enemies,вражда
+GANG_BOSS,"Boss: %s, %s","Босс: %s, %s"
+GANG_INFO,People: %d · Cash: $%s · Strength: %d,Людей: %d · Общак: $%s · Сила: %d
+GANG_RELATION,Attitude to you: %+d,Отношение к тебе: %+d
+GANG_TURF,Turf: %s,Земли: %s
+GANG_NO_TURF,no turf,своих районов нет
+GANGS_INFLUENCE,Influence in districts,Влияние в районах
+GANGS_YOU,You,Ты
+GANGS_FREE,nobody's,ничьё
+GANGS_HINT,"Selling illegal goods, dealers and labs on someone's turf win you influence but anger its owners.","Нелегальные продажи, дилеры и лаборатории на чужой земле дают тебе влияние, но злят хозяев района."
+TILE_OWNER,Owner,Хозяин
+TILE_YOUR_INFLUENCE,Your influence,Твоё влияние
+OWNER_NOBODY,nobody,ничей
+OWNER_YOU,you,ты
+PILL_GANG,%s · %s,%s · %s
+LOG_GANG_NOW_FRIEND,%s (boss %s) now treat you as a friend.,%s (босс %s) теперь относятся к тебе по-дружески.
+LOG_GANG_NOW_NEUTRAL,%s (boss %s) have calmed down: neutral again.,%s (босс %s) успокоились: снова нейтралитет.
+LOG_GANG_NOW_RIVAL,%s (boss %s) see you as a rival: you are working their turf.,%s (босс %s) считают тебя соперником: ты работаешь на их земле.
+LOG_GANG_NOW_ENEMY,%s (boss %s) are now your enemies. Expect trouble.,%s (босс %s) теперь твои враги. Жди неприятностей.

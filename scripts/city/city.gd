@@ -66,6 +66,10 @@ var _pin_meshes: Array = []
 ## Подсветка земли района под курсором и подписи главных зданий по районам.
 var _highlights: Dictionary = {}
 var _main_tags: Dictionary = {}
+## Рамки земель: по району — узел с полосками по краям, красится в цвет хозяина района.
+var _turf_frames: Dictionary = {}
+## Хозяин района на прошлом кадре — перекрашиваем рамку только при смене.
+var _turf_owner: Dictionary = {}
 var _tags: Array[MapTag] = []
 ## Слой подписей: поверх 3D, но под интерфейсом.
 var _tag_layer := CanvasLayer.new()
@@ -97,11 +101,13 @@ func _ready() -> void:
 	_build_ponds()
 	_build_markers()
 	_build_highlights()
+	_build_turf_frames()
 	camera_rig.target = _tile_center(_center, _center)
 
 
 func _process(delta: float) -> void:
 	_refresh_property_tags()
+	_refresh_turf()
 	# Подписи-плашки следуют за зданиями.
 	for tag: MapTag in _tags:
 		tag.follow(camera_rig.camera)
@@ -567,6 +573,58 @@ func _build_highlights() -> void:
 		quad.visible = false
 		add_child(quad)
 		_highlights[district] = quad
+
+
+## Рамка земель каждого района: тонкие полоски у краёв четверти (на тротуарах), цвет — хозяин района.
+func _build_turf_frames() -> void:
+	var span := _center * _tile
+	var inset := _tile * 0.3
+	var width := 0.14
+	for district: String in _data.quadrants:
+		var quadrant: String = _data.quadrants[district]
+		var first_c := 0 if quadrant.ends_with("w") else _center + 1
+		var first_r := 0 if quadrant.begins_with("n") else _center + 1
+		var corner := _tile_center(first_c, first_r) - Vector3(_tile / 2.0, 0, _tile / 2.0)
+		var middle := corner + Vector3(span / 2.0, 0.14, span / 2.0)
+		var frame := Node3D.new()
+		var long := span - inset * 2.0
+		for side: Array in [[Vector3(0, 0, -1), true], [Vector3(0, 0, 1), true], [Vector3(-1, 0, 0), false], [Vector3(1, 0, 0), false]]:
+			var plane := PlaneMesh.new()
+			plane.size = Vector2(long, width) if side[1] else Vector2(width, long)
+			var strip := MeshInstance3D.new()
+			strip.mesh = plane
+			strip.position = middle + (side[0] as Vector3) * (span / 2.0 - inset)
+			strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			frame.add_child(strip)
+		frame.visible = false
+		add_child(frame)
+		_turf_frames[district] = frame
+
+
+## Рамки земель и точки на подписях районов: цвет банды-хозяина, синий — твой район, без цвета — ничей.
+func _refresh_turf() -> void:
+	if GameState.session == null:
+		return
+	var gangs := GameState.session.gangs
+	for district: String in _turf_frames:
+		var who := gangs.owner(district)
+		if _turf_owner.get(district, "-") == who:
+			continue
+		_turf_owner[district] = who
+		var frame: Node3D = _turf_frames[district]
+		frame.visible = who != ""
+		var color := Color(0, 0, 0, 0)
+		if who == Gangs.PLAYER:
+			color = COLOR_MINE
+		elif who != "":
+			color = gangs.color(who)
+		if frame.visible:
+			var mat := _flat_material(Color(color, 0.75))
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			for strip: MeshInstance3D in frame.get_children():
+				strip.material_override = mat
+		if _main_tags.has(district):
+			_main_tags[district].set_dot(color)
 
 
 ## Газон с деревьями (сама трава — в _build_lawns, чтобы соседние клетки слились).

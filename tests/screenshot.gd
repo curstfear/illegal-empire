@@ -133,6 +133,15 @@ func _ready() -> void:
 	_shot(out_dir.path_join("4f_crew_more.png"))
 	Clock.elapsed = 0.0
 
+	# Банды: продажи на чужой земле в клубах, влияние; вкладка «Банды» и карточка района с хозяином.
+	s.gangs.player_gain("forest", 45.0)
+	s.gangs.player_gain("clubs", 22.0)
+	s.gangs.change_relation("neon", -40.0)
+	screen.open_tab("gangs")
+	screen.open_card("clubs")
+	await _frames(10)
+	_shot(out_dir.path_join("4g_gangs.png"))
+
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")

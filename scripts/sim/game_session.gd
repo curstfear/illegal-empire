@@ -4,7 +4,8 @@ extends RefCounted
 ## рынок, розыск, события, банк, силы, навыки, подработки, сбор, ларёк,
 ## карман ограниченного размера, недвижимость (склады, лаборатории, фасады и отмыв),
 ## бригада (повара, дилеры, охрана, курьеры, менеджеры, бухгалтеры, адвокаты, разведчики;
-## лояльность, страх, усталость, рост, предательство) и перевозки (в том числе на рынок).
+## лояльность, страх, усталость, рост, предательство), перевозки (в том числе на рынок)
+## и банды (хозяева районов, отношение к тебе, твоё влияние).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -23,6 +24,7 @@ var stall: Stall
 var properties: Properties
 var crew: Crew
 var logistics: Logistics
+var gangs: Gangs
 ## Подработки и сбор (data/activities.json).
 var activities: Array = []
 var rng := RandomNumberGenerator.new()
@@ -58,7 +60,7 @@ var money: int:
 
 func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list: Array,
 		activity_list: Array, property_list: Array, recipe_list: Array, crew_data: Dictionary,
-		seed_value: int = 0) -> void:
+		gang_data: Dictionary, seed_value: int = 0) -> void:
 	balance = balance_data
 	market = Market.new(goods, districts, balance)
 	police = Police.new(districts, balance)
@@ -69,6 +71,7 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	properties = Properties.new(property_list, recipe_list, goods)
 	crew = Crew.new(crew_data, int(balance_data.crew_skill_max), float(balance_data.loyalty_start))
 	logistics = Logistics.new(balance_data.vehicles)
+	gangs = Gangs.new(gang_data, districts, balance)
 	activities = activity_list
 	energy = balance.energy_max
 	if seed_value != 0:
@@ -177,6 +180,8 @@ func sell(id: String, amount: int) -> bool:
 	market.apply_trade(district, id, -amount)
 	_earn(revenue, market.get_good(id).legal)
 	skills.add_xp("trade", ceili(float(revenue) / balance.xp_trade_per_dollars))
+	if not market.get_good(id).legal:
+		_gang_notice(district, revenue)
 	_after_deal(id, amount)
 	return true
 
@@ -887,6 +892,7 @@ func _route_sell(route: Dictionary, courier: Dictionary, amount: int) -> Array:
 	_earn(income, good.legal)
 	if not good.legal:
 		police.add_heat(where, float(good.heat) * amount * float(balance.dealer_heat_share) * skills.heat_multiplier())
+		_gang_notice(where, income)
 	return ["LOG_ROUTE_SOLD", [courier.nick, amount, good.name_key, market.get_district(where).name_key, income]]
 
 func vehicle_price(type: String) -> int:
@@ -1165,6 +1171,7 @@ func _run_dealers(prop: Dictionary, goods_legal: Dictionary) -> Array:
 			left -= n
 		if sold > 0:
 			_earn(income, false)
+			_gang_notice(where, income)
 			report.append(["LOG_DEALER_SOLD", [dealer.nick, sold, income]])
 	return report
 
@@ -1524,6 +1531,7 @@ func end_day() -> Array:
 	report.append_array(_run_loyalty())
 	report.append_array(_run_stall())
 	report.append_array(_pay_rent())
+	report.append_array(_run_gangs())
 	if day % 7 == 0:
 		var interest := roundi(debt * float(balance.weekly_interest))
 		debt += interest
@@ -1548,6 +1556,45 @@ func end_day() -> Array:
 	energy = balance.energy_max
 	if not events.today.is_empty():
 		report.append(["LOG_EVENT", [events.today.text_key]])
+	return report
+
+
+# --- Банды ---
+
+## Нелегальная продажа на сумму value в районе: твоё влияние растёт, банды района злятся
+## (тем сильнее, чем больше их доля и чем вспыльчивее босс).
+func _gang_notice(where: String, value: int) -> void:
+	if value <= 0:
+		return
+	var hundreds := float(value) / 100.0
+	for id: String in gangs.influence[where].keys():
+		if id != Gangs.PLAYER:
+			gangs.change_relation(id, -hundreds * float(balance.gang_relation_per_100)
+					* float(gangs.temper(id).anger) * gangs.share(where, id) / 100.0)
+	gangs.player_gain(where, hundreds * float(balance.player_influence_per_100))
+
+
+## Ночь у банд: твои нелегальные точки (лаборатории и здания с нелегальным товаром) держат влияние
+## и раздражают хозяев района; потом банды живут сами. Сообщаем, если отношение перешло на новый уровень.
+func _run_gangs() -> Array:
+	var report: Array = []
+	var goods_legal := {}
+	for good: Dictionary in market.goods:
+		goods_legal[good.id] = good.legal
+	for prop: Dictionary in properties.mine():
+		if prop.kind != "lab" and not properties.has_illegal(prop.id, goods_legal):
+			continue
+		var where: String = prop.district
+		var host := gangs.gang_owner(where)
+		if host != "":
+			gangs.change_relation(host, -float(balance.gang_relation_property) * float(gangs.temper(host).anger))
+		gangs.player_gain(where, float(balance.player_influence_property))
+	report.append_array(gangs.night(rng))
+	for gang: Dictionary in gangs.defs:
+		var now := gangs.level(gang.id)
+		if now != gangs.known_level.get(gang.id, now):
+			report.append(["LOG_GANG_NOW_" + now.to_upper(), [gang.name_key, gang.boss_key]])
+		gangs.known_level[gang.id] = now
 	return report
 
 
@@ -1586,6 +1633,7 @@ func to_dict() -> Dictionary:
 		"properties": properties.to_dict(),
 		"crew": crew.to_dict(),
 		"logistics": logistics.to_dict(),
+		"gangs": gangs.to_dict(),
 		"clean": clean,
 		"dirty": dirty,
 		"clean_earned": clean_earned,
@@ -1615,6 +1663,7 @@ func load_dict(data: Dictionary) -> void:
 	properties.load_dict(data.get("properties", {}))
 	crew.load_dict(data.get("crew", {}))
 	logistics.load_dict(data.get("logistics", {}))
+	gangs.load_dict(data.get("gangs", {}))
 	clean = int(data.clean)
 	dirty = int(data.dirty)
 	clean_earned = int(data.clean_earned)

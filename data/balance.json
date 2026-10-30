@@ -177,5 +177,24 @@
 	"driving_route_per_level": 0.03,
 	"xp_leadership": 2,
 	"leadership_loyalty_per_level": 0.3,
-	"leadership_betray_per_level": 0.05
+	"leadership_betray_per_level": 0.05,
+
+	"gang_home_influence": 70,
+	"gang_owner_min": 30,
+	"gang_influence_regrow": 3,
+	"gang_income_per_point": 0.5,
+	"gang_people_max": 20,
+	"gang_recruit_cost": 400,
+	"gang_recruit_chance": 0.25,
+	"gang_relation_drift": 1.5,
+	"gang_friend_at": 40,
+	"gang_rival_at": -25,
+	"gang_enemy_at": -60,
+	"gang_strength_per_person": 10,
+	"gang_cash_per_strength": 200,
+	"gang_relation_per_100": 1.0,
+	"gang_relation_property": 0.5,
+	"player_influence_per_100": 1.0,
+	"player_influence_property": 2.0,
+	"player_influence_decay": 1
 }

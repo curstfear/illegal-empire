@@ -343,4 +343,4 @@ func _check_finished() -> bool:
 func _make_session() -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
 			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
-			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew())
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs())

@@ -57,6 +57,10 @@ func _init() -> void:
 	_test_new_roles()
 	_test_disguise_and_scout()
 	_test_driving_and_leadership()
+	_test_gangs_start()
+	_test_gang_anger_and_influence()
+	_test_gang_night()
+	_test_gangs_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -67,7 +71,7 @@ func _init() -> void:
 func _new_session(seed_value: int = 42) -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
 			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
-			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), seed_value)
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs(), seed_value)
 
 
 ## Сессия без случайных проверок полиции — для тестов торговли.
@@ -1175,6 +1179,77 @@ func _test_history() -> void:
 	loaded.load_dict(data)
 	_check(loaded.market.price_series("market", "phones") == s.market.price_series("market", "phones"),
 			"история цен сохраняется и загружается")
+
+
+func _test_gangs_start() -> void:
+	var s := _new_session()
+	_check(s.gangs.gang_owner("market") == "bazaar", "Рынок держат Базарные")
+	_check(s.gangs.gang_owner("station") == "rails", "Вокзал держат Путейцы")
+	_check(s.gangs.gang_owner("clubs") == "neon", "Клубы держит Неон")
+	_check(s.gangs.owner("forest") == "", "Лесопарк — ничья земля")
+	_check(s.gangs.level("neon") == "neutral", "в начале со всеми нейтралитет")
+	_check(s.gangs.strength("rails") > s.gangs.strength("neon"), "у Путейцев людей больше — они сильнее")
+
+
+func _test_gang_anger_and_influence() -> void:
+	var s := _calm_session()
+	s.travel("clubs")
+	s.inventory.blue_dust = 10
+	var relation_before := s.gangs.relation("neon")
+	var revenue := s.quote_sell("blue_dust", 10)
+	s.sell("blue_dust", 10)
+	var drop := relation_before - s.gangs.relation("neon")
+	_check(drop > 0.0, "нелегальная продажа на чужой земле злит хозяев")
+	_check(is_equal_approx(s.gangs.share("clubs", Gangs.PLAYER), revenue / 100.0), "продажа даёт влияние в районе")
+	_check(s.gangs.relation("bazaar") == 0.0, "банды других районов не замечают")
+	s.inventory.tea = 10
+	s.sell("tea", 10)
+	_check(is_equal_approx(relation_before - s.gangs.relation("neon"), drop), "легальная торговля банду не злит")
+	# Ничья земля кончилась — твоё влияние теснит хозяина района.
+	s.gangs.player_gain("clubs", 40.0)
+	_check(s.gangs.share("clubs", "neon") < float(s.balance.gang_home_influence), "много влияния — хозяин района теряет своё")
+	s.gangs.player_gain("clubs", 60.0)
+	_check(s.gangs.owner("clubs") == Gangs.PLAYER, "влияния больше всех — район твой")
+	_check(s.gangs.gang_owner("clubs") == "", "у твоего района нет хозяина-банды")
+	s.gangs.change_relation("neon", -200.0)
+	_check(s.gangs.level("neon") == "enemy", "сильно разозлил — вражда")
+	_check(s.gangs.relation("neon") == -100.0, "отношение не ниже −100")
+
+
+func _test_gang_night() -> void:
+	var s := _calm_session()
+	s.gangs.player_gain("forest", 10.0)
+	s.gangs.change_relation("bazaar", -30.0)
+	var cash_before: int = s.gangs.state.rails.cash
+	var report := s.end_day()
+	_check(s.gangs.share("forest", Gangs.PLAYER) < 10.0, "без дел твоё влияние выветривается")
+	_check(s.gangs.relation("bazaar") > -30.0, "обида со временем остывает")
+	_check(int(s.gangs.state.rails.cash) > cash_before, "банда получает доход со своих земель")
+	_check(_has(report, "LOG_GANG_NOW_RIVAL"), "в журнале — банда стала соперником")
+	report = s.end_day()
+	_check(not _has(report, "LOG_GANG_NOW_RIVAL"), "о том же уровне не повторяют")
+	# Лаборатория на чужой земле держит влияние и злит хозяев (сравниваем с такой же ночью без неё).
+	var t := _calm_session()
+	var without := _calm_session()
+	for x: GameSession in [t, without]:
+		x.clean = 5000
+		x.travel("clubs")
+	t.buy_property("club_lab")
+	t.end_day()
+	without.end_day()
+	_check(t.gangs.relation("neon") < without.gangs.relation("neon"), "лаборатория на чужой земле злит хозяев")
+	_check(t.gangs.share("clubs", Gangs.PLAYER) > 0.0, "лаборатория даёт влияние в районе")
+
+
+func _test_gangs_save() -> void:
+	var s := _calm_session()
+	s.gangs.player_gain("station", 12.5)
+	s.gangs.change_relation("rails", -44.0)
+	s.end_day()
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.gangs.to_dict()) == JSON.stringify(s.gangs.to_dict()), "банды и влияние сохраняются")
 
 
 func _test_save_and_load() -> void:

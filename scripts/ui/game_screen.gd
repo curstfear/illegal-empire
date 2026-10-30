@@ -1,14 +1,17 @@
 extends Control
 ## Интерфейс партии поверх 3D-города, в стиле «белых карточек»: показатели слева сверху,
 ## часы и скорость справа сверху, карточка района или здания справа, трекер платежа снизу слева,
-## панель «Здания / Люди / Перевозки / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции.
+## панель «Здания / Люди / Перевозки / Банды / Деньги / Ларёк / Навыки / Журнал» снизу справа, окно рынка, окно проверки полиции.
 ## Только показывает GameState и передаёт ему нажатия.
 
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const FONT_BOLD := preload("res://assets/fonts/inter/Inter-SemiBold.otf")
 ## Вкладки нижней правой панели.
-const TABS: Array[String] = ["TAB_BUILDINGS", "TAB_CREW", "TAB_ROUTES", "TAB_MONEY", "TAB_STALL", "TAB_SKILLS", "TAB_LOG"]
-const TAB_INDEX := { "buildings": 0, "crew": 1, "routes": 2, "money": 3, "stall": 4, "skills": 5, "log": 6 }
+const TABS: Array[String] = ["TAB_BUILDINGS", "TAB_CREW", "TAB_ROUTES", "TAB_GANGS", "TAB_MONEY", "TAB_STALL", "TAB_SKILLS", "TAB_LOG"]
+const TAB_INDEX := { "buildings": 0, "crew": 1, "routes": 2, "gangs": 3, "money": 4, "stall": 5, "skills": 6, "log": 7 }
+## Цвета уровней отношения банды к тебе.
+const LEVEL_COLORS := { "friend": Color(0.09, 0.6, 0.35), "neutral": Color(0.42, 0.45, 0.52),
+		"rival": Color(0.93, 0.55, 0.1), "enemy": Color(0.86, 0.2, 0.22) }
 ## Цвета ролей в таблетках.
 const ROLE_COLORS := { "cook": Color(0.09, 0.6, 0.35), "dealer": Color(0.72, 0.46, 0.04), "guard": Color(0.184, 0.42, 1.0),
 		"courier": Color(0.55, 0.3, 0.85), "manager": Color(0.1, 0.55, 0.65), "accountant": Color(0.4, 0.5, 0.15),
@@ -125,6 +128,8 @@ var _skill_rows: Dictionary = {}
 ## Вкладка «Перевозки» (строится кодом) и выбор в форме нового маршрута.
 var _routes_list := VBoxContainer.new()
 var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0 }
+## Вкладка «Банды» (строится кодом).
+var _gangs_list := VBoxContainer.new()
 
 
 func _ready() -> void:
@@ -141,6 +146,7 @@ func _ready() -> void:
 	_wrap_event_label()
 	_build_payment_card()
 	_build_routes_tab()
+	_build_gangs_tab()
 	_build_tab_buttons()
 	_build_market()
 	_build_stall()
@@ -718,6 +724,7 @@ func _refresh() -> void:
 	_refresh_buildings()
 	_refresh_crew()
 	_refresh_routes()
+	_refresh_gangs()
 	_refresh_stall()
 	_refresh_skills()
 	_refresh_check()
@@ -787,6 +794,11 @@ func _refresh_card() -> void:
 	_card_status.add_child(_pill(tr("PILL_HERE"), COLOR_UP) if here else _pill(tr("PILL_AWAY") % int(s.balance.travel_hours), COLOR_MUTED))
 	_card_status.add_child(_pill(tr("PILL_HEAT") % ("★".repeat(stars) + "☆".repeat(5 - stars)),
 			RISK_COLORS[mini(3, stars)] if stars > 0 else COLOR_UP))
+	var host := s.gangs.gang_owner(_card_district)
+	if host != "":
+		var level := s.gangs.level(host)
+		_card_status.add_child(_pill(tr("PILL_GANG") % [tr(s.gangs.get_def(host).name_key), tr("GANG_LEVEL_" + level.to_upper())],
+				LEVEL_COLORS[level]))
 	_clear(_card_tiles)
 	var heat: float = s.police.heat[_card_district]
 	_card_tiles.add_child(_tile(tr("TILE_HEAT"), "%d / 100" % roundi(heat), heat / 100.0, COLOR_DOWN if heat >= 50 else COLOR_ACCENT))
@@ -794,6 +806,9 @@ func _refresh_card() -> void:
 	var owned := s.properties.mine().filter(func(p: Dictionary) -> bool: return p.district == _card_district).size()
 	_card_tiles.add_child(_tile(tr("TILE_BUILDINGS"), str(owned)))
 	_card_tiles.add_child(_tile(tr("TILE_MARKET"), tr("TILE_YES") if district.has_market else tr("TILE_NO")))
+	_card_tiles.add_child(_tile(tr("TILE_OWNER"), _owner_title(_card_district)))
+	var mine_share := s.gangs.share(_card_district, Gangs.PLAYER)
+	_card_tiles.add_child(_tile(tr("TILE_YOUR_INFLUENCE"), "%d / 100" % roundi(mine_share), mine_share / 100.0))
 	_card_travel_button.visible = not here
 	_card_travel_button.disabled = not s.can_act()
 	_card_market_button.visible = here and s.has_market()
@@ -1429,6 +1444,110 @@ func _refresh_routes() -> void:
 		row.add_child(stop)
 		_routes_list.add_child(row)
 	_build_route_form()
+
+
+func _build_gangs_tab() -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = "GangsTab"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_gangs_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gangs_list.add_theme_constant_override("separation", 4)
+	scroll.add_child(_gangs_list)
+	_tabs.add_child(scroll)
+	_tabs.move_child(scroll, TAB_INDEX.gangs)
+
+
+## Хозяин района словами: банда, «ты» или «ничей».
+func _owner_title(district: String) -> String:
+	var who := GameState.session.gangs.owner(district)
+	if who == Gangs.PLAYER:
+		return tr("OWNER_YOU")
+	return tr(GameState.session.gangs.get_def(who).name_key) if who != "" else tr("OWNER_NOBODY")
+
+
+## Вкладка «Банды»: каждая банда (босс, характер, люди, сила, отношение, земли) и влияние по районам полосками.
+func _refresh_gangs() -> void:
+	var s := GameState.session
+	var gangs := s.gangs
+	_clear(_gangs_list)
+	var hint := _small_label(tr("GANGS_HINT"), 10, COLOR_MUTED)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_gangs_list.add_child(hint)
+	for gang: Dictionary in gangs.defs:
+		var st: Dictionary = gangs.state[gang.id]
+		var level := gangs.level(gang.id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var icon := _icon_square("district", gangs.color(gang.id), 28)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		row.add_child(icon)
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var title := HBoxContainer.new()
+		title.add_theme_constant_override("separation", 6)
+		var name_label := _small_label(tr(gang.name_key), 13, COLOR_TEXT)
+		_bold(name_label)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.add_child(name_label)
+		title.add_child(_pill(tr("GANG_LEVEL_" + level.to_upper()), LEVEL_COLORS[level]))
+		texts.add_child(title)
+		texts.add_child(_small_label(tr("GANG_BOSS") % [tr(gang.boss_key), tr(gangs.temper(gang.id).name_key)], 10, COLOR_MUTED))
+		texts.add_child(_small_label(tr("GANG_INFO") % [int(st.people), _format_money(int(st.cash)), gangs.strength(gang.id)],
+				10, COLOR_MUTED))
+		var turf: Array = gangs.territories(gang.id).map(func(d: String) -> String: return tr(s.market.get_district(d).name_key))
+		texts.add_child(_small_label((tr("GANG_RELATION") % roundi(gangs.relation(gang.id))) + " · "
+				+ (tr("GANG_TURF") % ", ".join(turf) if not turf.is_empty() else tr("GANG_NO_TURF")), 10, LEVEL_COLORS[level]))
+		row.add_child(texts)
+		_gangs_list.add_child(row)
+	_gangs_list.add_child(HSeparator.new())
+	_gangs_list.add_child(_small_label(tr("GANGS_INFLUENCE").to_upper(), 10, COLOR_MUTED))
+	for district: Dictionary in s.market.districts:
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 6)
+		var name_label := _small_label(tr(district.name_key), 11, COLOR_TEXT)
+		name_label.custom_minimum_size.x = 70
+		line.add_child(name_label)
+		line.add_child(_influence_bar(district.id))
+		var owner := _small_label(_owner_title(district.id), 10, COLOR_MUTED)
+		owner.custom_minimum_size.x = 64
+		owner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		line.add_child(owner)
+		_gangs_list.add_child(line)
+	var legend := HBoxContainer.new()
+	legend.add_theme_constant_override("separation", 8)
+	for item: Array in [[tr("GANGS_YOU"), COLOR_ACCENT], [tr("GANGS_FREE"), Color(0.88, 0.9, 0.93)]]:
+		var swatch := ColorRect.new()
+		swatch.color = item[1]
+		swatch.custom_minimum_size = Vector2(10, 10)
+		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		legend.add_child(swatch)
+		legend.add_child(_small_label(item[0], 10, COLOR_MUTED))
+	_gangs_list.add_child(legend)
+
+
+## Полоска влияния в районе: доли банд их цветами, твоя — синим, ничья — серым.
+func _influence_bar(district: String) -> HBoxContainer:
+	var gangs := GameState.session.gangs
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 0)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.custom_minimum_size.y = 10
+	var parts: Array = []
+	for gang: Dictionary in gangs.defs:
+		parts.append([gangs.share(district, gang.id), gangs.color(gang.id)])
+	parts.append([gangs.share(district, Gangs.PLAYER), COLOR_ACCENT])
+	parts.append([gangs.free_share(district), Color(0.88, 0.9, 0.93)])
+	for part: Array in parts:
+		if float(part[0]) <= 0.0:
+			continue
+		var piece := ColorRect.new()
+		piece.color = part[1]
+		piece.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		piece.size_flags_stretch_ratio = float(part[0])
+		piece.tooltip_text = "%d" % roundi(float(part[0]))
+		bar.add_child(piece)
+	return bar
 
 
 ## Форма «Новый маршрут»: откуда, куда, что, на чём, кто везёт.

@@ -1,0 +1,15 @@
+{
+	"gangs": [
+		{ "id": "bazaar", "name_key": "GANG_BAZAAR", "boss_key": "BOSS_BAZAAR", "temper": "greedy", "home": "market",
+			"color": [0.09, 0.6, 0.35], "people": 10, "cash": 3000, "relation": 0 },
+		{ "id": "rails", "name_key": "GANG_RAILS", "boss_key": "BOSS_RAILS", "temper": "cautious", "home": "station",
+			"color": [0.86, 0.66, 0.04], "people": 12, "cash": 4000, "relation": 5 },
+		{ "id": "neon", "name_key": "GANG_NEON", "boss_key": "BOSS_NEON", "temper": "hothead", "home": "clubs",
+			"color": [0.62, 0.3, 0.88], "people": 9, "cash": 3500, "relation": -10 }
+	],
+	"tempers": {
+		"greedy": { "name_key": "TEMPER_GREEDY", "anger": 1.0, "forgive": 1.0 },
+		"cautious": { "name_key": "TEMPER_CAUTIOUS", "anger": 0.7, "forgive": 1.5 },
+		"hothead": { "name_key": "TEMPER_HOTHEAD", "anger": 1.5, "forgive": 0.6 }
+	}
+}
