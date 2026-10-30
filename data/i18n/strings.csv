@@ -919,3 +919,131 @@ PERK_SHIPMENTS_MAX,+%d shipments abroad,+%d груза за границу
 PERK_CUSTOMS_CUT,customs checks %d%% rarer,таможня реже на %d%%
 LOG_RANK_UP,New rank: %s!,Новая ступень: %s!
 LOG_TRIBUTE,Tribute from %d district(s): $%s dirty.,Дань с районов (%d): $%s грязными.
+GOOD_AMMO,Grom ammo,Патроны «Гром»
+GOOD_PISTOL,Hornet pistol,Пистолет «Шершень»
+GOOD_SHOTGUN,Bison shotgun,Дробовик «Бизон»
+GOOD_RIFLE,Whirlwind rifle,Автомат «Вихрь»
+GOOD_ARMOR,Shell vest,Бронежилет «Панцирь»
+GOOD_WATCHES,Stolen watches,Краденые часы
+GOOD_CAR_PARTS,Stolen car parts,Запчасти с угона
+GOOD_JEWELRY,Jewelry,Украшения
+GOOD_ANTIQUE,Antiques,Антиквариат
+GOOD_PAINTING,Painting,Картина
+CLIENT_MERCS,Private security «Bastion»,ЧОП «Бастион»
+CLIENT_CHOP_SHOP,Chop shop,Разборка у гаражей
+CLIENT_COLLECTOR,Art collector,Коллекционер
+CLIENT_YACHT_OWNER,Yacht owner,Владелец яхты
+ARSENAL_EMPTY,Arsenal: empty. Keep guns and ammo in your buildings in this city — the crew will be armed.,Арсенал пуст. Держи оружие и патроны на складах в этом городе — бригада вооружится.
+ARSENAL_LINE,Arsenal: %s · armed %d of %d,Арсенал: %s · вооружено %d из %d
+MAP_NO_TRADE,not traded here,здесь не берут
+ACT_STEAL_CAR,Steal a car,Угнать машину
+ACT_HACK_ATM,Hack an ATM,Взломать банкомат
+ACT_STEAL_RESULT,success %d%%,удача %d%%
+ROLE_HACKER,Hacker,Хакер
+ROLE_LETTER_HACKER,H,Х
+ROLE_DESC_HACKER,"Works from a building all day: steals and sells data (dirty cash, a little heat); scrubs police databases in the city — the detectives' file grows slower (8% per skill level).","Работает из здания весь день: ворует и продаёт данные (грязные деньги, немного розыска); чистит базы полиции в городе — дело детективов растёт медленнее (8% за уровень навыка)."
+SKILL_HACKING,Hacking,Взлом
+SKILL_HACKING_EFFECT,"+%d%% for hacks, +%d%% car theft","+%d%% за взломы, +%d%% к угону"
+PILL_STOLEN,stolen,угнана
+STOLEN_HINT,"Stolen: twice as visible on routes, police may find it at night.","В угоне: на маршруте вдвое заметнее, ночью могут найти."
+BTN_STRIP,Strip (%d parts),Разобрать (%d запч.)
+BTN_STRIP_TIP,Parts go to your building in this city with room.,"Запчасти лягут в твоё здание этого города, где есть место."
+BTN_RELABEL,New plates $%s,Перебить номера $%s
+BTN_FENCE,Fence $%s,Скинуть $%s
+LOG_CAR_STOLEN,"You stole a car: %s. It's hot — change the plates, strip it or fence it.","Угнал машину: %s. Она «горячая» — перебей номера, разбери или скинь."
+LOG_CAR_ALARM,The alarm went off — you got away with nothing.,Сработала сигнализация — ушёл ни с чем.
+LOG_CAR_STRIPPED,"Stripped for %d parts, now in %s.","Разобрали на %d запчастей, они в «%s»."
+LOG_CAR_RELABELED,New plates: the car is clean now.,Номера перебиты: машина теперь чистая.
+LOG_CAR_FENCED,Fenced the stolen car: $%s dirty.,Скинул угнанную машину: $%s грязными.
+LOG_CAR_FOUND,Police found your stolen car (%s) and towed it.,Полиция нашла угнанную машину (%s) и увезла.
+LOG_HACKER_DONE,Hacker %s sold data for $%s (dirty).,Хакер %s продал данные на $%s (грязными).
+PROP_KIND_CASINO,Casino,Казино
+PROP_CASINO,Fortuna Casino,Казино «Фортуна»
+PROP_AMS_CASINO,Night Canal Casino,Казино «Ночной канал»
+PROP_MRS_CASINO,Riviera Casino,Казино «Ривьера»
+PROP_IST_CASINO,Golden Horn Casino,Казино «Золотой Рог»
+PROP_MIA_CASINO,Sunset Casino,Казино «Закат»
+UPG_BACKROOM,Poker back room,Подпольный покер
+UPG_BACKROOM_DESC,"Dirty cash from the tables all day ($450 a day), but heat and tax attention grow.","Грязные деньги со столов весь день ($450 в день), но растут розыск и внимание налоговой."
+LOG_BACKROOM,Back room in %s: $%s dirty from the tables.,Подпольный покер в «%s»: $%s грязными со столов.
+SIT_HIGH_ROLLER,High roller,Крупный игрок
+SIT_HIGH_ROLLER_TEXT,"A high roller wants a private table in %s. The house has the edge, but anything can happen.","Крупный игрок хочет отдельный стол в «%s». У заведения преимущество, но бывает всякое."
+SIT_CHOICE_HIGH_ROLLER_PLAY,Play fair ($%s),Играть честно ($%s)
+SIT_CHOICE_HIGH_ROLLER_DECLINE,Decline,Отказать
+SIT_CHOICE_HIGH_ROLLER_CHEAT,Rig the table,Подкрутить стол
+LOG_SIT_WHALE_WON,The high roller lost $%s to the house.,Крупный игрок оставил заведению $%s.
+LOG_SIT_WHALE_LOST,The high roller broke the bank: −$%s.,Крупный игрок сорвал банк: −$%s.
+LOG_SIT_WHALE_CHEATED,"The table was rigged: +$%s, nobody noticed.","Стол подкрутили: +$%s, никто не заметил."
+LOG_SIT_WHALE_CAUGHT,"Caught rigging the table! %s is closed for an inspection, heat up.","Подкрутку заметили! «%s» закрыто на проверку, розыск вырос."
+ACT_RING_FIGHT,Fighter in the underground ring,Боец на подпольный ринг
+ACT_STREET_RACE,Street race for money,Уличная гонка на деньги
+ACT_RING_RESULT,win %d%% · prize $%s,победа %d%% · приз $%s
+ACT_RING_NEED,needs a healthy fighter,нужен здоровый боец
+ACT_RACE_RESULT,win %d%% · entry $%s · prize $%s,победа %d%% · взнос $%s · приз $%s
+ACT_RACE_NEED,needs a free vehicle,нужна свободная машина
+LOG_RING_WON,%s won in the ring: $%s dirty.,"%s: победа на ринге, $%s грязными."
+LOG_RING_LOST,%s lost in the ring and is out for %d days.,"%s: поражение на ринге, выбывает на %d дн."
+LOG_RACE_WON,You won the race: $%s dirty.,Ты выиграл гонку: $%s грязными.
+LOG_RACE_LOST,You lost the race and the $%s entry.,"Гонка проиграна, взнос $%s пропал."
+LOG_RACE_CRASH,You wrecked the car in the race (%s): two days of repairs.,В гонке разбил машину (%s): два дня ремонта.
+TILE_DAY,day,день
+PROP_KIND_PIER,Pier,Причал
+PROP_KIND_HANGAR,Cargo hangar,Грузовой ангар
+PROP_BER_HANGAR,Airfield hangar,Ангар у аэродрома
+PROP_AMS_PIER,Harbour pier,Причал в гавани
+PROP_MRS_PIER,Old Port pier,Причал Старого порта
+PROP_IST_PIER,Golden Horn pier,Причал у Золотого Рога
+PROP_MIA_PIER,Marina berth,Причал в марине
+PROP_MIA_HANGAR,Cargo hangar,Грузовой ангар у аэропорта
+TRANSPORT_BOAT,Speedboat,Катер
+TRANSPORT_PLANE,Plane,Самолёт
+LINES_TITLE,Smuggling lines %d/%d,Линии контрабанды %d/%d
+LINES_NEED,"Buy a pier (boat) or a cargo hangar (plane): regular runs to another city, without the one-off limit.","Купи причал (катер) или грузовой ангар (самолёт): регулярные рейсы в другой город, без лимита разовых грузов."
+LINES_NO_TARGET_BOAT,A boat needs your pier in another coastal city.,Катеру нужен твой причал в другом приморском городе.
+LINES_NO_TARGET,You need your own building in another city.,Нужно своё здание в другом городе.
+LINE_INFO,%s · up to %d × %s every %d days · next in %d d.,%s · до %d шт. (%s) раз в %d дн. · следующий через %d дн.
+LINE_QUOTE,Run ~$%s · %d day(s) on the way · customs %d%%,Рейс ~$%s · в пути %d дн. · таможня %d%%
+BTN_ADD_LINE,Open line,Открыть линию
+BTN_REMOVE_LINE,Close the line,Закрыть линию
+INSIDERS_TITLE,Customs: your own person,Таможня: свой человек
+INSIDER_FEE,$%s a week,$%s в неделю
+PILL_INSIDER,on payroll,свой
+BTN_HIRE_INSIDER,Make a deal,Договориться
+INSIDER_GO_THERE,You can only make the deal while in this country.,"Договориться можно, только будучи в этой стране."
+INSIDERS_HINT,"Cargo into the country is checked 3× less often, your luggage — 2× less. Sometimes they sell you out.","Груз в страну досматривают втрое реже, твой багаж — вдвое. Иногда свой человек сдаёт."
+ZONE_SCHENGEN,Schengen,Шенген
+ZONE_TURKEY,Turkey,Турция
+ZONE_USA,USA,США
+LOG_LINE_OPENED,"Line opened: %s, %d × %s → %s.","Линия открыта: %s, %d шт. (%s) → %s."
+LOG_LINE_SENT,"%s left with %d × %s → %s, run $%s.","%s ушёл: %d шт. (%s) → %s, рейс $%s."
+LOG_LINE_EMPTY,%s: nothing to send (%s).,%s: нечего отправить (%s).
+LOG_LINE_NO_MONEY,The run didn't leave: it costs $%s.,Рейс не ушёл: нужно $%s.
+LOG_LINE_CLOSED,Smuggling line closed (%s): one of the buildings is gone.,Линия контрабанды закрыта (%s): одного из зданий больше нет.
+LOG_INSIDER_HIRED,Your own person at %s customs: $%s a week.,Свой человек на таможне (%s): $%s в неделю.
+LOG_INSIDER_PAID,Paid your person at %s customs: $%s.,Заплатил своему человеку на таможне (%s): $%s.
+LOG_INSIDER_LEFT,Not enough money — your person at %s customs walked away.,Не хватило денег — свой человек на таможне (%s) ушёл.
+LOG_INSIDER_RAT,Your person at %s customs sold you out! Heat up.,Свой человек на таможне (%s) тебя сдал! Розыск вырос.
+SECTION_OPERATIONS,Big jobs,Крупные дела
+OP_JEWELRY_STORE,Jewelry store heist,Налёт на ювелирный
+OP_ARMORED_TRUCK,Armored truck robbery,Ограбление инкассаторов
+OP_MUSEUM,Museum theft,Кража из музея
+OP_BANK_VAULT,Bank vault,Хранилище банка
+OP_CHANCE,chance %d%%,шанс %d%%
+OP_INFO,Loot: %s · team: %s · heat +%d,Добыча: %s · команда: %s · розыск +%d
+OP_NEED_RANK,From the rank «%s».,Со ступени «%s».
+OP_NEED_CREW,Not enough people: %s.,Не хватает людей: %s.
+OP_COOLING,Too hot here: try again in %d days.,Здесь ещё горячо: повторить через %d дн.
+OP_GO_THERE,Be in this district to prepare and go.,"Чтобы готовиться и идти на дело, будь в этом районе."
+PREP_RECON,Recon,Разведка
+PREP_GEAR,Gear,Снаряжение
+PREP_INSIDE,Inside man,Свой человек внутри
+PREP_TIP,+%d%% chance. Burns after the job.,+%d%% к шансу. Сгорает после дела.
+BTN_LAUNCH_OP,Go (%d h),На дело (%d ч)
+LOG_OP_PREP,Prepared: %s for «%s».,Подготовка: %s — «%s».
+LOG_OP_WON,Done: «%s»! $%s dirty.,Дело сделано: «%s»! $%s грязными.
+LOG_OP_LOOT,Loot: %d × %s.,Добыча: %d шт. (%s).
+LOG_OP_FAILED,«%s» went wrong: police everywhere.,«%s» сорвалось: кругом полиция.
+LOG_OP_ARRESTED,%s was arrested and is out of the crew.,"%s — арест, из бригады выбывает."
+LOG_OP_WON_GOODS,Done: «%s»!,Дело сделано: «%s»!
+NEED_OPERATIONS,Big jobs done,Крупных дел сделано
+NEED_VAULTS,Bank vaults taken,Хранилищ банков взято

@@ -14,7 +14,7 @@ extends RefCounted
 ## документы (паспорт, визы, подделки) и таможня на границе, грузы между городами (фрахт, пошлина, досмотр);
 ## бизнес работает по часам, поставщики сами привозят сырьё по утрам, менеджеры выполняют приказы;
 ## заказы с дедлайном от банд и контактов, ситуации с выбором прямо в городе; ступени карьеры
-## (balance.ranks): требования, бонусы к лимитам, дань с твоих районов.
+## (balance.ranks): требования, бонусы к лимитам, дань с твоих районов; крупные дела (ограбления с подготовкой).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -96,6 +96,14 @@ var neighbor_mood: Dictionary = {}
 var rank: int = 0
 var earned_total: int = 0
 var orders_done: int = 0
+## Крупные дела мира (data/world.json, "operations") и их состояние: { id: { "preps": [подготовка], "ready": день } }.
+var op_defs: Array = []
+var operations: Dictionary = {}
+## Удачных крупных дел всего и из них — хранилищ банков (для высших ступеней).
+var ops_done: int = 0
+var vaults_done: int = 0
+## Свой человек на таможне по зонам (schengen, turkey, usa): { зона: день следующей платы }.
+var insiders: Dictionary = {}
 
 var money: int:
 	get:
@@ -119,6 +127,7 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	world = World.new(world_data, districts, balance)
 	suppliers = Suppliers.new(world_data.get("suppliers", []))
 	jobs = Jobs.new(world_data.get("clients", []))
+	op_defs = world_data.get("operations", [])
 	city = world.home
 	market.event_city = city
 	activities = activity_list
@@ -209,7 +218,7 @@ func pocket_free() -> int:
 
 
 func buy(id: String, amount: int) -> bool:
-	if not can_act() or not has_market() or amount <= 0 or amount * good_size(id) > pocket_free():
+	if not can_act() or not market.trades(district, id) or amount <= 0 or amount * good_size(id) > pocket_free():
 		return false
 	var cost := market.quote_buy(district, id, amount)
 	if cost > money:
@@ -223,7 +232,7 @@ func buy(id: String, amount: int) -> bool:
 
 
 func sell(id: String, amount: int) -> bool:
-	if not can_act() or not has_market() or amount <= 0 or amount > inventory[id]:
+	if not can_act() or not market.trades(district, id) or amount <= 0 or amount > inventory[id]:
 		return false
 	var revenue := quote_sell(id, amount)
 	_remove_from_inventory(id, amount)
@@ -297,7 +306,8 @@ func local_activities() -> Array:
 
 ## Сколько заплатят за подработку (с учётом Харизмы).
 func activity_pay(activity: Dictionary) -> int:
-	return roundi(activity.pay * skills.pay_multiplier())
+	var mult := skills.hack_pay_multiplier() if activity.skill == "hacking" else skills.pay_multiplier()
+	return roundi(activity.pay * mult)
 
 
 ## Сколько примерно соберёшь: [от, до] (с учётом Ремесла).
@@ -309,6 +319,13 @@ func activity_yield(activity: Dictionary) -> Array:
 ## Можно ли взяться за дело. Хватит ли часов в дне — решают часы (GameState).
 func can_do_activity(id: String) -> bool:
 	var activity := get_activity(id)
+	# Угнанную машину надо куда-то поставить — нужно свободное место в гараже.
+	if activity.get("kind", "") == "steal_car" and logistics.vehicles.size() >= limit("vehicles_max"):
+		return false
+	if activity.get("kind", "") == "ring_fight" and ring_fighter().is_empty():
+		return false
+	if activity.get("kind", "") == "street_race" and (race_vehicle().is_empty() or money < int(balance.race_entry)):
+		return false
 	return can_act() and not activity.is_empty() and activity.district == district \
 			and energy >= int(activity.energy)
 
@@ -334,6 +351,12 @@ func do_activity(id: String) -> Array:
 		var pay := activity_pay(activity)
 		_earn(pay, activity.legal)
 		report.append(["LOG_JOB_DONE", [activity.name_key, pay]])
+	elif activity.kind == "steal_car":
+		report.append_array(_steal_car())
+	elif activity.kind == "ring_fight":
+		report.append_array(_ring_fight())
+	elif activity.kind == "street_race":
+		report.append_array(_street_race())
 	else:
 		var range_ := activity_yield(activity)
 		var found := rng.randi_range(range_[0], range_[1])
@@ -1117,6 +1140,11 @@ func _make_offer() -> Dictionary:
 		client = "contact:" + String(contact.id)
 		goods = contact.goods
 	var good: String = goods[rng.randi_range(0, goods.size() - 1)]
+	# Сдают туда, где этот товар берут (редкости — не на каждом рынке).
+	var buyers := markets.filter(func(d: Dictionary) -> bool: return market.trades(d.id, good))
+	if buyers.is_empty():
+		return {}
+	where = buyers[rng.randi_range(0, buyers.size() - 1)].id
 	var unit := maxi(1, market.sell_price(where, good))
 	var value := (float(balance.order_value_base) + float(balance.order_value_per_day) * day) * rng.randf_range(0.7, 1.4)
 	var amount := clampi(roundi(value / unit), 3, 40)
@@ -1267,6 +1295,10 @@ func rank_stat(key: String) -> int:
 			return earned_total
 		"orders":
 			return orders_done
+		"operations":
+			return ops_done
+		"vaults":
+			return vaults_done
 		"crew":
 			return crew.people.size()
 		"buildings":
@@ -1333,6 +1365,7 @@ const SITUATION_CHOICES := {
 	"bulk_buyer": ["sell", "decline"],
 	"neighbors": ["pay", "ignore", "vent"],
 	"tip_off": ["rob", "police", "ignore"],
+	"high_roller": ["play", "decline", "cheat"],
 }
 
 
@@ -1357,7 +1390,8 @@ func situation_title_key(kind: String) -> String:
 
 
 func _situation_default(kind: String) -> String:
-	return { "cop_visit": "hide", "advance": "refuse", "bulk_buyer": "decline", "neighbors": "ignore", "tip_off": "ignore" }[kind]
+	return { "cop_visit": "hide", "advance": "refuse", "bulk_buyer": "decline", "neighbors": "ignore", "tip_off": "ignore",
+			"high_roller": "decline" }[kind]
 
 
 func _illegal_value(id: String) -> int:
@@ -1377,11 +1411,13 @@ func _make_situation(now: int) -> Dictionary:
 		if prop.kind != "front" and _illegal_value(prop.id) > 0:
 			options.append({ "kind": "cop_visit", "place": prop.id, "cost": int(balance.sit_cop_bribe_base)
 					+ roundi(_illegal_value(prop.id) * float(balance.sit_cop_bribe_share)) })
+		if prop.get("casino", false):
+			options.append({ "kind": "high_roller", "place": prop.id, "cost": int(balance.sit_whale_stake) })
 		if prop.kind == "lab" and not properties.state[prop.id].batches.is_empty():
 			options.append({ "kind": "neighbors", "place": prop.id, "cost": int(balance.sit_neighbors_cost) })
 		var stock: Dictionary = properties.state[prop.id].stock
-		var goods := stock.keys().filter(func(g: String) -> bool: return int(stock[g]) >= 5)
-		if not goods.is_empty() and market.get_district(prop.district).has_market:
+		var goods := stock.keys().filter(func(g: String) -> bool: return int(stock[g]) >= 5 and market.trades(prop.district, g))
+		if not goods.is_empty():
 			var good: String = goods[rng.randi_range(0, goods.size() - 1)]
 			var amount := mini(int(stock[good]), rng.randi_range(5, 15))
 			options.append({ "kind": "bulk_buyer", "place": prop.id, "target": good, "amount": amount,
@@ -1416,6 +1452,8 @@ func can_choose_situation(id: int, choice: String) -> bool:
 	match [sit.kind, choice]:
 		["cop_visit", "bribe"], ["advance", "pay"], ["neighbors", "pay"]:
 			return money >= int(sit.cost)
+		["high_roller", "play"]:
+			return money >= roundi(int(sit.cost) * float(balance.sit_whale_loss))
 		["neighbors", "vent"]:
 			return not properties.has_upgrade(sit.place, "vent") and clean >= int(balance.upgrades.vent.cost)
 		["bulk_buyer", "sell"]:
@@ -1510,6 +1548,26 @@ func choose_situation(id: int, choice: String, forced: bool = false) -> Array:
 			else:
 				police.add_heat(where, float(balance.sit_tip_heat))
 				report.append(["LOG_SIT_TIP_FAILED", [gangs.get_def(gang).name_key]])
+		["high_roller", "play"]:
+			# Честная игра: у заведения преимущество, но крупный игрок может и сорвать банк.
+			if rng.randf() < float(balance.sit_whale_win):
+				_earn(int(sit.cost), true)
+				_popup(place, int(sit.cost), true)
+				report.append(["LOG_SIT_WHALE_WON", [int(sit.cost)]])
+			else:
+				var loss := roundi(int(sit.cost) * float(balance.sit_whale_loss))
+				_spend(loss)
+				report.append(["LOG_SIT_WHALE_LOST", [loss]])
+		["high_roller", "cheat"]:
+			if rng.randf() < float(balance.sit_whale_caught):
+				police.add_heat(where, float(balance.sit_whale_heat))
+				properties.state[place].frozen_days = maxi(int(properties.state[place].frozen_days), 2)
+				report.append(["LOG_SIT_WHALE_CAUGHT", [properties.get_def(place).name_key]])
+			else:
+				var win := roundi(int(sit.cost) * float(balance.sit_whale_cheat))
+				_earn(win, true)
+				_popup(place, win, true)
+				report.append(["LOG_SIT_WHALE_CHEATED", [win]])
 		["tip_off", "police"]:
 			var gang := String(sit.target).get_slice("|", 0)
 			_earn(int(balance.sit_tip_police_pay), true)
@@ -1537,6 +1595,171 @@ func _route_sell(route: Dictionary, courier: Dictionary, amount: int) -> Array:
 		police.add_heat(where, float(good.heat) * amount * float(balance.dealer_heat_share) * skills.heat_multiplier())
 		_gang_notice(where, income)
 	return ["LOG_ROUTE_SOLD", [courier.nick, amount, good.name_key, market.get_district(where).name_key, income]]
+
+# --- Ринг и гонки ---
+
+## Кого выставить на подпольный ринг: самого сильного здорового бойца.
+func ring_fighter() -> Dictionary:
+	var best := {}
+	for person: Dictionary in fighters_ready():
+		if person.role == "fighter" and (best.is_empty() or int(person.skill) > int(best.skill)):
+			best = person
+	return best
+
+
+func ring_chance() -> float:
+	var fighter := ring_fighter()
+	if fighter.is_empty():
+		return 0.0
+	return clampf(float(balance.ring_base) + int(fighter.skill) * float(balance.ring_per_skill), 0.0, 0.85)
+
+
+## Подпольный бой на ставках: победил — приз грязными, проиграл — боец выбывает раненым.
+func _ring_fight() -> Array:
+	var fighter := ring_fighter()
+	if rng.randf() < ring_chance():
+		_earn(int(balance.ring_prize), false)
+		_change_loyalty(fighter, 5.0)
+		return [["LOG_RING_WON", [fighter.nick, int(balance.ring_prize)]]]
+	fighter.wounded = rng.randi_range(int(balance.ring_wound_days[0]), int(balance.ring_wound_days[1]))
+	return [["LOG_RING_LOST", [fighter.nick, int(fighter.wounded)]]]
+
+
+## На чём гонять: самая быстрая свободная исправная машина (легковая лучше фургона, фургон — скутера).
+func race_vehicle() -> Dictionary:
+	var best := {}
+	for vehicle: Dictionary in logistics.vehicles:
+		if int(vehicle.broken) > 0 or logistics.vehicle_busy(int(vehicle.id)):
+			continue
+		if best.is_empty() or float(balance.race_chance[vehicle.type]) > float(balance.race_chance[best.type]):
+			best = vehicle
+	return best
+
+
+func race_chance() -> float:
+	var vehicle := race_vehicle()
+	if vehicle.is_empty():
+		return 0.0
+	return minf(0.85, float(balance.race_chance[vehicle.type]) + skills.level("driving") * float(balance.race_per_driving))
+
+
+## Уличная гонка на ставках: взнос, победа — приз грязными; бывает, разбиваешь машину.
+func _street_race() -> Array:
+	var vehicle := race_vehicle()
+	var chance := race_chance()
+	_spend(int(balance.race_entry))
+	var report: Array = []
+	if rng.randf() < chance:
+		_earn(int(balance.race_prize), false)
+		report.append(["LOG_RACE_WON", [int(balance.race_prize)]])
+	else:
+		report.append(["LOG_RACE_LOST", [int(balance.race_entry)]])
+	if rng.randf() < float(balance.race_crash):
+		vehicle.broken = 2
+		report.append(["LOG_RACE_CRASH", [balance.vehicles[vehicle.type].name_key]])
+	return report
+
+
+# --- Угон ---
+
+## Шанс угнать машину: от Вождения и Взлома (электронные ключи).
+func steal_car_chance() -> float:
+	return minf(0.9, float(balance.steal_car_chance) + skills.level("driving") * float(balance.steal_car_per_driving)
+			+ skills.level("hacking") * float(balance.steal_car_per_hacking))
+
+
+func _steal_car() -> Array:
+	if rng.randf() >= steal_car_chance():
+		police.add_heat(district, float(balance.steal_car_alarm_heat))
+		return [["LOG_CAR_ALARM", []]]
+	var roll := rng.randf()
+	var type := "car"
+	for t: String in balance.steal_car_types:
+		roll -= float(balance.steal_car_types[t])
+		if roll < 0.0:
+			type = t
+			break
+	var vehicle := logistics.add_vehicle(type)
+	vehicle.stolen = true
+	return [["LOG_CAR_STOLEN", [balance.vehicles[type].name_key]]]
+
+
+func _stolen_vehicle(id: int) -> Dictionary:
+	var vehicle := logistics.get_vehicle(id)
+	return vehicle if vehicle.get("stolen", false) else {}
+
+
+## Где разобрать угнанную: своё здание в этом городе, куда влезут запчасти.
+func strip_target(id: int) -> String:
+	var vehicle := _stolen_vehicle(id)
+	if vehicle.is_empty():
+		return ""
+	var need := int(balance.strip_parts[vehicle.type]) * good_size("car_parts")
+	for prop: Dictionary in properties.mine():
+		if world.city_of(prop.district) == city and properties.stock_free(prop.id) >= need:
+			return prop.id
+	return ""
+
+
+func can_strip_vehicle(id: int) -> bool:
+	return can_act() and strip_target(id) != "" and not logistics.vehicle_busy(id)
+
+
+## Разобрать угнанную на запчасти: машины нет, на склад — запчасти с угона.
+func strip_vehicle(id: int) -> Array:
+	if not can_strip_vehicle(id):
+		return []
+	var vehicle := _stolen_vehicle(id)
+	var target := strip_target(id)
+	var parts := int(balance.strip_parts[vehicle.type])
+	properties.add_stock(target, "car_parts", parts)
+	logistics.vehicles.erase(vehicle)
+	return [["LOG_CAR_STRIPPED", [parts, properties.get_def(target).name_key]]]
+
+
+func can_relabel_vehicle(id: int) -> bool:
+	return can_act() and not _stolen_vehicle(id).is_empty() and money >= int(balance.relabel_cost)
+
+
+## Перебить номера: машина больше не числится в угоне.
+func relabel_vehicle(id: int) -> bool:
+	if not can_relabel_vehicle(id):
+		return false
+	_spend(int(balance.relabel_cost))
+	logistics.get_vehicle(id).stolen = false
+	return true
+
+
+func fence_price(id: int) -> int:
+	var vehicle := _stolen_vehicle(id)
+	return 0 if vehicle.is_empty() else roundi(vehicle_price(vehicle.type) * float(balance.fence_vehicle_share))
+
+
+func can_fence_vehicle(id: int) -> bool:
+	return can_act() and not _stolen_vehicle(id).is_empty() and not logistics.vehicle_busy(id)
+
+
+## Скинуть угнанную перекупщику — сразу грязные.
+func fence_vehicle(id: int) -> Array:
+	if not can_fence_vehicle(id):
+		return []
+	var price := fence_price(id)
+	logistics.vehicles.erase(_stolen_vehicle(id))
+	_earn(price, false)
+	return [["LOG_CAR_FENCED", [price]]]
+
+
+## Ночью полиция может найти угнанную машину с родными номерами: машину забирают, маршрут закрыт.
+func _run_stolen_cars() -> Array:
+	var report: Array = []
+	for vehicle: Dictionary in logistics.vehicles.duplicate():
+		if vehicle.get("stolen", false) and rng.randf() < float(balance.stolen_found_chance):
+			logistics.vehicles.erase(vehicle)
+			police.add_heat(district, float(balance.stolen_found_heat))
+			report.append(["LOG_CAR_FOUND", [balance.vehicles[vehicle.type].name_key]])
+	_drop_broken_routes()
+	return report
+
 
 func vehicle_price(type: String) -> int:
 	return int(balance.vehicles[type].price)
@@ -1626,6 +1849,8 @@ func can_add_route(from: String, to: String, good: String, vehicle_id: int, cour
 	if not properties.get_def(from).is_empty() and place_ok(to) \
 			and world.city_of(place_district(from)) != world.city_of(place_district(to)):
 		return false
+	if is_market_place(to) and not market.trades(place_district(to), good):
+		return false
 	return can_act() and from != to and properties.is_mine(from) and place_ok(to) \
 			and not market.get_good(good).is_empty() and not logistics.get_vehicle(vehicle_id).is_empty() \
 			and not logistics.vehicle_busy(vehicle_id) and not courier.is_empty() and courier.role == "courier" \
@@ -1680,6 +1905,9 @@ func route_police_chance(route: Dictionary, shift: String = "night") -> float:
 	chance *= maxf(0.2, 1.0 - int(courier.get("skill", 0)) * float(balance.route_courier_skill_cut))
 	chance *= 1.0 - _scout_skill(route) * float(balance.scout_police_per_skill)
 	chance *= skills.route_police_multiplier()
+	# Угнанную машину с родными номерами ищут.
+	if vehicle.get("stolen", false):
+		chance *= float(balance.stolen_route_factor)
 	# Днём свидетелей и патрулей больше, ночью — меньше (раздел 3.2).
 	chance *= float(balance.route_shifts[shift].police)
 	return minf(1.0, chance)
@@ -1873,6 +2101,8 @@ func _properties_hours(share: float) -> void:
 					_add_sales("cafe:" + id, income, sold)
 					_popup(id, income, true)
 		_dealers_hours(prop, share)
+		_hackers_hours(prop, share)
+		_backroom_hours(prop, share)
 
 
 ## Дилеры в здании продают нелегальное из его склада (дорогое — первым) по цене района со скидкой.
@@ -1886,7 +2116,8 @@ func _dealers_hours(prop: Dictionary, share: float) -> void:
 	for contract: Dictionary in suppliers.contracts:
 		if contract.to == prop.id:
 			inputs[contract.good] = true
-	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal and not inputs.has(good.id))
+	var goods := market.goods.filter(func(good: Dictionary) -> bool:
+		return not good.legal and not inputs.has(good.id) and market.trades(where, good.id))
 	goods.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.base_price) > int(b.base_price))
 	for dealer: Dictionary in crew.working_at(prop.id, "dealer"):
 		if not crew.present.get(dealer.id, true):
@@ -1912,6 +2143,46 @@ func _dealers_hours(prop: Dictionary, share: float) -> void:
 			_gang_notice(where, income)
 			_add_sales("dealer:%d" % int(dealer.id), income, sold, [dealer.nick])
 			_popup(prop.id, income, false)
+
+
+## Хакеры в здании весь день воруют данные и продают их: грязные деньги понемногу, чуть розыска району.
+## Твой Взлом помогает (сам их учишь).
+func _hackers_hours(prop: Dictionary, share: float) -> void:
+	for hacker: Dictionary in crew.working_at(prop.id, "hacker"):
+		if not crew.present.get(hacker.id, true):
+			continue
+		var daily := (float(balance.hacker_base) + float(balance.hacker_per_skill) * int(hacker.skill)) \
+				* (1.0 + skills.level("hacking") * float(balance.hacker_per_hacking))
+		var income := _take_carry("hacker:%d" % int(hacker.id), daily * share)
+		if income <= 0:
+			continue
+		_earn(income, false)
+		police.add_heat(prop.district, float(balance.hacker_heat) * share)
+		_add_sales("hacker:%d" % int(hacker.id), income, 0, [hacker.nick])
+		_popup(prop.id, income, false)
+
+
+## Подпольный покер в казино: весь день грязные деньги со столов, розыск району и внимание налоговой.
+func _backroom_hours(prop: Dictionary, share: float) -> void:
+	if not properties.has_upgrade(prop.id, "backroom"):
+		return
+	var income := _take_carry("backroom:" + String(prop.id), float(balance.backroom_income) * share)
+	police.add_heat(prop.district, float(balance.backroom_heat) * share)
+	properties.tax_attention += float(balance.backroom_tax) * share
+	if income > 0:
+		_earn(income, false)
+		_add_sales("backroom:" + String(prop.id), income, 0)
+		_popup(prop.id, income, false)
+
+
+## Хакер в здании города чистит базы полиции: дело детективов растёт медленнее (не меньше половины).
+func hacker_cover(city_id: String) -> float:
+	var best := 0
+	for prop: Dictionary in properties.mine():
+		if world.city_of(prop.district) == city_id:
+			for hacker: Dictionary in crew.working_at(prop.id, "hacker"):
+				best = maxi(best, int(hacker.skill))
+	return maxf(0.5, 1.0 - best * float(balance.hacker_dossier_per_skill))
 
 
 ## Зарплаты за ночь: сначала грязными (наличка), потом чистыми. Кому не хватило — уходит.
@@ -2324,6 +2595,10 @@ func _sales_report() -> Array:
 			report.append(["LOG_DEALER_SOLD", [entry.args[0], int(entry.sold), int(entry.income)]])
 		elif key.begins_with("cafe:"):
 			report.append(["LOG_CAFE_SOLD", [int(entry.sold), int(entry.income)]])
+		elif key.begins_with("backroom:"):
+			report.append(["LOG_BACKROOM", [properties.get_def(key.substr(9)).name_key, int(entry.income)]])
+		elif key.begins_with("hacker:"):
+			report.append(["LOG_HACKER_DONE", [entry.args[0], int(entry.income)]])
 	return report
 
 
@@ -2338,6 +2613,9 @@ func end_day() -> Array:
 	report.append_array(run_hours(24.0))
 	report.append_array(_sales_report())
 	report.append_array(_run_routes())
+	report.append_array(_run_stolen_cars())
+	report.append_array(_run_lines())
+	report.append_array(_run_insiders())
 	report.append_array(_run_shipments())
 	report.append_array(_pay_crew())
 	report.append_array(_run_loyalty())
@@ -2418,6 +2696,8 @@ func customs_chance(to_city: String) -> float:
 	if smuggle_case:
 		chance *= float(balance.smuggle_case_factor)
 	chance *= 1.0 - perk("customs_cut")
+	if has_insider(zone_of(to_city)):
+		chance *= float(balance.insider_flight)
 	return minf(float(balance.customs_max), chance)
 
 
@@ -2469,7 +2749,7 @@ func shipment_targets(from: String) -> Array:
 
 ## Расчёт груза: фрахт (за место и расстояние), пошлина за легальный товар при въезде в другую зону,
 ## маскировка нелегального (доля стоимости), дни в пути, риск досмотра и выручка на рынке назначения.
-func shipment_quote(from: String, to: String, good: String, amount: int, disguise: bool) -> Dictionary:
+func shipment_quote(from: String, to: String, good: String, amount: int, disguise: bool, transport: String = "") -> Dictionary:
 	var info := market.get_good(good)
 	var from_city := world.city_of(place_district(from))
 	var to_city := world.city_of(place_district(to))
@@ -2485,17 +2765,28 @@ func shipment_quote(from: String, to: String, good: String, amount: int, disguis
 				+ value / 1000.0 * float(balance.shipment_customs_per_1000))
 		if disguise:
 			risk *= float(balance.shipment_disguise_factor)
+		# Свой человек на таможне страны назначения закрывает глаза; бонус ступени тоже.
+		if has_insider(zone):
+			risk *= float(balance.insider_cut)
+		risk *= 1.0 - perk("customs_cut")
+	# Свой транспорт: катер дешевле и незаметнее, но дольше; самолёт дорогой, зато за день.
+	var days := 1 + floori(km / float(balance.freight_km_per_day))
+	if transport != "":
+		var info_t: Dictionary = balance.transports[transport]
+		freight *= float(info_t.freight)
+		risk *= float(info_t.risk)
+		days = 1 if info_t.get("fast", false) else days + int(info_t.extra_days)
 	var sale := 0
 	if is_market_place(to):
 		sale = roundi(market.quote_sell(place_district(to), good, amount, float(balance.shipment_saturation))
 				* float(balance.shipment_sale_price))
-	return { "cost": roundi(freight + duty + mask), "duty": roundi(duty), "days": 1 + floori(km / float(balance.freight_km_per_day)),
-			"risk": risk, "sale": sale }
+	return { "cost": roundi(freight + duty + mask), "duty": roundi(duty), "days": days, "risk": risk, "sale": sale }
 
 
 func can_ship(from: String, to: String, good: String, amount: int, disguise: bool = false) -> bool:
 	if not can_act() or not properties.is_mine(from) or amount <= 0 or properties.stock_of(from, good) < amount \
-			or logistics.shipments.size() >= limit("shipments_max") or not shipment_targets(from).has(to):
+			or logistics.single_shipments() >= limit("shipments_max") or not shipment_targets(from).has(to) \
+			or (is_market_place(to) and not market.trades(place_district(to), good)):
 		return false
 	if not is_market_place(to) and properties.stock_free(to) < amount * good_size(good):
 		return false
@@ -2526,7 +2817,8 @@ func _run_shipments() -> Array:
 		var to_name := place_name_key(shipment.to)
 		var amount := int(shipment.amount)
 		if not good.legal:
-			var quote := shipment_quote(shipment.from, shipment.to, shipment.good, amount, shipment.disguise)
+			var quote := shipment_quote(shipment.from, shipment.to, shipment.good, amount, shipment.disguise,
+					String(shipment.get("transport", "")))
 			if rng.randf() < float(quote.risk):
 				police.add_heat(where, float(balance.shipment_seized_heat))
 				report.append(["LOG_SHIPMENT_SEIZED", [amount, good.name_key, to_name]])
@@ -2549,6 +2841,303 @@ func _run_shipments() -> Array:
 		report.append(["LOG_SHIPMENT_ARRIVED", [fits, good.name_key, to_name]])
 		if fits < amount:
 			report.append(["LOG_SHIPMENT_OVERFLOW", [amount - fits]])
+	return report
+
+
+# --- Крупные дела ---
+
+func op_def(id: String) -> Dictionary:
+	for op: Dictionary in op_defs:
+		if op.id == id:
+			return op
+	return {}
+
+
+func op_kind(id: String) -> Dictionary:
+	return balance.operation_kinds[op_def(id).kind]
+
+
+func operations_in(where: String) -> Array:
+	return op_defs.filter(func(op: Dictionary) -> bool: return op.district == where)
+
+
+func op_state(id: String) -> Dictionary:
+	if not operations.has(id):
+		operations[id] = { "preps": [], "ready": 0 }
+	return operations[id]
+
+
+## Кто пойдёт на дело: по каждой нужной роли — лучшие здоровые люди. { роль: [люди] }.
+func op_crew(id: String) -> Dictionary:
+	var result := {}
+	for role: String in op_kind(id).roles:
+		var people := crew.people.filter(func(p: Dictionary) -> bool:
+			return p.role == role and int(p.wounded) == 0 and int(p.off_day) != day and crew.present.get(p.id, true))
+		people.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.skill) > int(b.skill))
+		result[role] = people.slice(0, int(op_kind(id).roles[role]))
+	return result
+
+
+## Кого не хватает: [[роль, нужно, есть]].
+func op_missing(id: String) -> Array:
+	var missing: Array = []
+	var team := op_crew(id)
+	for role: String in op_kind(id).roles:
+		var need := int(op_kind(id).roles[role])
+		if team[role].size() < need:
+			missing.append([role, need, team[role].size()])
+	return missing
+
+
+## Сколько стоит добыча (для цены подготовки).
+func op_value(id: String) -> int:
+	var kind := op_kind(id)
+	var value := int(kind.get("money", 0))
+	for good: String in kind.get("goods", {}):
+		value += int(market.get_good(good).base_price) * int(kind.goods[good])
+	return value
+
+
+## Шанс: база дела + подготовка + опыт команды + вооружённые бойцы (не выше op_max_chance).
+func op_chance(id: String) -> float:
+	var chance := float(op_kind(id).base)
+	for prep: String in op_state(id).preps:
+		chance += float(balance.op_preps[prep].bonus)
+	var team := op_crew(id)
+	var skill := 0
+	var count := 0
+	var fighters: Array = []
+	for role: String in team:
+		for person: Dictionary in team[role]:
+			skill += int(person.skill)
+			count += 1
+			if role == "fighter":
+				fighters.append(person)
+	if count > 0:
+		chance += float(skill) / count * float(balance.op_skill_bonus)
+	var arms := _arm(fighters, arsenal())
+	chance += arms.values().filter(func(a: Dictionary) -> bool: return a.weapon != "").size() * float(balance.op_armed_bonus)
+	return clampf(chance, 0.0, float(balance.op_max_chance))
+
+
+func prep_cost(id: String, prep: String) -> int:
+	return roundi(op_value(id) * float(balance.op_preps[prep].get("cost_share", 0.0)))
+
+
+func op_cooling(id: String) -> int:
+	return maxi(0, int(op_state(id).ready) - day)
+
+
+## Подготовка — только на месте дела; разведку делаешь сам (часы и силы), снаряжение и своего человека — за деньги.
+func can_prep(id: String, prep: String) -> bool:
+	var op := op_def(id)
+	if op.is_empty() or not balance.op_preps.has(prep) or op_state(id).preps.has(prep) or op_cooling(id) > 0:
+		return false
+	var info: Dictionary = balance.op_preps[prep]
+	return can_act() and district == op.district and energy >= int(info.get("energy", 0)) and money >= prep_cost(id, prep)
+
+
+func do_prep(id: String, prep: String) -> Array:
+	if not can_prep(id, prep):
+		return []
+	var info: Dictionary = balance.op_preps[prep]
+	energy -= int(info.get("energy", 0))
+	_spend(prep_cost(id, prep))
+	op_state(id).preps.append(prep)
+	if prep == "recon":
+		skills.add_xp("stealth", int(balance.xp_activity))
+	return [["LOG_OP_PREP", [info.name_key, op_kind(id).name_key]]]
+
+
+func can_launch(id: String) -> bool:
+	var op := op_def(id)
+	return not op.is_empty() and can_act() and district == op.district and rank >= int(op_kind(id).min_rank) \
+			and op_missing(id).is_empty() and energy >= int(balance.op_energy) and op_cooling(id) == 0
+
+
+## Дело. Удача — добыча (грязные или товар на склад города/в карман), розыск района, банда хозяина района злится.
+## Провал — людей ранят и сажают, розыска больше. Подготовка сгорает, повторить можно через op_cooldown дней.
+func launch_operation(id: String) -> Array:
+	if not can_launch(id):
+		return []
+	var op := op_def(id)
+	var kind := op_kind(id)
+	var chance := op_chance(id)
+	var team := op_crew(id)
+	energy -= int(balance.op_energy)
+	var fighters: Array = team.get("fighter", [])
+	_spend_ammo(_arm(fighters, arsenal()).values().filter(func(a: Dictionary) -> bool: return a.weapon != "").size())
+	var state := op_state(id)
+	state.preps = []
+	state.ready = day + int(balance.op_cooldown)
+	skills.add_xp("leadership", int(balance.xp_leadership) * 3)
+	var host := gangs.gang_owner(op.district)
+	if host != "":
+		gangs.change_relation(host, -float(balance.op_gang_relation))
+	var report: Array = []
+	if rng.randf() < chance:
+		police.add_heat(op.district, float(kind.heat) * skills.heat_multiplier())
+		ops_done += 1
+		if kind.get("vault", false):
+			vaults_done += 1
+		var money_won := int(kind.get("money", 0))
+		if money_won > 0:
+			_earn(money_won, false)
+			_popup("@" + String(op.district), money_won, false)
+		report.append(["LOG_OP_WON", [kind.name_key, money_won]] if money_won > 0 else ["LOG_OP_WON_GOODS", [kind.name_key]])
+		for good: String in kind.get("goods", {}):
+			report.append_array(_stash_loot(good, int(kind.goods[good])))
+		for role: String in team:
+			for person: Dictionary in team[role]:
+				_change_loyalty(person, 10.0)
+		report.append_array(_check_rank())
+		return report
+	police.add_heat(op.district, float(kind.heat) * float(balance.op_fail_heat))
+	report.append(["LOG_OP_FAILED", [kind.name_key]])
+	for role: String in team:
+		for person: Dictionary in team[role]:
+			if rng.randf() < float(balance.op_fail_arrest):
+				crew.fire(person.id)
+				report.append(["LOG_OP_ARRESTED", [person.nick]])
+			elif rng.randf() < float(balance.op_fail_wound):
+				person.wounded = rng.randi_range(int(balance.fight_wound_days[0]), int(balance.fight_wound_days[1]))
+				report.append(["LOG_FIGHT_WOUNDED", [person.nick, int(person.wounded)]])
+	_drop_broken_routes()
+	return report
+
+
+## Добыча-товар: в своё здание этого города, где есть место, остальное — в карман (что не влезло — бросили).
+func _stash_loot(good: String, amount: int) -> Array:
+	var left := amount
+	for prop: Dictionary in properties.mine():
+		if left > 0 and world.city_of(prop.district) == city:
+			var n := mini(left, properties.stock_free(prop.id) / good_size(good))
+			properties.add_stock(prop.id, good, n)
+			left -= n
+	var pocket := mini(left, pocket_free() / good_size(good))
+	inventory[good] += pocket
+	left -= pocket
+	var report: Array = [["LOG_OP_LOOT", [amount - left, market.get_good(good).name_key]]]
+	if left > 0:
+		report.append(["LOG_POCKET_FULL", [left]])
+	return report
+
+
+# --- Порт и контрабанда ---
+
+## Какой транспорт есть у здания: причал — катер, ангар — самолёт (пусто — не порт).
+func port_transports(id: String) -> Array:
+	return properties.get_def(id).get("port", [])
+
+
+## Куда может идти линия из порта: катер — только в свой причал другого города, самолёт — в любое своё здание
+## другого города (аэропорт есть везде).
+func line_targets(from: String, transport: String) -> Array:
+	var here := world.city_of(place_district(from))
+	return properties.mine().filter(func(p: Dictionary) -> bool:
+		return world.city_of(p.district) != here and (transport == "plane" or p.get("port", []).has("boat"))) \
+			.map(func(p: Dictionary) -> String: return p.id)
+
+
+func can_add_line(from: String, to: String, good: String, amount: int, transport: String) -> bool:
+	return can_act() and properties.is_mine(from) and port_transports(from).has(transport) \
+			and line_targets(from, transport).has(to) and not market.get_good(good).is_empty() \
+			and balance.line_amounts.has(float(amount)) and amount * good_size(good) <= int(balance.transports[transport].capacity) \
+			and logistics.lines.size() < limit("lines_max")
+
+
+## Регулярная линия: катер раз в 3 дня или самолёт раз в 2 дня возит товар из порта в другой город.
+func add_line(from: String, to: String, good: String, amount: int, transport: String) -> bool:
+	if not can_add_line(from, to, good, amount, transport):
+		return false
+	logistics.add_line(from, to, good, amount, transport, day)
+	return true
+
+
+func remove_line(id: int) -> bool:
+	if not can_act() or logistics.get_line(id).is_empty():
+		return false
+	logistics.lines.erase(logistics.get_line(id))
+	return true
+
+
+## Ночью линии, у которых подошёл день, отправляют рейс: сколько есть на складе (до нормы), фрахт сразу,
+## нелегальное всегда в маскировке. Рейс идёт как груз — с таможней на прибытии.
+func _run_lines() -> Array:
+	var report: Array = []
+	for line: Dictionary in logistics.lines.duplicate():
+		if not properties.is_mine(line.from) or not properties.is_mine(line.to):
+			logistics.lines.erase(line)
+			report.append(["LOG_LINE_CLOSED", [market.get_good(line.good).name_key]])
+			continue
+		if int(line.next) > day:
+			continue
+		var info: Dictionary = balance.transports[line.transport]
+		line.next = day + int(info.every)
+		var amount := mini(int(line.amount), properties.stock_of(line.from, line.good))
+		if amount <= 0:
+			report.append(["LOG_LINE_EMPTY", [place_name_key(line.from), market.get_good(line.good).name_key]])
+			continue
+		var disguise: bool = not market.get_good(line.good).legal
+		var quote := shipment_quote(line.from, line.to, line.good, amount, disguise, line.transport)
+		if money < int(quote.cost):
+			report.append(["LOG_LINE_NO_MONEY", [int(quote.cost)]])
+			continue
+		_spend(int(quote.cost))
+		properties.add_stock(line.from, line.good, -amount)
+		logistics.add_shipment(line.from, line.to, line.good, amount, day + int(quote.days), disguise, line.transport, true)
+		report.append(["LOG_LINE_SENT", [info.name_key, amount, market.get_good(line.good).name_key, place_name_key(line.to), int(quote.cost)]])
+	return report
+
+
+## Свой человек на таможне: груз и твой багаж в его стране досматривают реже. Платишь раз в неделю.
+func has_insider(zone: String) -> bool:
+	return insiders.has(zone)
+
+
+func insider_fee(zone: String) -> int:
+	return int(balance.insider_fee.get(zone, 0))
+
+
+## Договориться можно, только будучи в этой стране.
+func can_hire_insider(zone: String) -> bool:
+	return can_act() and balance.insider_fee.has(zone) and not has_insider(zone) and zone_of(city) == zone \
+			and money >= insider_fee(zone)
+
+
+func hire_insider(zone: String) -> bool:
+	if not can_hire_insider(zone):
+		return false
+	_spend(insider_fee(zone))
+	insiders[zone] = day + 7
+	return true
+
+
+func fire_insider(zone: String) -> bool:
+	if not can_act() or not has_insider(zone):
+		return false
+	insiders.erase(zone)
+	return true
+
+
+## Раз в неделю — плата; не хватило — уходит. Изредка свой человек сдаёт тебя: розыск в городе.
+func _run_insiders() -> Array:
+	var report: Array = []
+	for zone: String in insiders.keys():
+		if int(insiders[zone]) > day + 1:
+			continue
+		if rng.randf() < float(balance.insider_rat):
+			insiders.erase(zone)
+			police.add_heat(district, float(balance.insider_rat_heat))
+			report.append(["LOG_INSIDER_RAT", ["ZONE_" + zone.to_upper()]])
+			continue
+		if money < insider_fee(zone):
+			insiders.erase(zone)
+			report.append(["LOG_INSIDER_LEFT", ["ZONE_" + zone.to_upper()]])
+			continue
+		_spend(insider_fee(zone))
+		insiders[zone] = int(insiders[zone]) + 7
+		report.append(["LOG_INSIDER_PAID", ["ZONE_" + zone.to_upper(), insider_fee(zone)]])
 	return report
 
 
@@ -2651,10 +3240,11 @@ func city_influence(city_id: String) -> float:
 
 
 ## Лучшая цена товара в городе: buy — самая низкая цена покупки, иначе — самая высокая цена продажи (0 — рынков нет).
+## Лучшая цена товара в городе (0 — в этом городе им не торгуют).
 func city_price(city_id: String, good: String, buy: bool) -> int:
 	var best := 0
 	for d: Dictionary in world.districts_of(city_id):
-		if not d.has_market:
+		if not market.trades(d.id, good):
 			continue
 		var price := market.buy_price(d.id, good) if buy else market.sell_price(d.id, good)
 		if best == 0 or (price < best if buy else price > best):
@@ -2789,7 +3379,9 @@ func _gang_dump(id: String) -> Array:
 	if turf.is_empty():
 		return []
 	var where: String = turf[0]
-	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal)
+	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal and market.trades(where, good.id))
+	if goods.is_empty():
+		return []
 	goods.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.base_price) > int(b.base_price))
 	var good: Dictionary = goods[0]
 	market.apply_trade(where, good.id, -int(balance.gang_dump_units))
@@ -2800,9 +3392,12 @@ func _gang_dump(id: String) -> Array:
 func gang_attack_chance(id: String, property_id: String) -> float:
 	var attack := float(balance.gang_attack_base) + gangs.strength(id) * float(balance.gang_attack_share)
 	var defense := 0.0
+	# Охрана отстреливается тем, что лежит на складе этого здания.
+	var arms := _arm(_defenders(property_id), properties.state[property_id].stock)
 	for person: Dictionary in _defenders(property_id):
 		var per_skill := float(balance.defense_fighter_per_skill) if person.role == "fighter" else float(balance.guard_defense_per_skill)
-		defense += int(person.skill) * per_skill
+		var weapon: String = arms.get(person.id, {}).get("weapon", "")
+		defense += int(person.skill) * per_skill * (1.0 + float(balance.weapon_power.get(weapon, 0.0)))
 	defense *= gear_power()
 	if properties.has_upgrade(property_id, "alarm"):
 		defense += float(balance.alarm_defense)
@@ -2877,12 +3472,68 @@ func fighters_ready() -> Array:
 		return p.role in ["fighter", "guard"] and int(p.wounded) == 0 and int(p.off_day) != day)
 
 
-## Сила бригады: бойцы сильнее охранников; снаряжение и Лидерство усиливают.
+## Оружие и броня на складах твоих зданий в этом городе: { товар: шт }.
+func arsenal() -> Dictionary:
+	var stock := {}
+	for id: String in ["ammo", "armor"] + balance.weapon_power.keys():
+		stock[id] = 0
+	for prop: Dictionary in properties.mine():
+		if world.city_of(prop.district) == city:
+			for id: String in stock:
+				stock[id] += properties.stock_of(prop.id, id)
+	return stock
+
+
+## Кто чем вооружён: { id человека: { "weapon": товар или "", "armor": bool } }. Лучшие стволы — самым
+## опытным; ствол без патронов (balance.ammo_per_fight на бой) не считается.
+func armament() -> Dictionary:
+	return _arm(fighters_ready(), arsenal())
+
+
+## Раздать людям оружие и броню из запаса stock (он не меняется).
+func _arm(fighters: Array, supply: Dictionary) -> Dictionary:
+	var stock := supply.duplicate()
+	for id: String in ["ammo", "armor"] + balance.weapon_power.keys():
+		stock[id] = int(stock.get(id, 0))
+	var ammo: int = stock.ammo
+	var people := fighters.duplicate()
+	people.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.skill) > int(b.skill))
+	var arms: Array = balance.weapon_power.keys()
+	arms.sort_custom(func(a: String, b: String) -> bool: return float(balance.weapon_power[a]) > float(balance.weapon_power[b]))
+	var result := {}
+	for person: Dictionary in people:
+		var weapon := ""
+		for id: String in arms:
+			if stock[id] > 0 and ammo >= int(balance.ammo_per_fight):
+				weapon = id
+				stock[id] -= 1
+				ammo -= int(balance.ammo_per_fight)
+				break
+		var armored: bool = stock.armor > 0
+		if armored:
+			stock.armor -= 1
+		result[person.id] = { "weapon": weapon, "armor": armored }
+	return result
+
+
+## После боя вооружённые расстреляли патроны — списываем со складов города.
+func _spend_ammo(armed: int) -> void:
+	var left := armed * int(balance.ammo_per_fight)
+	for prop: Dictionary in properties.mine():
+		if left > 0 and world.city_of(prop.district) == city:
+			var n := mini(left, properties.stock_of(prop.id, "ammo"))
+			properties.add_stock(prop.id, "ammo", -n)
+			left -= n
+
+
+## Сила бригады: бойцы сильнее охранников; оружие из арсенала, снаряжение и Лидерство усиливают.
 func crew_power() -> float:
 	var power := 0.0
+	var arms := armament()
 	for person: Dictionary in fighters_ready():
 		var per_skill := float(balance.fighter_power_per_skill) if person.role == "fighter" else float(balance.guard_power_per_skill)
-		power += int(person.skill) * per_skill
+		var weapon: String = arms.get(person.id, {}).get("weapon", "")
+		power += int(person.skill) * per_skill * (1.0 + float(balance.weapon_power.get(weapon, 0.0)))
 	return power * gear_power() * (1.0 + skills.level("leadership") * float(balance.leadership_power_per_level))
 
 
@@ -2953,11 +3604,15 @@ func fight(gang_id: String, tactic: String) -> Array:
 	var mult := float(info.wound) * (1.0 if win else float(balance.fight_lost_mult))
 	var wounded: Array = []
 	var dead: Array = []
+	var arms := armament()
+	_spend_ammo(arms.values().filter(func(a: Dictionary) -> bool: return a.weapon != "").size())
 	for person: Dictionary in fighters_ready():
-		if rng.randf() < float(balance.fight_death_chance) * mult:
+		# Бронежилет вдвое снижает шанс погибнуть или выбыть раненым.
+		var cut := float(balance.armor_wound_cut) if arms.get(person.id, {}).get("armor", false) else 1.0
+		if rng.randf() < float(balance.fight_death_chance) * mult * cut:
 			dead.append(person.nick)
 			crew.fire(person.id)
-		elif rng.randf() < float(balance.fight_wound_chance) * mult:
+		elif rng.randf() < float(balance.fight_wound_chance) * mult * cut:
 			person.wounded = rng.randi_range(int(balance.fight_wound_days[0]), int(balance.fight_wound_days[1]))
 			wounded.append(person.nick)
 	for person: Dictionary in crew.people:
@@ -3071,6 +3726,7 @@ func _run_police() -> Array:
 		var grow := (float(police.heat[where]) - float(balance.detective_stars) * 20.0) * float(balance.dossier_per_heat) \
 				+ spots.size() * float(balance.dossier_per_property)
 		grow *= maxf(0.0, 1.0 - crew.best_skill("lawyer") * float(balance.lawyer_dossier_per_skill))
+		grow *= hacker_cover(world.city_of(where))
 		if police.has_krysha(where):
 			grow *= float(balance.krysha_dossier)
 		police.add_dossier(where, maxf(1.0, grow))
@@ -3282,10 +3938,14 @@ func _gang_poach(id: String) -> Array:
 
 ## Предложение купить у банды партию нелегального товара дешевле рынка.
 func _gang_deal(id: String) -> Array:
-	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal)
+	var where: String = gangs.get_def(id).home
+	# Редкостями банды не торгуют оптом.
+	var goods := market.goods.filter(func(good: Dictionary) -> bool:
+		return not good.legal and good.get("category", "") != "rare" and market.trades(where, good.id))
+	if goods.is_empty():
+		return []
 	var good: Dictionary = goods[rng.randi() % goods.size()]
 	var units := int(balance.gang_deal_units)
-	var where: String = gangs.get_def(id).home
 	var amount := roundi(market.buy_price(where, good.id) * units * float(balance.gang_deal_price))
 	gangs.add_offer({ "gang": id, "kind": "deal", "amount": amount, "good": good.id, "units": units,
 			"expires": day + int(balance.gang_offer_days) })
@@ -3395,6 +4055,10 @@ func to_dict() -> Dictionary:
 		"rank": rank,
 		"earned_total": earned_total,
 		"orders_done": orders_done,
+		"insiders": insiders.duplicate(),
+		"operations": operations.duplicate(true),
+		"ops_done": ops_done,
+		"vaults_done": vaults_done,
 		"rng_state": str(rng.state),
 		"market": market.to_dict(),
 		"police": police.to_dict(),
@@ -3447,6 +4111,15 @@ func load_dict(data: Dictionary) -> void:
 	# Старые сохранения: заработанное до этапа 8.5 не считали — берём хотя бы честное.
 	earned_total = int(data.get("earned_total", data.clean_earned))
 	orders_done = int(data.get("orders_done", 0))
+	operations = {}
+	for id: String in data.get("operations", {}):
+		var st: Dictionary = data.operations[id]
+		operations[id] = { "preps": Array(st.get("preps", [])).map(func(p: Variant) -> String: return String(p)), "ready": int(st.get("ready", 0)) }
+	ops_done = int(data.get("ops_done", 0))
+	vaults_done = int(data.get("vaults_done", 0))
+	insiders = {}
+	for zone: String in data.get("insiders", {}):
+		insiders[zone] = int(data.insiders[zone])
 	manager_orders = {}
 	for id: String in data.get("manager_orders", {}):
 		var orders: Dictionary = data.manager_orders[id]

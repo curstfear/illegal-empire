@@ -128,8 +128,11 @@ func has_upgrade(id: String, upgrade: String) -> bool:
 
 ## Улучшения, которые подходят этому зданию (по типу; кухня кафе — тоже «front»).
 func upgrades_for(id: String, all_upgrades: Dictionary) -> Array:
-	var kind: String = get_def(id).kind
-	return all_upgrades.keys().filter(func(upgrade: String) -> bool: return all_upgrades[upgrade].kinds.has(kind))
+	var def := get_def(id)
+	var kind: String = def.kind
+	# Подпольный покер — только в казино.
+	return all_upgrades.keys().filter(func(upgrade: String) -> bool:
+		return all_upgrades[upgrade].kinds.has(kind) and (not all_upgrades[upgrade].get("casino", false) or def.get("casino", false)))
 
 
 ## Здание пустое и ничего не варится — только такое можно продать или сдать.

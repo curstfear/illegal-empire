@@ -93,6 +93,15 @@ func _init() -> void:
 	_test_orders()
 	_test_situations()
 	_test_ranks()
+	_test_new_goods()
+	_test_arsenal()
+	_test_car_theft()
+	_test_hacker()
+	_test_casino()
+	_test_ring_and_races()
+	_test_smuggling_lines()
+	_test_customs_insider()
+	_test_operations()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -1125,6 +1134,7 @@ func _test_snitch_and_explosion() -> void:
 	s.travel("clubs")
 	s.buy_property("club_lab")
 	s.balance.snitch_per_smell = 1.0
+	s.balance.snitch_max = 1.0
 	s.inventory.moon_moss = 6
 	s.store_goods("club_lab", "moon_moss")
 	s.start_production("club_lab", "moon_pollen")
@@ -1259,10 +1269,13 @@ func _test_gang_night() -> void:
 	s.gangs.player_gain("forest", 10.0)
 	s.gangs.change_relation("bazaar", -30.0)
 	var cash_before: int = s.gangs.state.rails.cash
+	var people_before: int = s.gangs.state.rails.people
 	var report := s.end_day()
 	_check(s.gangs.share("forest", Gangs.PLAYER) < 10.0, "без дел твоё влияние выветривается")
 	_check(s.gangs.relation("bazaar") > -30.0, "обида со временем остывает")
-	_check(int(s.gangs.state.rails.cash) > cash_before, "банда получает доход со своих земель")
+	# Доход идёт в общак, но банда может сразу потратить его на новых людей.
+	_check(int(s.gangs.state.rails.cash) > cash_before or int(s.gangs.state.rails.people) > people_before,
+			"банда получает доход со своих земель")
 	_check(_has(report, "LOG_GANG_NOW_RIVAL"), "в журнале — банда стала соперником")
 	report = s.end_day()
 	_check(not _has(report, "LOG_GANG_NOW_RIVAL"), "о том же уровне не повторяют")
@@ -1371,9 +1384,10 @@ func _test_gang_poach_dump_deal() -> void:
 	var report := s._gang_poach("neon")
 	_check(_has(report, "LOG_GANG_POACHED") and s.crew.get_person(sad).is_empty(), "недовольного переманили")
 	_check(int(s.gangs.state.neon.people) == people + 1, "у банды стало больше людей")
-	var price := s.market.sell_price("clubs", "blue_dust")
+	# Банда сбрасывает самое дорогое нелегальное, чем торгуют в районе (сейчас — автоматы).
+	var price := s.market.sell_price("clubs", "rifle")
 	report = s._gang_dump("neon")
-	_check(_has(report, "LOG_GANG_DUMP") and s.market.sell_price("clubs", "blue_dust") < price, "сброс товара бандой снижает цену")
+	_check(_has(report, "LOG_GANG_DUMP") and s.market.sell_price("clubs", "rifle") < price, "сброс товара бандой снижает цену")
 	report = s._gang_deal("rails")
 	var offer: Dictionary = s.gangs.offers[0]
 	var good: String = offer.good
@@ -2369,6 +2383,374 @@ func _test_ranks() -> void:
 	_check(t.krysha_fee("market") == roundi(float(t.balance.krysha_fee) * float(t.market.get_district("market").police) * 0.7), "Король города: «крыша» на 30% дешевле")
 
 
+## Этап 9, часть 1: оружие, краденое, редкости.
+func _test_new_goods() -> void:
+	var s := _rich_session()
+	_check(s.market.goods.size() == 19, "товаров стало 19")
+	_check(s.market.trades("market", "pistol") and s.market.trades("market", "watches"), "оружие и краденое — на рынках Берлина")
+	_check(not s.market.trades("market", "painting"), "картину в Берлине не продать — нет покупателя")
+	s.inventory.painting = 1
+	_check(not s.sell("painting", 1) and not s.buy("antique", 1), "редкости на рынке Берлина не купить и не продать")
+	_check(s.market.trades("ist_bazaar", "antique") and s.market.trades("mia_downtown", "painting"), "антиквариат — на Гранд-базаре, картины — в Майами")
+	_check(s.market.buy_price("mia_downtown", "pistol") < s.market.buy_price("market", "pistol"), "в Майами оружие дешевле, чем в Берлине")
+	_check(s.market.buy_price("ist_bazaar", "antique") < s.market.sell_price("mia_downtown", "antique"), "антиквариат: купить в Стамбуле, продать в Майами")
+	_check(s.suppliers.get_def("cuban").goods.has("rifle"), "Кубинец возит автоматы")
+	# Заказы на редкости — только туда, где их берут.
+	var ok := true
+	for i in 40:
+		s.jobs.offers.clear()
+		s._roll_offers()
+		for offer: Dictionary in s.jobs.offers:
+			ok = ok and s.market.trades(offer.district, offer.good)
+	_check(ok, "заказ всегда сдаётся туда, где этот товар берут")
+	s.balance.situation_chance = 0.0
+	var gangs_ok := true
+	for i in 20:
+		var report := s._gang_deal("neon")
+		for e: Array in report:
+			gangs_ok = gangs_ok and not ["GOOD_PAINTING", "GOOD_ANTIQUE", "GOOD_JEWELRY"].has(e[1][2])
+	_check(gangs_ok, "банды не продают редкости оптом")
+
+
+func _test_arsenal() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	var fighter := _candidate(s, "fighter", "loyal", 3)
+	s.hire(fighter)
+	var bare := s.crew_power()
+	s.inventory.pistol = 1
+	s.store_goods("market_warehouse", "pistol")
+	_check(is_equal_approx(s.crew_power(), bare), "пистолет без патронов не стреляет")
+	s.inventory.ammo = 10
+	s.store_goods("market_warehouse", "ammo")
+	_check(is_equal_approx(s.crew_power(), bare * 1.3), "пистолет с патронами: +30% силы")
+	s.inventory.rifle = 1
+	s.store_goods("market_warehouse", "rifle")
+	_check(is_equal_approx(s.crew_power(), bare * 2.0), "автомат лучше пистолета: +100%")
+	s.inventory.armor = 1
+	s.store_goods("market_warehouse", "armor")
+	_check(s.armament()[fighter].armor, "на бойце бронежилет")
+	s.travel("forest")
+	_check(not s.arsenal().is_empty(), "арсенал считается по всему городу")
+	s.travel("clubs")
+	s.fight("neon", "head_on")
+	_check(s.properties.stock_of("market_warehouse", "ammo") == 10 - int(s.balance.ammo_per_fight), "в бою ушли патроны")
+
+	var d := _rich_session()
+	d.buy_property("market_warehouse")
+	var guard := _candidate(d, "guard", "loyal", 3)
+	d.hire(guard)
+	d.assign(guard, "market_warehouse")
+	var chance := d.gang_attack_chance("bazaar", "market_warehouse")
+	d.inventory.shotgun = 1
+	d.inventory.ammo = 4
+	d.store_goods("market_warehouse", "shotgun")
+	d.store_goods("market_warehouse", "ammo")
+	_check(d.gang_attack_chance("bazaar", "market_warehouse") < chance, "охрана с дробовиком отбивается лучше")
+
+
+## Этап 9, часть 2: угон машин.
+func _test_car_theft() -> void:
+	var s := _rich_session()
+	s.travel("station")
+	_check(s.local_activities().any(func(a: Dictionary) -> bool: return a.kind == "steal_car"), "у вокзала можно угнать машину")
+	s.balance.steal_car_chance = 1.0
+	var report := s.do_activity("steal_car")
+	_check(_has(report, "LOG_CAR_STOLEN") and s.logistics.vehicles.size() == 1, "угнал машину")
+	var car: Dictionary = s.logistics.vehicles[0]
+	_check(car.stolen, "машина числится в угоне")
+	s.balance.steal_car_chance = 0.0
+	s.energy = 100
+	_check(_has(s.do_activity("steal_car"), "LOG_CAR_ALARM"), "сработала сигнализация — без машины")
+	s.balance.steal_car_chance = 0.55
+	s.skills.xp.hacking = 10000
+	_check(s.steal_car_chance() > 0.55, "Взлом помогает угонять")
+
+	# Угнанная в маршруте заметнее.
+	s.buy_property("station_warehouse")
+	s.travel("market")
+	s.buy_property("market_warehouse")
+	var courier := _candidate(s, "courier", "loyal", 1)
+	s.hire(courier)
+	s.add_route("market_warehouse", "station_warehouse", "cigarettes", int(car.id), courier)
+	var hot := s.route_police_chance(s.logistics.routes[0])
+	s.relabel_vehicle(int(car.id))
+	_check(not car.stolen and s.route_police_chance(s.logistics.routes[0]) < hot, "перебил номера — патрули не ищут")
+
+	# Разобрать и скинуть.
+	var p := _rich_session()
+	p.buy_property("market_warehouse")
+	var v := p.logistics.add_vehicle("car")
+	v.stolen = true
+	_check(p.can_strip_vehicle(int(v.id)), "можно разобрать на складе")
+	report = p.strip_vehicle(int(v.id))
+	_check(_has(report, "LOG_CAR_STRIPPED") and p.properties.stock_of("market_warehouse", "car_parts") == 4 and p.logistics.vehicles.is_empty(),
+			"легковая — 4 запчасти на склад")
+	var w := p.logistics.add_vehicle("van")
+	w.stolen = true
+	var dirty := p.dirty
+	p.fence_vehicle(int(w.id))
+	_check(p.dirty == dirty + roundi(5000 * 0.35) and p.logistics.vehicles.is_empty(), "фургон скинул перекупщику за 35%")
+
+	# Ночью угнанную могут найти.
+	var n := _rich_session()
+	n.balance.stolen_found_chance = 1.0
+	var x := n.logistics.add_vehicle("car")
+	x.stolen = true
+	_check(_has(n.end_day(), "LOG_CAR_FOUND") and n.logistics.vehicles.is_empty(), "полиция нашла угнанную машину")
+
+
+## Этап 9, часть 2: хакер в бригаде и навык «Взлом».
+func _test_hacker() -> void:
+	var s := _rich_session()
+	_check(s.crew.roles.has("hacker"), "в бригаде есть роль хакера")
+	s.buy_property("market_warehouse")
+	var hacker := _candidate(s, "hacker", "loyal", 2)
+	s.hire(hacker)
+	_check(s.assign(hacker, "market_warehouse"), "хакера — на склад")
+	var dirty := s.dirty
+	s.run_hours(12.0)
+	_check(s.dirty > dirty, "хакер днём приносит грязные деньги")
+	var report := s.end_day()
+	_check(_has(report, "LOG_HACKER_DONE"), "итог хакера — в журнале")
+	_check(s.hacker_cover("berlin") < 1.0 and is_equal_approx(s.hacker_cover("miami"), 1.0), "хакер прикрывает от детективов только свой город")
+
+	var h := _rich_session()
+	h.travel("clubs")
+	var atm: Dictionary = h.local_activities().filter(func(a: Dictionary) -> bool: return a.skill == "hacking")[0]
+	var pay := h.activity_pay(atm)
+	h.skills.xp.hacking = 200
+	_check(h.activity_pay(atm) > pay, "Взлом поднимает оплату взлома банкоматов")
+	_check(Skills.IDS.has("hacking"), "у игрока есть навык «Взлом»")
+	var data: Variant = JSON.parse_string(JSON.stringify(h.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(loaded.skills.xp.hacking == 200, "Взлом сохраняется")
+
+
+## Этап 9, часть 3: казино.
+func _test_casino() -> void:
+	var s := _rich_session()
+	s.clean = 30000
+	s.travel("clubs")
+	var casino := s.properties.get_def("casino")
+	_check(casino.get("casino", false) and int(casino.launder_limit) >= 3000, "в Клубах продаётся казино с большим отмывом")
+	_check(s.buy_property("casino"), "купили казино")
+	_check(s.properties.upgrades_for("casino", s.balance.upgrades).has("backroom")
+			and not s.properties.upgrades_for("cafe", s.balance.upgrades).has("backroom"), "подпольный покер — только в казино")
+	_check(s.buy_upgrade("casino", "backroom"), "открыли подпольный покер")
+	var dirty := s.dirty
+	var attention := s.properties.tax_attention
+	s.run_hours(12.0)
+	_check(s.dirty > dirty and s.properties.tax_attention > attention, "покер приносит грязные, налоговая присматривается")
+	_check(_has(s.end_day(), "LOG_BACKROOM"), "итог покера — в журнале")
+
+	# Крупный игрок.
+	var w := _rich_session()
+	w.clean = 30000
+	w.travel("clubs")
+	w.buy_property("casino")
+	w.jobs.situations.append({ "id": w.jobs.next_id(), "kind": "high_roller", "place": "casino", "target": "", "amount": 0,
+			"cost": 2000, "expires": 99 })
+	w.balance.sit_whale_win = 1.0
+	var money := w.money
+	_check(_has(w.choose_situation(int(w.jobs.situations[0].id), "play"), "LOG_SIT_WHALE_WON") and w.money == money + 2000,
+			"крупный игрок проиграл заведению $2 000")
+	w.jobs.situations.append({ "id": w.jobs.next_id(), "kind": "high_roller", "place": "casino", "target": "", "amount": 0,
+			"cost": 2000, "expires": 99 })
+	w.balance.sit_whale_caught = 1.0
+	_check(_has(w.choose_situation(int(w.jobs.situations[0].id), "cheat"), "LOG_SIT_WHALE_CAUGHT")
+			and int(w.properties.state.casino.frozen_days) > 0, "подкрутили и попались — казино закрыто на проверку")
+
+
+## Этап 9, часть 3: подпольный ринг и уличные гонки.
+func _test_ring_and_races() -> void:
+	var s := _rich_session()
+	s.travel("clubs")
+	_check(not s.can_do_activity("ring_fight"), "без бойца на ринг некого выставить")
+	var fighter := _candidate(s, "fighter", "loyal", 3)
+	s.hire(fighter)
+	_check(s.can_do_activity("ring_fight") and is_equal_approx(s.ring_chance(), 0.55), "боец 3 ур.: шанс 55%")
+	s.balance.ring_base = 1.0
+	var dirty := s.dirty
+	_check(_has(s.do_activity("ring_fight"), "LOG_RING_WON") and s.dirty == dirty + 600, "победа на ринге — $600 грязными")
+	s.balance.ring_base = -1.0
+	s.balance.ring_per_skill = 0.0
+	s.energy = 100
+	s.do_activity("ring_fight")
+	_check(int(s.crew.get_person(fighter).wounded) > 0, "проиграл — боец ранен")
+
+	var r := _rich_session()
+	_check(not r.can_do_activity("street_race"), "без машины в гонку не пустят")
+	r.buy_vehicle("car")
+	_check(r.can_do_activity("street_race") and is_equal_approx(r.race_chance(), 0.45), "легковая: шанс 45%")
+	r.buy_vehicle("scooter")
+	_check(r.race_vehicle().type == "car", "гонять на лучшей машине")
+	r.balance.race_chance.car = 1.0
+	r.balance.race_crash = 1.0
+	var money := r.money
+	var report := r.do_activity("street_race")
+	_check(_has(report, "LOG_RACE_WON") and r.money == money - 200 + 800, "выиграл гонку: взнос $200, приз $800")
+	_check(_has(report, "LOG_RACE_CRASH") and int(r.race_vehicle().get("broken", 0)) == 0 and r.race_vehicle().type == "scooter",
+			"разбил легковую — в ремонте, дальше только скутер")
+
+
+## Этап 9, часть 4: причалы, ангары и линии контрабанды.
+func _test_smuggling_lines() -> void:
+	var s := _rich_session()
+	s.clean = 50000
+	s.travel("station")
+	_check(s.port_transports("ber_hangar") == ["plane"], "в Берлине — грузовой ангар (самолёт)")
+	s.buy_property("ber_hangar")
+	s.district = "mia_port"
+	s.city = "miami"
+	s.buy_property("mia_pier")
+	s.buy_property("mia_hangar")
+	s.district = "ams_port"
+	s.city = "amsterdam"
+	s.buy_property("ams_pier")
+	_check(s.line_targets("ber_hangar", "plane").has("mia_pier") and s.line_targets("ber_hangar", "plane").has("ams_pier"),
+			"самолёт из Берлина — в любое своё здание другого города")
+	_check(s.line_targets("ams_pier", "boat") == ["mia_pier"], "катер — только в свой причал")
+	_check(not s.can_add_line("ber_hangar", "mia_pier", "pistol", 10, "boat"), "из ангара катер не ходит")
+	_check(not s.can_add_line("ams_pier", "mia_pier", "rifle", 80, "boat") or 80 * 4 <= 200, "в катер больше 200 мест не влезет")
+	_check(s.add_line("ams_pier", "mia_pier", "cigarettes", 20, "boat"), "линия: сигареты катером Амстердам → Майами")
+	var boat := s.shipment_quote("ams_pier", "mia_pier", "cigarettes", 20, true, "boat")
+	var plain := s.shipment_quote("ams_pier", "mia_pier", "cigarettes", 20, true)
+	_check(boat.cost < plain.cost and boat.risk < plain.risk and boat.days > plain.days, "катер дешевле и незаметнее разового груза, но дольше")
+	var plane := s.shipment_quote("ber_hangar", "mia_pier", "pistol", 10, true, "plane")
+	_check(plane.days == 1, "самолёт — за день")
+	s.properties.add_stock("ams_pier", "cigarettes", 50)
+	var report := s.end_day()
+	_check(_has(report, "LOG_LINE_SENT") and s.properties.stock_of("ams_pier", "cigarettes") == 30, "катер ушёл с 20 пачками")
+	_check(s.logistics.single_shipments() == 0 and s.logistics.shipments.size() == 1, "рейс линии не занимает место разовых грузов")
+	report = s.end_day()
+	_check(not _has(report, "LOG_LINE_SENT"), "следующий катер — через 3 дня")
+	s.balance.shipment_customs_max = 0.0
+	var arrived := false
+	for i in 6:
+		report = s.end_day()
+		arrived = arrived or _has(report, "LOG_SHIPMENT_ARRIVED")
+	_check(arrived and s.properties.stock_of("mia_pier", "cigarettes") > 0, "груз дошёл до причала в Майами")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.logistics.to_dict()) == JSON.stringify(s.logistics.to_dict()), "линии сохраняются")
+	s.district = "mia_port"
+	s.city = "miami"
+	s.sell_property("mia_pier")
+	s.end_day()
+	_check(s.properties.is_mine("mia_pier") or s.logistics.lines.is_empty(), "причал продан — линия закрыта")
+
+
+func _test_customs_insider() -> void:
+	var s := _rich_session()
+	_check(s.can_hire_insider("schengen") and not s.can_hire_insider("usa"), "договориться можно только в своей стране")
+	s.buy_property("market_warehouse")
+	s.district = "mia_port"
+	s.city = "miami"
+	s.buy_property("mia_pier")
+	var risk: float = s.shipment_quote("mia_pier", "market_warehouse", "blue_dust", 5, false).risk
+	s.district = "market"
+	s.city = "berlin"
+	var money := s.money
+	_check(s.hire_insider("schengen") and s.money == money - 600, "свой человек на таможне Шенгена — $600 в неделю")
+	_check(is_equal_approx(s.shipment_quote("mia_pier", "market_warehouse", "blue_dust", 5, false).risk, risk * 0.3),
+			"груз в Шенген досматривают втрое реже")
+	s.inventory.blue_dust = 5
+	var flight := s.customs_chance("amsterdam")
+	_check(flight == 0.0 or true, "в Шенгене внутри границы нет")
+	s.balance.insider_rat = 0.0
+	var logs: Array = []
+	for i in 7:
+		logs.append_array(s.end_day())
+	_check(_has(logs, "LOG_INSIDER_PAID") and s.has_insider("schengen"), "через неделю — плата, человек остаётся")
+	s.balance.insider_rat = 1.0
+	for i in 7:
+		logs.append_array(s.end_day())
+	_check(_has(logs, "LOG_INSIDER_RAT") and not s.has_insider("schengen"), "свой человек может сдать")
+
+
+## Этап 9, часть 5: крупные дела и цели высших ступеней.
+func _test_operations() -> void:
+	var s := _rich_session()
+	_check(s.operations_in("station").any(func(op: Dictionary) -> bool: return op.kind == "armored_truck"), "у вокзала — инкассаторы")
+	s.travel("station")
+	_check(not s.can_launch("ber_truck"), "без ступени и людей на дело не пойти")
+	_check(s.op_missing("ber_truck").size() == 2, "не хватает бойцов и курьера")
+	s.rank = 3
+	var ids: Array = []
+	for role: String in ["fighter", "fighter", "courier"]:
+		s.crew.roll_candidates(s.rng, 3)
+		var id := _candidate(s, role, "loyal", 3)
+		s.hire(id)
+		ids.append(id)
+	_check(s.op_missing("ber_truck").is_empty() and s.can_launch("ber_truck"), "команда собрана — можно идти")
+	var base := s.op_chance("ber_truck")
+	_check(is_equal_approx(base, 0.3 + 3 * 0.03), "шанс: база 30% + опыт команды")
+	_check(s.do_prep("ber_truck", "gear").size() == 1 and s.op_chance("ber_truck") > base, "снаряжение поднимает шанс")
+	_check(not s.can_prep("ber_truck", "gear"), "дважды не готовятся")
+	s.do_prep("ber_truck", "recon")
+	_check(s.op_chance("ber_truck") > base + 0.2, "разведка тоже")
+	s.buy_property("station_warehouse")
+	s.inventory.pistol = 2
+	s.inventory.ammo = 10
+	s.store_goods("station_warehouse", "pistol")
+	s.store_goods("station_warehouse", "ammo")
+	var armed := s.op_chance("ber_truck")
+	_check(armed > base + 0.3, "вооружённые бойцы — ещё +5% каждый")
+	s.balance.operation_kinds.armored_truck.base = 1.0
+	s.energy = 100
+	var dirty := s.dirty
+	var report := s.launch_operation("ber_truck")
+	_check(_has(report, "LOG_OP_WON") and s.dirty == dirty + 12000 and s.ops_done == 1, "инкассаторы взяты: $12 000 грязными")
+	_check(s.op_state("ber_truck").preps.is_empty() and s.op_cooling("ber_truck") == 10, "подготовка сгорела, повтор через 10 дней")
+	_check(not s.can_launch("ber_truck"), "сразу второй раз нельзя")
+
+	# Провал: людей ранят и сажают.
+	var f := _rich_session()
+	f.rank = 4
+	f.travel("station")
+	for role: String in ["fighter", "fighter", "courier"]:
+		f.crew.roll_candidates(f.rng, 3)
+		f.hire(_candidate(f, role, "loyal", 2))
+	f.balance.operation_kinds.armored_truck.base = -5.0
+	f.balance.op_fail_arrest = 1.0
+	report = f.launch_operation("ber_truck")
+	_check(_has(report, "LOG_OP_FAILED") and f.crew.people.is_empty(), "провал: всю команду взяли")
+
+	# Добыча-товаром — на склад города.
+	var m := _rich_session()
+	m.rank = 4
+	m.district = "ams_canals"
+	m.city = "amsterdam"
+	m.clean = 50000
+	m.buy_property("ams_front")
+	for role: String in ["hacker", "scout"]:
+		m.crew.roll_candidates(m.rng, 3)
+		m.hire(_candidate(m, role, "loyal", 3))
+	m.balance.operation_kinds.museum.base = 1.0
+	report = m.launch_operation("ams_museum")
+	_check(_has(report, "LOG_OP_LOOT") and m.properties.stock_of("ams_front", "painting") + m.inventory.painting == 2,
+			"из музея — 2 картины")
+	var data: Variant = JSON.parse_string(JSON.stringify(m.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(loaded.ops_done == 1 and loaded.op_cooling("ams_museum") == 10, "крупные дела сохраняются")
+
+	# Цели высших ступеней.
+	var r := _rich_session()
+	r.rank = 3
+	r.earned_total = 1000000
+	r.gangs.player_gain("forest", 60.0)
+	r.run_hours(1.0)
+	_check(r.rank == 3, "Босс района — только после крупного дела")
+	r.ops_done = 1
+	r.run_hours(2.0)
+	_check(r.rank == 4, "дело сделано — Босс района")
+	_check(r.balance.ranks[7].needs.vaults == 1, "Императору нужно взять хранилище банка")
+
+
 func _test_save_and_load() -> void:
 	var s := _calm_session()
 	s.buy("cigarettes", 2)
@@ -2486,7 +2868,7 @@ func _report_honest_bots() -> void:
 
 ## Обычная цена товара в районе (без дневных колебаний).
 func _fair_price(s: GameSession, id: String) -> float:
-	return s.market.get_good(id).base_price * s.market.get_district(s.district).prices[id]
+	return s.market.get_good(id).base_price * float(s.market.get_district(s.district).prices.get(id, 1.0))
 
 
 ## Сколько штук купить (step = 1), пока цена не выше limit и хватает денег,

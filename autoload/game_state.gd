@@ -349,6 +349,77 @@ func _report_and_refresh(report: Array) -> void:
 	changed.emit()
 
 
+func strip_vehicle(id: int) -> void:
+	_report_and_refresh(session.strip_vehicle(id))
+
+
+func relabel_vehicle(id: int) -> void:
+	if session.relabel_vehicle(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_CAR_RELABELED", []]])
+		changed.emit()
+
+
+func fence_vehicle(id: int) -> void:
+	_report_and_refresh(session.fence_vehicle(id))
+	Audio.coin()
+
+
+func add_line(from: String, to: String, good: String, amount: int, transport: String) -> void:
+	if session.add_line(from, to, good, amount, transport):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_LINE_OPENED", [session.balance.transports[transport].name_key, amount,
+				session.market.get_good(good).name_key, session.place_name_key(to)]]])
+		changed.emit()
+
+
+func remove_line(id: int) -> void:
+	if session.remove_line(id):
+		Audio.ui("select")
+		changed.emit()
+
+
+func hire_insider(zone: String) -> void:
+	if session.hire_insider(zone):
+		Audio.coin()
+		reported.emit([["LOG_INSIDER_HIRED", ["ZONE_" + zone.to_upper(), session.insider_fee(zone)]]])
+		changed.emit()
+
+
+func fire_insider(zone: String) -> void:
+	if session.fire_insider(zone):
+		Audio.ui("select")
+		changed.emit()
+
+
+func can_prep(id: String, prep: String) -> bool:
+	return session.can_prep(id, prep) and Clock.hours_left() >= float(session.balance.op_preps[prep].get("hours", 0))
+
+
+func do_prep(id: String, prep: String) -> void:
+	if not can_prep(id, prep):
+		return
+	_report_and_refresh(session.do_prep(id, prep))
+	Clock.advance_hours(float(session.balance.op_preps[prep].get("hours", 0)))
+
+
+func can_launch(id: String) -> bool:
+	return session.can_launch(id) and Clock.hours_left() >= float(session.balance.op_hours)
+
+
+## Крупное дело занимает несколько часов; провал — сирена.
+func launch_operation(id: String) -> void:
+	if not can_launch(id):
+		return
+	var report := session.launch_operation(id)
+	if not report.is_empty() and String(report[0][0]).begins_with("LOG_OP_WON"):
+		Audio.coin()
+	else:
+		Audio.siren()
+	_report_and_refresh(report)
+	Clock.advance_hours(float(session.balance.op_hours))
+
+
 func set_route_shift(id: int, shift: String) -> void:
 	if session.set_route_shift(id, shift):
 		Audio.ui("select")

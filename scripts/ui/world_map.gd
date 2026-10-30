@@ -158,10 +158,15 @@ func _city_value(city_id: String) -> float:
 			return s.city_heat(city_id) / 100.0
 		"influence":
 			return s.city_influence(city_id) / 100.0
-	var prices: Array = s.world.cities.map(func(c: Dictionary) -> int: return s.city_price(c.id, good, true))
+	# Где товаром не торгуют (цена 0), в сравнение не берём.
+	var prices: Array = s.world.cities.map(func(c: Dictionary) -> int: return s.city_price(c.id, good, true)) \
+			.filter(func(p: int) -> bool: return p > 0)
+	var here := s.city_price(city_id, good, true)
+	if here == 0 or prices.is_empty():
+		return 0.5
 	var low: int = prices.min()
 	var high: int = prices.max()
-	return 0.5 if high == low else float(s.city_price(city_id, good, true) - low) / (high - low)
+	return 0.5 if high == low else float(here - low) / (high - low)
 
 
 func _city_color(city_id: String) -> Color:
@@ -198,7 +203,11 @@ func _value_text(city_id: String) -> String:
 			return "★".repeat(stars) + "☆".repeat(5 - stars)
 		"influence":
 			return tr("MAP_INFLUENCE") % roundi(s.city_influence(city_id))
-	return "$" + str(s.city_price(city_id, good, true))
+	return _price_text(s.city_price(city_id, good, true))
+
+
+func _price_text(price: int) -> String:
+	return "$" + str(price) if price > 0 else "—"
 
 
 func refresh() -> void:
@@ -268,9 +277,11 @@ func _refresh_side() -> void:
 	for header: String in ["COL_GOOD", "COL_BUY", "COL_SELL"]:
 		grid.add_child(_label(tr(header), 10, MUTED))
 	for g: Dictionary in s.market.goods:
+		if s.city_price(city.id, g.id, true) == 0:
+			continue
 		grid.add_child(_label(tr(g.name_key), 11, TEXT))
-		grid.add_child(_label("$" + str(s.city_price(city.id, g.id, true)), 11, TEXT))
-		grid.add_child(_label("$" + str(s.city_price(city.id, g.id, false)), 11, TEXT))
+		grid.add_child(_label(_price_text(s.city_price(city.id, g.id, true)), 11, TEXT))
+		grid.add_child(_label(_price_text(s.city_price(city.id, g.id, false)), 11, TEXT))
 	_side_box.add_child(grid)
 	_refresh_documents()
 
@@ -337,8 +348,11 @@ func _refresh_bottom() -> void:
 	_clear(_bottom_box)
 	_bottom_box.add_child(_label(tr("MAP_RANKING") % tr(s.market.get_good(good).name_key), 12, TEXT))
 	var cities: Array = s.world.cities.duplicate()
-	cities.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return s.city_price(a.id, good, true) < s.city_price(b.id, good, true))
+	# Города, где товаром не торгуют, — в конец.
+	var key := func(c: Dictionary) -> int:
+		var p := s.city_price(c.id, good, true)
+		return p if p > 0 else 1 << 30
+	cities.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return key.call(a) < key.call(b))
 	var best_sell := 0
 	for city: Dictionary in cities:
 		best_sell = maxi(best_sell, s.city_price(city.id, good, false))
@@ -352,7 +366,12 @@ func _refresh_bottom() -> void:
 		var title := _label("%d. %s" % [i + 1, tr(city.name_key)], 12, TEXT)
 		title.add_theme_font_override("font", FONT_BOLD)
 		cell.add_child(title)
-		cell.add_child(_label(tr("MAP_BUY_AT") % s.city_price(city.id, good, true), 11, GOOD if i == 0 else MUTED))
+		var buy := s.city_price(city.id, good, true)
+		if buy == 0:
+			cell.add_child(_label(tr("MAP_NO_TRADE"), 11, MUTED))
+			row.add_child(cell)
+			continue
+		cell.add_child(_label(tr("MAP_BUY_AT") % buy, 11, GOOD if i == 0 else MUTED))
 		var sell := s.city_price(city.id, good, false)
 		cell.add_child(_label(tr("MAP_SELL_AT") % sell, 11, WARN if sell == best_sell else MUTED))
 		row.add_child(cell)

@@ -16,7 +16,8 @@ const LEVEL_COLORS := { "friend": Color(0.09, 0.6, 0.35), "neutral": Color(0.42,
 ## Цвета ролей в таблетках.
 const ROLE_COLORS := { "cook": Color(0.09, 0.6, 0.35), "dealer": Color(0.72, 0.46, 0.04), "guard": Color(0.184, 0.42, 1.0),
 		"courier": Color(0.55, 0.3, 0.85), "manager": Color(0.1, 0.55, 0.65), "accountant": Color(0.4, 0.5, 0.15),
-		"lawyer": Color(0.35, 0.38, 0.5), "scout": Color(0.85, 0.35, 0.55), "fighter": Color(0.75, 0.22, 0.2) }
+		"lawyer": Color(0.35, 0.38, 0.5), "scout": Color(0.85, 0.35, 0.55), "fighter": Color(0.75, 0.22, 0.2),
+		"hacker": Color(0.2, 0.6, 0.85) }
 ## Всплывающие сообщения: сколько держится и сколько сразу на экране.
 const TOAST_SECONDS := 6.0
 const TOASTS_MAX := 4
@@ -136,7 +137,8 @@ var _ladder_open := false
 var _routes_list := VBoxContainer.new()
 var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0,
 		"ship_from": "", "ship_to": "", "ship_good": "", "ship_amount": 0, "ship_disguise": false,
-		"sup": "", "sup_good": "", "sup_amount": 10, "sup_to": "", "sup_mode": "daily" }
+		"sup": "", "sup_good": "", "sup_amount": 10, "sup_to": "", "sup_mode": "daily",
+		"line_from": "", "line_transport": "", "line_to": "", "line_good": "", "line_amount": 20 }
 ## Вкладка «Банды» (строится кодом).
 var _gangs_list := VBoxContainer.new()
 ## Окно разборки (строится кодом): затемнение, содержимое и банда, на которую собираемся наехать ("" — не собираемся).
@@ -694,7 +696,7 @@ func _choice_text(sit: Dictionary, choice: String) -> String:
 	var s := GameState.session
 	var key := "SIT_CHOICE_%s_%s" % [String(sit.kind).to_upper(), choice.to_upper()]
 	match [sit.kind, choice]:
-		["cop_visit", "bribe"], ["advance", "pay"], ["neighbors", "pay"], ["bulk_buyer", "sell"]:
+		["cop_visit", "bribe"], ["advance", "pay"], ["neighbors", "pay"], ["bulk_buyer", "sell"], ["high_roller", "play"]:
 			return tr(key) % _format_money(int(sit.cost))
 		["cop_visit", "hide"]:
 			return tr(key) % roundi((float(s.balance.sit_hide_chance) + s.skills.level("stealth") * float(s.balance.sit_hide_per_stealth)) * 100)
@@ -735,6 +737,7 @@ func _build_market() -> void:
 		name_cell.add_child(name_label)
 		name_cell.custom_minimum_size.x = 150
 		_market_grid.add_child(name_cell)
+		var first_cell := _market_grid.get_child_count() - 1
 		var row := {
 			"name": name_label,
 			"risk": _add_label(_market_grid, RISK_KEYS[risk], 54),
@@ -751,6 +754,7 @@ func _build_market() -> void:
 		row.risk.add_theme_font_size_override("font_size", 11)
 		for key: String in ["buy", "sell", "owned", "buy_max"]:
 			row[key].auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		row.cells = range(first_cell, _market_grid.get_child_count()).map(func(i: int) -> Control: return _market_grid.get_child(i))
 		_rows[id] = row
 
 
@@ -772,6 +776,14 @@ func _build_activities() -> void:
 		if activity.kind == "job":
 			var key := "ACT_PAY_CLEAN" if activity.legal else "ACT_PAY_DIRTY"
 			result = tr(key) % _format_money(s.activity_pay(activity))
+		elif activity.kind == "steal_car":
+			result = tr("ACT_STEAL_RESULT") % roundi(s.steal_car_chance() * 100)
+		elif activity.kind == "ring_fight":
+			result = tr("ACT_RING_RESULT") % [roundi(s.ring_chance() * 100), _format_money(int(s.balance.ring_prize))] \
+					if not s.ring_fighter().is_empty() else tr("ACT_RING_NEED")
+		elif activity.kind == "street_race":
+			result = tr("ACT_RACE_RESULT") % [roundi(s.race_chance() * 100), _format_money(int(s.balance.race_entry)),
+					_format_money(int(s.balance.race_prize))] if not s.race_vehicle().is_empty() else tr("ACT_RACE_NEED")
 		else:
 			var range_ := s.activity_yield(activity)
 			result = tr("ACT_YIELD") % [range_[0], range_[1]]
@@ -1131,9 +1143,70 @@ func _refresh_card() -> void:
 
 
 ## В карточке района: детективы (если ведут дело) и «крыша» — нанять или отказаться.
+## Крупные дела района: что нужно (ступень, люди), шанс, подготовка и кнопка «На дело».
+func _operations_section(where: String) -> void:
+	var s := GameState.session
+	var ops := s.operations_in(where)
+	if ops.is_empty():
+		return
+	_police_box.add_child(_small_label(tr("SECTION_OPERATIONS").to_upper(), 10, COLOR_MUTED))
+	for op: Dictionary in ops:
+		var id: String = op.id
+		var kind := s.op_kind(id)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 3)
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 6)
+		var title := _small_label(tr(kind.name_key), 12, COLOR_TEXT)
+		_bold(title)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(title)
+		head.add_child(_pill(tr("OP_CHANCE") % roundi(s.op_chance(id) * 100), COLOR_ACCENT))
+		box.add_child(head)
+		var loot: Array[String] = []
+		if int(kind.get("money", 0)) > 0:
+			loot.append("$" + _format_money(int(kind.money)))
+		for good: String in kind.get("goods", {}):
+			loot.append("%d × %s" % [int(kind.goods[good]), tr(s.market.get_good(good).name_key)])
+		var team: Array[String] = []
+		for role: String in kind.roles:
+			team.append("%s ×%d" % [tr(s.crew.roles[role].name_key), int(kind.roles[role])])
+		box.add_child(_wrapped(tr("OP_INFO") % [", ".join(loot), ", ".join(team), int(kind.heat)], 10, COLOR_MUTED))
+		var blocker := ""
+		if s.rank < int(kind.min_rank):
+			blocker = tr("OP_NEED_RANK") % tr(s.rank_name_key(int(kind.min_rank)))
+		elif not s.op_missing(id).is_empty():
+			var missing: Array[String] = []
+			for item: Array in s.op_missing(id):
+				missing.append("%s %d/%d" % [tr(s.crew.roles[item[0]].name_key), int(item[2]), int(item[1])])
+			blocker = tr("OP_NEED_CREW") % ", ".join(missing)
+		elif s.op_cooling(id) > 0:
+			blocker = tr("OP_COOLING") % s.op_cooling(id)
+		elif s.district != where:
+			blocker = tr("OP_GO_THERE")
+		if blocker != "":
+			box.add_child(_wrapped(blocker, 10, COLOR_WARN))
+		var buttons := HFlowContainer.new()
+		buttons.add_theme_constant_override("h_separation", 4)
+		buttons.add_theme_constant_override("v_separation", 4)
+		for prep: String in s.balance.op_preps:
+			var info: Dictionary = s.balance.op_preps[prep]
+			var done: bool = s.op_state(id).preps.has(prep)
+			var label := tr(info.name_key) + (" ✓" if done else (" $" + _format_money(s.prep_cost(id, prep)) if s.prep_cost(id, prep) > 0
+					else " · %d ч" % int(info.hours)))
+			var button := _prop_button(label, GameState.do_prep.bind(id, prep), done or not GameState.can_prep(id, prep))
+			button.tooltip_text = tr("PREP_TIP") % roundi(float(info.bonus) * 100)
+			buttons.add_child(button)
+		buttons.add_child(_prop_button(tr("BTN_LAUNCH_OP") % int(s.balance.op_hours), GameState.launch_operation.bind(id),
+				not GameState.can_launch(id), true))
+		box.add_child(buttons)
+		_police_box.add_child(box)
+
+
 func _police_section(where: String) -> void:
 	var s := GameState.session
 	_clear(_police_box)
+	_operations_section(where)
 	_police_box.add_child(_small_label(tr("SECTION_POLICE").to_upper(), 10, COLOR_MUTED))
 	if s.police.detectives_on(where):
 		var note := _small_label(tr("POLICE_DETECTIVES"), 10, COLOR_DOWN)
@@ -1197,7 +1270,7 @@ func _refresh_property_card() -> void:
 	_activities_grid.get_parent().move_child(_prop_box, -1)
 	_police_box.visible = false
 	_set_card_icon(KIND_ICONS[kind], COLOR_ACCENT if kind != "lab" else COLOR_UP)
-	_card_kicker.text = (tr("PROP_KIND_" + kind.to_upper()) + " · " + tr(s.market.get_district(prop.district).name_key)).to_upper()
+	_card_kicker.text = (_kind_name(prop) + " · " + tr(s.market.get_district(prop.district).name_key)).to_upper()
 	_card_title.text = tr(prop.name_key)
 	_card_info.text = ""
 	_clear(_card_status)
@@ -1246,7 +1319,7 @@ func _refresh_property_card() -> void:
 				float(st.dirty_queue) / maxf(1.0, float(prop.launder_limit)), COLOR_DIRTY))
 		_card_tiles.add_child(_tile(tr("TILE_TAX"), "%d / 100" % roundi(props.tax_attention), props.tax_attention / 100.0,
 				COLOR_DOWN if props.tax_attention >= float(s.balance.tax_audit_threshold) else COLOR_ACCENT))
-		_card_tiles.add_child(_tile(tr("TILE_REGISTER"), "$%s / %s" % [_format_money(int(prop.revenue)), tr("TILE_NIGHT")]))
+		_card_tiles.add_child(_tile(tr("TILE_REGISTER"), "$%s / %s" % [_format_money(int(prop.revenue)), tr("TILE_DAY")]))
 	else:
 		_card_tiles.add_child(_tile(tr("TILE_EVIDENCE"), "%d / 100" % roundi(st.evidence), st.evidence / 100.0,
 				COLOR_DOWN if st.evidence >= 50 else COLOR_WARN))
@@ -1382,6 +1455,15 @@ func _order_picker(id: String, key: String, items: Array, current: Variant) -> O
 	return picker
 
 
+## Тип здания словами; казино — отдельно от прочих прикрытий.
+func _kind_name(prop: Dictionary) -> String:
+	if prop.get("casino", false):
+		return tr("PROP_KIND_CASINO")
+	if not prop.get("port", []).is_empty():
+		return tr("PROP_KIND_HANGAR") if prop.port.has("plane") else tr("PROP_KIND_PIER")
+	return tr("PROP_KIND_" + String(prop.kind).to_upper())
+
+
 func _neighbors_text(neighbors: float) -> String:
 	if neighbors <= 0.4:
 		return tr("NEIGHBORS_FEW")
@@ -1497,7 +1579,7 @@ func _refresh_buildings() -> void:
 		texts.add_theme_constant_override("separation", -2)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		texts.add_child(_small_label(tr(prop.name_key), 12, COLOR_TEXT))
-		texts.add_child(_small_label(tr(s.market.get_district(prop.district).name_key) + " · " + tr("PROP_KIND_" + String(prop.kind).to_upper()), 10, COLOR_MUTED))
+		texts.add_child(_small_label(tr(s.market.get_district(prop.district).name_key) + " · " + _kind_name(prop), 10, COLOR_MUTED))
 		row.add_child(texts)
 		row.add_child(_small_label("$%s · $%s/%s" % [_format_money(int(prop.buy_price)), _format_money(int(prop.rent)), tr("TILE_NIGHT")], 11, COLOR_TEXT))
 		var open := Button.new()
@@ -1516,7 +1598,7 @@ func _place_line(prop: Dictionary) -> String:
 	var prop_city := s.world.city_of(prop.district)
 	if prop_city != s.city:
 		where = tr(s.world.get_city(prop_city).name_key) + " · " + where
-	return where + " · " + tr("PROP_KIND_" + String(prop.kind).to_upper())
+	return where + " · " + _kind_name(prop)
 
 
 ## Вкладка «Люди»: бригада (место работы, уволить) и биржа (нанять).
@@ -1531,6 +1613,7 @@ func _refresh_crew() -> void:
 		var empty := _small_label(tr("CREW_EMPTY"), 11, COLOR_MUTED)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_crew_list.add_child(empty)
+	_crew_list.add_child(_arsenal_row())
 	for person: Dictionary in crew.people:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
@@ -1575,6 +1658,27 @@ func _refresh_crew() -> void:
 
 ## Под человеком: лояльность, страх и усталость полосками, сколько знает;
 ## ниже — кнопки «Премия», «Надавить», «Выходной» и (кому можно) «В менеджеры».
+## Арсенал: оружие и броня на складах в этом городе и сколько бойцов вооружено.
+func _arsenal_row() -> HBoxContainer:
+	var s := GameState.session
+	var stock := s.arsenal()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(GameIcon.new("pistol", 16.0))
+	var parts: Array[String] = []
+	for id: String in ["rifle", "shotgun", "pistol", "armor", "ammo"]:
+		if int(stock[id]) > 0:
+			parts.append("%s %d" % [tr(s.market.get_good(id).name_key), int(stock[id])])
+	var arms := s.armament()
+	var armed := arms.values().filter(func(a: Dictionary) -> bool: return a.weapon != "").size()
+	var text := tr("ARSENAL_EMPTY") if parts.is_empty() else tr("ARSENAL_LINE") % [", ".join(parts), armed, arms.size()]
+	var label := _small_label(text, 11, COLOR_TEXT if not parts.is_empty() else COLOR_MUTED)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	return row
+
+
 func _loyalty_row(person: Dictionary) -> VBoxContainer:
 	var s := GameState.session
 	var id := int(person.id)
@@ -1760,6 +1864,8 @@ func _refresh_routes() -> void:
 		var name_label := _small_label("%s #%d" % [tr(vehicle_types[vehicle.type].name_key), int(vehicle.id)], 12, COLOR_TEXT)
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_label)
+		if vehicle.get("stolen", false):
+			row.add_child(_pill(tr("PILL_STOLEN"), COLOR_DOWN))
 		if int(vehicle.broken) > 0:
 			row.add_child(_pill(tr("PILL_REPAIR"), COLOR_DOWN))
 		elif logistics.vehicle_busy(int(vehicle.id)):
@@ -1791,6 +1897,8 @@ func _refresh_routes() -> void:
 			hidden.pressed.connect(GameState.add_hidden.bind(int(vehicle.id)))
 			row.add_child(hidden)
 		_routes_list.add_child(row)
+		if vehicle.get("stolen", false):
+			_routes_list.add_child(_stolen_actions(vehicle))
 	_routes_list.add_child(_small_label(tr("ROUTES_SHOP").to_upper(), 10, COLOR_MUTED))
 	for type: String in vehicle_types:
 		var info: Dictionary = vehicle_types[type]
@@ -1855,6 +1963,8 @@ func _refresh_routes() -> void:
 		_routes_list.add_child(row)
 	_build_route_form()
 	_build_supplies()
+	_build_lines()
+	_build_insiders()
 	_build_shipments()
 
 
@@ -2203,6 +2313,24 @@ func _influence_bar(district: String) -> HBoxContainer:
 
 
 ## Форма «Новый маршрут»: откуда, куда, что, на чём, кто везёт.
+## Угнанная машина: разобрать на запчасти, перебить номера или скинуть перекупщику.
+func _stolen_actions(vehicle: Dictionary) -> HFlowContainer:
+	var s := GameState.session
+	var id := int(vehicle.id)
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 4)
+	row.add_child(_small_label(tr("STOLEN_HINT"), 10, COLOR_MUTED))
+	var strip := _prop_button(tr("BTN_STRIP") % int(s.balance.strip_parts[vehicle.type]), GameState.strip_vehicle.bind(id),
+			not s.can_strip_vehicle(id))
+	strip.tooltip_text = tr("BTN_STRIP_TIP")
+	row.add_child(strip)
+	row.add_child(_prop_button(tr("BTN_RELABEL") % _format_money(int(s.balance.relabel_cost)), GameState.relabel_vehicle.bind(id),
+			not s.can_relabel_vehicle(id)))
+	row.add_child(_prop_button(tr("BTN_FENCE") % _format_money(s.fence_price(id)), GameState.fence_vehicle.bind(id),
+			not s.can_fence_vehicle(id)))
+	return row
+
+
 ## Когда ездит маршрут: днём (14:00), ночью (02:00) или оба рейса.
 func _shift_picker(route: Dictionary) -> OptionButton:
 	var picker := OptionButton.new()
@@ -2353,11 +2481,105 @@ func _build_supplies() -> void:
 	_routes_list.add_child(sign)
 
 
+## «Линии контрабанды»: регулярные рейсы катером из причала или самолётом из ангара в другой город.
+func _build_lines() -> void:
+	var s := GameState.session
+	_routes_list.add_child(HSeparator.new())
+	_routes_list.add_child(_small_label((tr("LINES_TITLE") % [s.logistics.lines.size(), s.limit("lines_max")]).to_upper(), 10, COLOR_MUTED))
+	for line: Dictionary in s.logistics.lines:
+		var info: Dictionary = s.balance.transports[line.transport]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(GameIcon.new(line.good, 16.0))
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.add_child(_small_label("%s → %s" % [_ship_title(line.from), _ship_title(line.to)], 12, COLOR_TEXT))
+		texts.add_child(_small_label(tr("LINE_INFO") % [tr(info.name_key), int(line.amount), tr(s.market.get_good(line.good).name_key),
+				int(info.every), maxi(0, int(line.next) - s.day)], 10, COLOR_MUTED))
+		row.add_child(texts)
+		var stop := Button.new()
+		stop.text = "✕"
+		stop.tooltip_text = tr("BTN_REMOVE_LINE")
+		stop.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		_make_small(stop, 7)
+		stop.disabled = not s.can_act()
+		stop.pressed.connect(GameState.remove_line.bind(int(line.id)))
+		row.add_child(stop)
+		_routes_list.add_child(row)
+	var ports: Array = s.properties.mine().filter(func(p: Dictionary) -> bool: return not p.get("port", []).is_empty()) \
+			.map(func(p: Dictionary) -> Array: return [p.id, _ship_title(p.id)])
+	if ports.is_empty():
+		_routes_list.add_child(_wrapped(tr("LINES_NEED"), 11, COLOR_MUTED))
+		return
+	_fix_choice("line_from", ports, 0)
+	var f := _route_form
+	var transports: Array = s.port_transports(f.line_from).map(func(t: String) -> Array:
+		return [t, tr(s.balance.transports[t].name_key)])
+	_fix_choice("line_transport", transports, 0)
+	var targets: Array = s.line_targets(f.line_from, f.line_transport).map(func(id: String) -> Array: return [id, _ship_title(id)])
+	if targets.is_empty():
+		_routes_list.add_child(_wrapped(tr("LINES_NO_TARGET_BOAT" if f.line_transport == "boat" else "LINES_NO_TARGET"), 11, COLOR_MUTED))
+		return
+	_fix_choice("line_to", targets, 0)
+	var goods: Array = s.market.goods.map(func(g: Dictionary) -> Array: return [g.id, tr(g.name_key)])
+	_fix_choice("line_good", goods, 0)
+	var amounts: Array = s.balance.line_amounts.map(func(n: float) -> Array: return [int(n), tr("SUP_AMOUNT") % int(n)])
+	_fix_choice("line_amount", amounts, 1)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 4)
+	top.add_child(_form_picker("line_from", ports))
+	top.add_child(_form_picker("line_transport", transports))
+	top.add_child(_small_label("→", 12, COLOR_MUTED))
+	top.add_child(_form_picker("line_to", targets))
+	_routes_list.add_child(top)
+	var middle := HBoxContainer.new()
+	middle.add_theme_constant_override("separation", 4)
+	middle.add_child(_form_picker("line_good", goods))
+	middle.add_child(_form_picker("line_amount", amounts))
+	var open := Button.new()
+	open.text = tr("BTN_ADD_LINE")
+	open.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_make_small(open, 8)
+	open.disabled = not s.can_add_line(f.line_from, f.line_to, f.line_good, int(f.line_amount), f.line_transport)
+	open.pressed.connect(func() -> void: GameState.add_line(f.line_from, f.line_to, f.line_good, int(f.line_amount), f.line_transport))
+	middle.add_child(open)
+	_routes_list.add_child(middle)
+	var quote := s.shipment_quote(f.line_from, f.line_to, f.line_good, int(f.line_amount),
+			not s.market.get_good(f.line_good).legal, f.line_transport)
+	_routes_list.add_child(_small_label(tr("LINE_QUOTE") % [_format_money(int(quote.cost)), int(quote.days), roundi(float(quote.risk) * 100)],
+			10, COLOR_MUTED))
+
+
+## «Таможня»: свой человек в каждой зоне — платишь раз в неделю, грузы и багаж досматривают реже.
+func _build_insiders() -> void:
+	var s := GameState.session
+	_routes_list.add_child(HSeparator.new())
+	_routes_list.add_child(_small_label(tr("INSIDERS_TITLE").to_upper(), 10, COLOR_MUTED))
+	for zone: String in s.balance.insider_fee:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var label := _small_label(tr("ZONE_" + zone.to_upper()) + " · " + tr("INSIDER_FEE") % _format_money(s.insider_fee(zone)), 12,
+				COLOR_TEXT)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		if s.has_insider(zone):
+			row.add_child(_pill(tr("PILL_INSIDER"), COLOR_UP))
+			row.add_child(_prop_button("✕", GameState.fire_insider.bind(zone), not s.can_act()))
+		else:
+			var hire := _prop_button(tr("BTN_HIRE_INSIDER"), GameState.hire_insider.bind(zone), not s.can_hire_insider(zone))
+			if s.zone_of(s.city) != zone:
+				hire.tooltip_text = tr("INSIDER_GO_THERE")
+			row.add_child(hire)
+		_routes_list.add_child(row)
+	_routes_list.add_child(_wrapped(tr("INSIDERS_HINT"), 10, COLOR_MUTED))
+
+
 ## «Между городами»: грузы в пути и форма отправки (откуда, что, сколько, куда, маскировка) с расчётом.
 func _build_shipments() -> void:
 	var s := GameState.session
 	_routes_list.add_child(HSeparator.new())
-	_routes_list.add_child(_small_label((tr("SHIP_TITLE") % [s.logistics.shipments.size(), s.limit("shipments_max")]).to_upper(),
+	_routes_list.add_child(_small_label((tr("SHIP_TITLE") % [s.logistics.single_shipments(), s.limit("shipments_max")]).to_upper(),
 			10, COLOR_MUTED))
 	for shipment: Dictionary in s.logistics.shipments:
 		var line := tr("SHIP_IN_TRANSIT") % [int(shipment.amount), tr(s.market.get_good(shipment.good).name_key),
@@ -2485,6 +2707,12 @@ func _refresh_market() -> void:
 	var can_act := s.can_act()
 	for id: String in _rows:
 		var row: Dictionary = _rows[id]
+		# Чем в районе не торгуют (редкости — не на каждом рынке), того в списке нет.
+		var traded := s.market.trades(s.district, id)
+		for cell: Control in row.cells:
+			cell.visible = traded
+		if not traded:
+			continue
 		var price := s.buy_price(id)
 		var before: int = s.market.previous_prices[s.district][id]
 		row.buy.text = "$%s %s" % [_format_money(price), "▲" if price > before else ("▼" if price < before else "")]
@@ -2557,6 +2785,9 @@ func _refresh_skills() -> void:
 			"leadership":
 				row.effect.text = tr("SKILL_LEADERSHIP_EFFECT") % [str(snappedf(skills.loyalty_bonus(), 0.1)),
 						roundi((1.0 - skills.betray_multiplier()) * 100)]
+			"hacking":
+				row.effect.text = tr("SKILL_HACKING_EFFECT") % [roundi(lvl * b.hacking_pay_per_level * 100),
+						roundi(lvl * b.steal_car_per_hacking * 100)]
 
 
 func _refresh_event_label() -> void:

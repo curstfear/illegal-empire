@@ -9,12 +9,15 @@ extends RefCounted
 
 ## Типы машин из balance.vehicles.
 var types: Dictionary = {}
-## Свои машины: { id, type, hidden, disguise, broken }.
+## Свои машины: { id, type, hidden, disguise, broken, stolen (угнанная, номера не перебиты) }.
 var vehicles: Array = []
 ## Маршруты: { id, from, to, good, vehicle, courier, scout } (scout = 0 — без разведчика).
 var routes: Array = []
-## Грузы в пути: { id, from, to, good, amount, arrive (день прибытия), disguise }.
+## Грузы в пути: { id, from, to, good, amount, arrive (день прибытия), disguise, transport ("", "boat", "plane"),
+## line (отправлен линией контрабанды — не считается в лимит разовых грузов) }.
 var shipments: Array = []
+## Линии контрабанды: { id, from (причал/ангар), to (своё здание в другом городе), good, amount, transport, next (день отправки) }.
+var lines: Array = []
 
 var _next_id := 1
 
@@ -24,7 +27,7 @@ func _init(vehicle_types: Dictionary) -> void:
 
 
 func add_vehicle(type: String) -> Dictionary:
-	var vehicle := { "id": _next_id, "type": type, "hidden": false, "disguise": false, "broken": 0 }
+	var vehicle := { "id": _next_id, "type": type, "hidden": false, "disguise": false, "broken": 0, "stolen": false }
 	_next_id += 1
 	vehicles.append(vehicle)
 	return vehicle
@@ -92,16 +95,37 @@ func drop_broken_routes(place_ok: Callable, has_person: Callable) -> void:
 			route.scout = 0
 
 
-func add_shipment(from: String, to: String, good: String, amount: int, arrive: int, disguise: bool) -> Dictionary:
+func add_shipment(from: String, to: String, good: String, amount: int, arrive: int, disguise: bool,
+		transport: String = "", line: bool = false) -> Dictionary:
 	var shipment := { "id": _next_id, "from": from, "to": to, "good": good, "amount": amount, "arrive": arrive,
-			"disguise": disguise }
+			"disguise": disguise, "transport": transport, "line": line }
 	_next_id += 1
 	shipments.append(shipment)
 	return shipment
 
 
+func add_line(from: String, to: String, good: String, amount: int, transport: String, next: int) -> Dictionary:
+	var line := { "id": _next_id, "from": from, "to": to, "good": good, "amount": amount, "transport": transport, "next": next }
+	_next_id += 1
+	lines.append(line)
+	return line
+
+
+func get_line(id: int) -> Dictionary:
+	for line: Dictionary in lines:
+		if line.id == id:
+			return line
+	return {}
+
+
+## Разовые грузы (линии контрабанды в лимит не входят).
+func single_shipments() -> int:
+	return shipments.filter(func(s: Dictionary) -> bool: return not s.get("line", false)).size()
+
+
 func to_dict() -> Dictionary:
 	return { "vehicles": vehicles.duplicate(true), "routes": routes.duplicate(true), "shipments": shipments.duplicate(true),
+			"lines": lines.duplicate(true),
 			"next_id": _next_id }
 
 
@@ -111,7 +135,7 @@ func load_dict(data: Dictionary) -> void:
 	for v: Dictionary in data.get("vehicles", []):
 		if types.has(v.type):
 			vehicles.append({ "id": int(v.id), "type": String(v.type), "hidden": bool(v.hidden),
-					"disguise": bool(v.get("disguise", false)), "broken": int(v.broken) })
+					"disguise": bool(v.get("disguise", false)), "broken": int(v.broken), "stolen": bool(v.get("stolen", false)) })
 	routes = []
 	for r: Dictionary in data.get("routes", []):
 		routes.append({ "id": int(r.id), "from": String(r.from), "to": String(r.to), "good": String(r.good),
@@ -120,4 +144,9 @@ func load_dict(data: Dictionary) -> void:
 	shipments = []
 	for sh: Dictionary in data.get("shipments", []):
 		shipments.append({ "id": int(sh.id), "from": String(sh.from), "to": String(sh.to), "good": String(sh.good),
-				"amount": int(sh.amount), "arrive": int(sh.arrive), "disguise": bool(sh.disguise) })
+				"amount": int(sh.amount), "arrive": int(sh.arrive), "disguise": bool(sh.disguise),
+				"transport": String(sh.get("transport", "")), "line": bool(sh.get("line", false)) })
+	lines = []
+	for l: Dictionary in data.get("lines", []):
+		lines.append({ "id": int(l.id), "from": String(l.from), "to": String(l.to), "good": String(l.good),
+				"amount": int(l.amount), "transport": String(l.transport), "next": int(l.next) })

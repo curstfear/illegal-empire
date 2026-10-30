@@ -4,7 +4,8 @@ extends Control
 ## деньги, розыск, силы, долг, время, товары.
 
 ## Какую иконку рисовать: clean, dirty, debt, heat, energy, day,
-## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, district, warehouse, lab, front, van, globe.
+## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, ammo, pistol, shotgun, rifle, armor, watches,
+## car_parts, jewelry, antique, painting, district, warehouse, lab, front, van, globe.
 var kind := ""
 
 
@@ -88,6 +89,71 @@ func _draw() -> void:
 			draw_colored_polygon(gem, Color(0.35, 0.55, 1.0))
 			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.46), c + Vector2(s * 0.38, -s * 0.05),
 					c + Vector2(0, -s * 0.05)]), Color(0.6, 0.78, 1.0))
+		"ammo":
+			# Три патрона.
+			for x in [-0.24, 0.0, 0.24]:
+				var base := c + Vector2(s * x, s * 0.4)
+				draw_rect(Rect2(base + Vector2(-s * 0.08, -s * 0.45), Vector2(s * 0.16, s * 0.45)), Color(0.85, 0.65, 0.3))
+				_half_disc(base + Vector2(0, -s * 0.44), s * 0.08, Color(0.7, 0.45, 0.25))
+				draw_rect(Rect2(base + Vector2(-s * 0.08, -s * 0.08), Vector2(s * 0.16, s * 0.08)), Color(0.65, 0.5, 0.25))
+		"pistol":
+			var steel := Color(0.3, 0.33, 0.4)
+			_rounded_rect(Rect2(c + Vector2(-s * 0.42, -s * 0.28), Vector2(s * 0.78, s * 0.22)), s * 0.05, steel)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.06, -s * 0.08), c + Vector2(s * 0.34, -s * 0.08),
+					c + Vector2(s * 0.28, s * 0.42), c + Vector2(s * 0.02, s * 0.42)]), steel.darkened(0.25))
+			draw_arc(c + Vector2(-s * 0.02, s * 0.02), s * 0.1, 0, PI, 8, steel, s * 0.05, true)
+		"shotgun":
+			var wood := Color(0.6, 0.38, 0.22)
+			draw_line(c + Vector2(-s * 0.48, -s * 0.12), c + Vector2(s * 0.2, -s * 0.12), Color(0.3, 0.33, 0.4), s * 0.12, true)
+			draw_line(c + Vector2(-s * 0.3, s * 0.0), c + Vector2(-s * 0.05, s * 0.0), wood, s * 0.12, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.12, -s * 0.2), c + Vector2(s * 0.48, s * 0.05),
+					c + Vector2(s * 0.44, s * 0.3), c + Vector2(s * 0.12, s * 0.02)]), wood)
+		"rifle":
+			var steel := Color(0.25, 0.28, 0.33)
+			draw_line(c + Vector2(-s * 0.5, -s * 0.15), c + Vector2(s * 0.3, -s * 0.15), steel, s * 0.11, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.08, -s * 0.1), c + Vector2(s * 0.06, -s * 0.1),
+					c + Vector2(-s * 0.02, s * 0.36), c + Vector2(-s * 0.16, s * 0.3)]), Color(0.45, 0.35, 0.25))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(s * 0.2, -s * 0.2), c + Vector2(s * 0.5, -s * 0.05),
+					c + Vector2(s * 0.48, s * 0.18), c + Vector2(s * 0.2, s * 0.0)]), steel.lightened(0.15))
+		"armor":
+			var olive := Color(0.38, 0.45, 0.32)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.4, -s * 0.3), c + Vector2(-s * 0.15, -s * 0.44),
+					c + Vector2(0, -s * 0.3), c + Vector2(s * 0.15, -s * 0.44), c + Vector2(s * 0.4, -s * 0.3),
+					c + Vector2(s * 0.36, s * 0.44), c + Vector2(-s * 0.36, s * 0.44)]), olive)
+			for y in [-0.08, 0.18]:
+				_rounded_rect(Rect2(c + Vector2(-s * 0.26, s * y), Vector2(s * 0.52, s * 0.18)), s * 0.04, olive.lightened(0.2))
+		"watches":
+			draw_rect(Rect2(c + Vector2(-s * 0.14, -s * 0.48), Vector2(s * 0.28, s * 0.96)), Color(0.35, 0.25, 0.2))
+			draw_circle(c, s * 0.3, Color(0.9, 0.72, 0.3))
+			draw_circle(c, s * 0.23, Color(0.98, 0.97, 0.93))
+			draw_line(c, c + Vector2(0, -s * 0.16), Color(0.2, 0.2, 0.25), s * 0.05, true)
+			draw_line(c, c + Vector2(s * 0.12, 0), Color(0.2, 0.2, 0.25), s * 0.05, true)
+		"car_parts":
+			# Шестерёнка.
+			var grey := Color(0.55, 0.58, 0.65)
+			for i in 8:
+				var a := TAU * i / 8.0
+				draw_line(c + Vector2(cos(a), sin(a)) * s * 0.25, c + Vector2(cos(a), sin(a)) * s * 0.46, grey, s * 0.16)
+			draw_circle(c, s * 0.32, grey)
+			draw_circle(c, s * 0.12, Color(0.95, 0.95, 0.97))
+		"jewelry":
+			draw_arc(c + Vector2(0, s * 0.12), s * 0.28, 0, TAU, 32, Color(0.92, 0.75, 0.3), s * 0.1, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.48), c + Vector2(s * 0.16, -s * 0.3),
+					c + Vector2(0, -s * 0.12), c + Vector2(-s * 0.16, -s * 0.3)]), Color(0.55, 0.85, 0.95))
+		"antique":
+			# Ваза.
+			var clay := Color(0.8, 0.45, 0.3)
+			draw_circle(c + Vector2(0, s * 0.12), s * 0.3, clay)
+			draw_rect(Rect2(c + Vector2(-s * 0.1, -s * 0.38), Vector2(s * 0.2, s * 0.3)), clay)
+			draw_rect(Rect2(c + Vector2(-s * 0.18, -s * 0.44), Vector2(s * 0.36, s * 0.08)), clay.darkened(0.2))
+			draw_line(c + Vector2(-s * 0.26, s * 0.1), c + Vector2(s * 0.26, s * 0.1), Color(0.95, 0.85, 0.6), s * 0.06)
+		"painting":
+			draw_rect(Rect2(c - Vector2(s * 0.46, s * 0.36), Vector2(s * 0.92, s * 0.72)), Color(0.85, 0.65, 0.25))
+			draw_rect(Rect2(c - Vector2(s * 0.36, s * 0.26), Vector2(s * 0.72, s * 0.52)), Color(0.55, 0.75, 0.95))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.36, s * 0.26), c + Vector2(-s * 0.1, -s * 0.05),
+					c + Vector2(s * 0.12, s * 0.12), c + Vector2(s * 0.36, -s * 0.02), c + Vector2(s * 0.36, s * 0.26)]),
+					Color(0.35, 0.65, 0.4))
+			draw_circle(c + Vector2(s * 0.18, -s * 0.12), s * 0.07, Color(1.0, 0.9, 0.5))
 		"save":
 			# Дискета.
 			var ink := Color(0.27, 0.3, 0.38)

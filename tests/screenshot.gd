@@ -3,7 +3,10 @@ extends Node
 ## Godot --path . res://tests/screenshot.tscn -- <папка_для_png> [часть]
 ## Часть: "all" (по умолчанию, вся партия — минуты две), "world" (только мировая карта — секунд 15)
 ## "cities" (все города днём и вечером), "engine" (бизнес по часам: деньги над зданиями, дневной рейс)
-## "supply" (поставщик, приказы менеджеру, утренняя доставка), "jobs" (заказы и ситуации) или "rank" (ступени карьеры).
+## "supply" (поставщик, приказы менеджеру, утренняя доставка), "jobs" (заказы и ситуации), "rank" (ступени карьеры)
+## "arms" (оружие, краденое и редкости на рынке, арсенал бригады), "theft" (угон машин, хакер, Взлом)
+## "casino" (казино, подпольный покер, крупный игрок, ринг и гонки), "port" (причалы, линии контрабанды, таможня)
+## или "ops" (крупные дела: подготовка и налёт).
 ## Чтобы окно не мешало: --resolution 960x540 --position 0,0 перед --path.
 
 const GAME_SCENE := preload("res://scenes/game.tscn")
@@ -22,6 +25,26 @@ func _ready() -> void:
 		return
 	if part == "cities":
 		await _city_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "ops":
+		await _ops_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "port":
+		await _port_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "casino":
+		await _casino_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "theft":
+		await _theft_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "arms":
+		await _arms_shots(out_dir)
 		get_tree().quit()
 		return
 	if part == "rank":
@@ -497,3 +520,197 @@ func _rank_shots(out_dir: String) -> void:
 	await _frames(20)
 	_shot(out_dir.path_join("rank_2_ladder.png"))
 	print("после: ступень ", s.rank, " ", s.rank_name_key(), ", заказов в работе до ", s.limit("order_active_max"))
+
+
+## Этап 9, часть 1: рынок Берлина с оружием и краденым, рынок Майами с редкостями, арсенал во вкладке «Люди».
+func _arms_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.clean += 20000
+	GameState.buy_property("market_warehouse")
+	s.crew.roll_candidates(s.rng, 3)
+	for i in 2:
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = "fighter"
+		candidate.skill = 3
+		GameState.hire(int(candidate.id))
+	for id: String in ["rifle", "pistol", "armor", "ammo"]:
+		s.inventory[id] = 1 if id != "ammo" else 10
+		GameState.store_goods("market_warehouse", id)
+	screen.open_card(s.district)
+	screen.get_node("%CardMarketButton").pressed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("arms_1_market_berlin.png"))
+	screen.get_node("%MarketCloseButton").pressed.emit()
+	screen.close_card()
+	screen.open_tab("crew")
+	await _frames(15)
+	_shot(out_dir.path_join("arms_2_arsenal.png"))
+	print("арсенал ", s.arsenal(), ", вооружение ", s.armament(), ", сила ", s.crew_power())
+	s.district = "mia_downtown"
+	s.city = "miami"
+	GameState.changed.emit()
+	screen.get_node("%CardMarketButton").pressed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("arms_3_market_miami.png"))
+
+
+## Этап 9, часть 2: дело «Угнать машину» у вокзала, угнанная машина в «Перевозках», хакер на складе, навык «Взлом».
+func _theft_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.clean += 20000
+	s.travel("station")
+	GameState.buy_property("station_warehouse")
+	screen.open_card("station")
+	await _frames(15)
+	_shot(out_dir.path_join("theft_1_activity.png"))
+	s.balance.steal_car_chance = 1.0
+	GameState.do_activity("steal_car")
+	s.crew.roll_candidates(s.rng, 3)
+	var candidate: Dictionary = s.crew.candidates[0]
+	candidate.role = "hacker"
+	candidate.skill = 3
+	GameState.hire(int(candidate.id))
+	GameState.assign(int(candidate.id), "station_warehouse")
+	screen.close_card()
+	screen.open_tab("routes")
+	await _frames(15)
+	_shot(out_dir.path_join("theft_2_stolen_car.png"))
+	print("машины ", s.logistics.vehicles, ", запчасти можно в ", s.strip_target(int(s.logistics.vehicles[0].id)))
+	Clock.set_speed(4)
+	Clock.elapsed = 5.5 / 24.0 * Clock._day_length
+	while s.hours_done < 6.0:
+		await _frames(1)
+	await _frames(10)
+	Clock.paused = true
+	screen.open_tab("skills")
+	await _frames(10)
+	_shot(out_dir.path_join("theft_3_hacker_skills.png"))
+	print("к полудню хакер: грязных ", s.dirty, ", доход ", s.income_today)
+
+
+## Этап 9, часть 3: казино в Клубах с подпольным покером, крупный игрок, ринг в карточке района.
+func _casino_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.clean += 40000
+	s.travel("clubs")
+	GameState.buy_property("casino")
+	GameState.buy_upgrade("casino", "backroom")
+	s.crew.roll_candidates(s.rng, 3)
+	var candidate: Dictionary = s.crew.candidates[0]
+	candidate.role = "fighter"
+	candidate.skill = 3
+	GameState.hire(int(candidate.id))
+	GameState.buy_vehicle("car")
+	s.jobs.situations.append({ "id": s.jobs.next_id(), "kind": "high_roller", "place": "casino", "target": "", "amount": 0,
+			"cost": 2000, "expires": s.day * 24 + 6 })
+	screen.open_card("clubs")
+	await _frames(20)
+	_shot(out_dir.path_join("casino_1_ring.png"))
+	screen.open_property_card("casino")
+	await _frames(20)
+	_shot(out_dir.path_join("casino_2_card.png"))
+	Clock.set_speed(4)
+	Clock.elapsed = 3.9 / 24.0 * Clock._day_length
+	while s.hours_done < 4.0:
+		await _frames(1)
+	await _frames(12)
+	Clock.paused = true
+	_shot(out_dir.path_join("casino_3_backroom_money.png"))
+	print("покер: грязных ", s.dirty, ", доход ", s.income_today, ", налоговая ", s.properties.tax_attention)
+
+
+## Этап 9, часть 4: причалы в Амстердаме и Майами, линия катером, свой человек на таможне Шенгена.
+func _port_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.clean += 50000
+	s.district = "mia_port"
+	s.city = "miami"
+	GameState.buy_property("mia_pier")
+	s.district = "ams_port"
+	s.city = "amsterdam"
+	GameState.buy_property("ams_pier")
+	s.properties.add_stock("ams_pier", "moon_moss", 40)
+	GameState.hire_insider("schengen")
+	GameState.add_line("ams_pier", "mia_pier", "moon_moss", 20, "boat")
+	screen.close_card()
+	screen.open_tab("routes")
+	await _frames(15)
+	var scroll := screen._routes_list.get_parent() as ScrollContainer
+	scroll.scroll_vertical = 100000
+	await _frames(5)
+	scroll.scroll_vertical -= 230
+	await _frames(5)
+	_shot(out_dir.path_join("port_1_lines.png"))
+	print("линии ", s.logistics.lines, ", свои ", s.insiders)
+	Clock.finish_day()
+	await _frames(10)
+	print("после ночи: грузы ", s.logistics.shipments, ", склад ", s.properties.state.ams_pier.stock)
+	screen.open_tab("buildings")
+	await _frames(10)
+	_shot(out_dir.path_join("port_2_buildings.png"))
+
+
+## Этап 9, часть 5: инкассаторы у вокзала — карточка района до и после подготовки, итог дела.
+func _ops_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.balance.check_base = 0.0
+	s.balance.check_per_heat = 0.0
+	s.clean += 20000
+	s.travel("station")
+	s.rank = 3
+	for role: String in ["fighter", "fighter"]:
+		s.crew.roll_candidates(s.rng, 3)
+		var candidate: Dictionary = s.crew.candidates[0]
+		candidate.role = role
+		candidate.skill = 3
+		GameState.hire(int(candidate.id))
+	screen.open_card("station")
+	await _frames(15)
+	(screen.get_node("%Scroll") as ScrollContainer).scroll_vertical = 100000
+	await _frames(5)
+	_shot(out_dir.path_join("ops_1_need_crew.png"))
+	s.crew.roll_candidates(s.rng, 3)
+	var courier: Dictionary = s.crew.candidates[0]
+	courier.role = "courier"
+	courier.skill = 3
+	GameState.hire(int(courier.id))
+	GameState.do_prep("ber_truck", "gear")
+	GameState.do_prep("ber_truck", "recon")
+	await _frames(10)
+	(screen.get_node("%Scroll") as ScrollContainer).scroll_vertical = 100000
+	await _frames(5)
+	_shot(out_dir.path_join("ops_2_ready.png"))
+	print("шанс ", s.op_chance("ber_truck"), ", можно ", GameState.can_launch("ber_truck"))
+	GameState.launch_operation("ber_truck")
+	await _frames(15)
+	_shot(out_dir.path_join("ops_3_result.png"))
+	print("после: дел ", s.ops_done, ", грязных ", s.dirty, ", бригада ", s.crew.people.size())

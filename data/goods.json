@@ -7,5 +7,15 @@
 	{ "id": "moon_moss", "name_key": "GOOD_MOON_MOSS", "base_price": 70, "volatility": 0.45, "legal": false, "heat": 1.2, "depth": 15, "stall_daily": 0, "size": 1, "perish": 0.05 },
 	{ "id": "moon_pollen", "name_key": "GOOD_MOON_POLLEN", "base_price": 190, "volatility": 0.35, "legal": false, "heat": 2.0, "depth": 10, "stall_daily": 0, "size": 1 },
 	{ "id": "phones", "name_key": "GOOD_PHONES", "base_price": 200, "volatility": 0.375, "legal": false, "heat": 2.5, "depth": 8, "stall_daily": 0, "size": 2 },
-	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525, "legal": false, "heat": 5.0, "depth": 4, "stall_daily": 0, "size": 1 }
+	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525, "legal": false, "heat": 5.0, "depth": 4, "stall_daily": 0, "size": 1 },
+	{ "id": "ammo", "name_key": "GOOD_AMMO", "base_price": 40, "volatility": 0.2, "legal": false, "heat": 1.5, "depth": 30, "stall_daily": 0, "size": 1, "category": "weapon" },
+	{ "id": "pistol", "name_key": "GOOD_PISTOL", "base_price": 450, "volatility": 0.3, "legal": false, "heat": 4.0, "depth": 8, "stall_daily": 0, "size": 1, "category": "weapon" },
+	{ "id": "shotgun", "name_key": "GOOD_SHOTGUN", "base_price": 800, "volatility": 0.3, "legal": false, "heat": 6.0, "depth": 6, "stall_daily": 0, "size": 3, "category": "weapon" },
+	{ "id": "rifle", "name_key": "GOOD_RIFLE", "base_price": 1800, "volatility": 0.35, "legal": false, "heat": 10.0, "depth": 3, "stall_daily": 0, "size": 4, "category": "weapon" },
+	{ "id": "armor", "name_key": "GOOD_ARMOR", "base_price": 600, "volatility": 0.25, "legal": false, "heat": 2.0, "depth": 6, "stall_daily": 0, "size": 3, "category": "weapon" },
+	{ "id": "watches", "name_key": "GOOD_WATCHES", "base_price": 300, "volatility": 0.35, "legal": false, "heat": 2.5, "depth": 8, "stall_daily": 0, "size": 1, "category": "stolen" },
+	{ "id": "car_parts", "name_key": "GOOD_CAR_PARTS", "base_price": 150, "volatility": 0.25, "legal": false, "heat": 1.5, "depth": 12, "stall_daily": 0, "size": 4, "category": "stolen" },
+	{ "id": "jewelry", "name_key": "GOOD_JEWELRY", "base_price": 1500, "volatility": 0.3, "legal": false, "heat": 3.0, "depth": 4, "stall_daily": 0, "size": 1, "category": "rare" },
+	{ "id": "antique", "name_key": "GOOD_ANTIQUE", "base_price": 2500, "volatility": 0.35, "legal": false, "heat": 3.0, "depth": 3, "stall_daily": 0, "size": 3, "category": "rare" },
+	{ "id": "painting", "name_key": "GOOD_PAINTING", "base_price": 6000, "volatility": 0.4, "legal": false, "heat": 6.0, "depth": 2, "stall_daily": 0, "size": 4, "category": "rare" }
 ]

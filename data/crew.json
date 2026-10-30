@@ -8,6 +8,7 @@
 		"accountant": { "name_key": "ROLE_ACCOUNTANT", "wage_base": 50, "wage_per_skill": 12, "works_in": ["front"] },
 		"lawyer": { "name_key": "ROLE_LAWYER", "wage_base": 60, "wage_per_skill": 15, "works_in": [] },
 		"scout": { "name_key": "ROLE_SCOUT", "wage_base": 25, "wage_per_skill": 8, "works_in": [] },
+		"hacker": { "name_key": "ROLE_HACKER", "wage_base": 60, "wage_per_skill": 15, "works_in": ["warehouse", "lab", "front"] },
 		"fighter": { "name_key": "ROLE_FIGHTER", "wage_base": 35, "wage_per_skill": 10, "works_in": ["warehouse", "lab", "front"] }
 	},
 	"traits": {

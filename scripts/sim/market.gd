@@ -125,6 +125,13 @@ func apply_trade(district: String, id: String, amount: int) -> void:
 
 
 ## Риск товара для подписи: 0 — легальный, 1–3 — чем выше, тем горячее.
+## Торгуют ли этим товаром в районе: нужен рынок и цена района на товар
+## (редкости берут только на некоторых рынках — «нужен покупатель»).
+func trades(district: String, id: String) -> bool:
+	var d := get_district(district)
+	return d.get("has_market", false) and d.prices.has(id)
+
+
 func risk_level(id: String) -> int:
 	var heat: float = get_good(id).heat
 	if heat <= 0.0:
@@ -175,7 +182,7 @@ func _remember_prices() -> void:
 
 func _price(district: String, id: String, p: float) -> int:
 	var d := get_district(district)
-	var price: float = get_good(id).base_price * d.prices[id] * factors[String(d.get("city", ""))][id] * (1.0 + p)
+	var price: float = get_good(id).base_price * float(d.prices.get(id, 1.0)) * factors[String(d.get("city", ""))][id] * (1.0 + p)
 	if _event_here(district):
 		price *= event.prices.get(id, 1.0)
 	return maxi(1, roundi(price))
