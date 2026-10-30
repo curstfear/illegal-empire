@@ -296,7 +296,7 @@ func _police_count() -> int:
 	if s == null:
 		return 1
 	var count := 1 + floori(s.police.max_heat() / 40.0)
-	if s.events.today.get("id", "") == "city_raid":
+	if s.events.active_in(s.city).any(func(e: Dictionary) -> bool: return e.id == "city_raid"):
 		count += 2
 	return mini(count, POLICE_CARS_MAX)
 

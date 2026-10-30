@@ -16,7 +16,7 @@ func _init() -> void:
 	_test_weekly_interest()
 	_test_missed_payment_loses()
 	_test_payment_on_time()
-	_test_paying_all_debt_wins()
+	_test_paying_all_debt_goes_on()
 	_test_prices_stay_in_bounds()
 	_test_heat()
 	_test_police_check_choices()
@@ -102,6 +102,12 @@ func _init() -> void:
 	_test_smuggling_lines()
 	_test_customs_insider()
 	_test_operations()
+	_test_modes_and_start()
+	_test_world_events()
+	_test_newspaper()
+	_test_stories()
+	_test_iron_mode()
+	_test_endings()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -115,12 +121,18 @@ func _new_session(seed_value: int = 42) -> GameSession:
 			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs(), GameData.load_world(), seed_value)
 
 
-## Сессия без случайных проверок полиции — для тестов торговли.
-func _calm_session(seed_value: int = 42) -> GameSession:
+## Сессия без случайных проверок полиции и без событий дня — для тестов торговли.
+## with_events — события идут как в игре (для тестов событий и газеты).
+func _calm_session(seed_value: int = 42, with_events: bool = false) -> GameSession:
 	var s := _new_session(seed_value)
 	s.balance.check_base = 0.0
 	s.balance.check_per_heat = 0.0
 	s.balance.situation_chance = 0.0
+	if not with_events:
+		s.balance.event_chance = 0.0
+		s.balance.world_event_chance = 0.0
+		s.events.tomorrow = {}
+		s.events.world_tomorrow = {}
 	return s
 
 
@@ -236,18 +248,21 @@ func _test_payment_on_time() -> void:
 	_check(s.next_payment_day == 28 and s.payment_left() == 1500, "следующий платёж к 28-му дню")
 
 
-func _test_paying_all_debt_wins() -> void:
+func _test_paying_all_debt_goes_on() -> void:
 	var s := _calm_session()
 	s.clean = 60000
 	_check(s.pay(999999) == 48000, "платёж не больше долга")
-	_check(s.status == GameSession.Status.WON and s.money == 12000, "долг закрыт — победа")
+	_check(s.status == GameSession.Status.PLAYING and s.money == 12000, "долг закрыт — игра продолжается (это цель, а не конец)")
+	for i in 30:
+		s.end_day()
+	_check(s.status == GameSession.Status.PLAYING and s.debt == 0, "без долга сроки платежей и проценты не страшны")
 
 
 func _test_prices_stay_in_bounds() -> void:
 	var s := _new_session()
 	var ok := true
 	for i in 300:
-		s.market.roll_day(s.rng, {})
+		s.market.roll_day(s.rng)
 		for city: String in s.market.factors:
 			for good: Dictionary in s.market.goods:
 				var factor: float = s.market.factors[city][good.id]
@@ -337,18 +352,20 @@ func _test_shark_loan() -> void:
 
 
 func _test_events() -> void:
-	var s := _calm_session()
+	var s := _calm_session(42, true)
 	var price := s.market.buy_price("market", "cigarettes")
-	s.market.event = s.events._find("cig_shortage")
+	s.market.city_events = { "berlin": [s.events.find("cig_shortage")] }
 	_check(s.market.buy_price("market", "cigarettes") > price, "дефицит сигарет поднимает цену")
-	s.market.event = s.events._find("station_patrol")
-	_check(s.market.event_police("station") > 1.0 and s.market.event_police("clubs") == 1.0, "патруль только на вокзале")
+	s.market.city_events = { "berlin": [s.events.find("station_patrol")] }
+	_check(s.market.event_police("station") > 1.0 and s.market.event_police("clubs") == 1.0, "патруль только в порту/на вокзале (район вида port)")
+	s.market.city_events = { "amsterdam": [s.events.find("station_patrol")] }
+	_check(s.market.event_police("ams_port") > 1.0 and s.market.event_police("station") == 1.0, "патруль Амстердама — в его порту, не на вокзале Берлина")
 	var seen := 0
 	for i in 50:
 		s.end_day()
 		s.clean = 1000
 		s.paid_this_period = 1500
-		if not s.events.today.is_empty():
+		if not s.events.today_in("berlin").is_empty():
 			seen += 1
 	_check(seen > 15 and seen < 45, "события случаются часто, но не каждый день (%d из 50)" % seen)
 
@@ -598,6 +615,7 @@ func _candidate(s: GameSession, role: String, trait_id: String, skill: int) -> i
 	var person: Dictionary = s.crew.candidates[0]
 	person.role = role
 	person.trait = trait_id
+	person.loyalty = float(s.crew.traits[trait_id].get("loyalty", s.balance.loyalty_start))
 	person.skill = skill
 	person.wage = 50
 	return person.id
@@ -1360,6 +1378,7 @@ func _test_gang_attack() -> void:
 	s.balance.gang_attack_base = 0.0
 	s.balance.gang_attack_share = 0.0
 	var people: int = s.gangs.state.neon.people
+	s.crew.get_person(guard).wounded = 0
 	report = s._gang_attack("neon")
 	_check(_has(report, "LOG_GANG_RAID_REPELLED") and int(s.gangs.state.neon.people) == people - 1, "отбились — банда потеряла человека")
 	# Обиженная банда мстит ночью наверняка.
@@ -1784,7 +1803,7 @@ func _test_police_save() -> void:
 
 func _test_world() -> void:
 	var s := _new_session()
-	_check(s.world.cities.size() == 5 and s.city == "berlin", "5 городов, старт в Берлине")
+	_check(s.world.cities.size() == 10 and s.city == "berlin", "10 городов, старт в Берлине")
 	_check(s.world.city_of("market") == "berlin" and s.world.city_of("mia_beach") == "miami", "районы знают свой город")
 	_check(s.world.districts_of("amsterdam").size() == 4, "у города 4 района")
 	var countries := {}
@@ -1821,8 +1840,7 @@ func _test_flights() -> void:
 	s.dirty = 0
 	_check(not s.can_fly("miami"), "без денег не улетишь")
 	# События «на весь город» — только в городе, где случились.
-	s.market.event = { "id": "x", "district": "", "police": 2.0, "prices": {} }
-	s.market.event_city = "berlin"
+	s.market.city_events = { "berlin": [{ "id": "x", "police": 2.0, "prices": {} }] }
 	_check(s.market.event_police("market") == 2.0 and s.market.event_police("ams_night") == 1.0, "событие Берлина не касается Амстердама")
 	# Маршрут между городами пока нельзя.
 	var r := _route_session()
@@ -2751,8 +2769,205 @@ func _test_operations() -> void:
 	_check(r.balance.ranks[7].needs.vaults == 1, "Императору нужно взять хранилище банка")
 
 
+func _test_modes_and_start() -> void:
+	var s := _new_session()
+	s.setup("sandbox", "amsterdam", "driver")
+	_check(s.debt == 0 and s.clean == 3000, "песочница: без долга и $3 000 на старте")
+	_check(s.city == "amsterdam" and s.district == "ams_canals" and s.home_city == "amsterdam", "родной город — Амстердам, старт в его районе")
+	_check(s.skills.level("driving") == 2 and s.logistics.vehicles.size() == 1, "бывший водитель: Вождение 2 и свой скутер")
+	for i in 20:
+		s.end_day()
+	_check(s.status == GameSession.Status.PLAYING, "песочница: сроки платежей не наступают")
+	var m := _new_session()
+	m.setup("career", "marseille", "hacker")
+	_check(m.debt == 42000 and m.clean == 60, "Марсель: долг $42 000, в кармане $60")
+	_check(m.skills.level("hacking") == 2 and m.fake_cost("passport") == 280, "бывший айтишник: Взлом 2, левый паспорт $280 вместо $400")
+	var c := _new_session()
+	c.setup("career", "berlin", "cook")
+	_check(c.skills.level("craft") == 2 and c.background_perk("defect_cut") == 0.05, "бывший повар: Ремесло 2 и меньше брака")
+	_check(c.debt == 48000 and c.clean == 120, "Берлин: как раньше — долг $48 000 и $120")
+
+
+func _test_world_events() -> void:
+	var s := _calm_session(42, true)
+	_check(s.events.events.size() >= 30, "событий в игре не меньше 30 (%d)" % s.events.events.size())
+	_check(s.events.season(1) == "autumn" and s.events.season(29) == "winter" and s.events.season(57) == "spring", "времена года по 28 дней, игра начинается осенью")
+	var cities_seen := {}
+	var seasons_ok := true
+	var amsterdam_only := true
+	var world_seen := 0
+	for i in 120:
+		s.end_day()
+		s.clean = 1000
+		s.paid_this_period = 1500
+		for c: String in s.events.today:
+			cities_seen[c] = true
+			var event: Dictionary = s.events.today[c]
+			seasons_ok = seasons_ok and String(event.get("season", "")) in ["", s.events.season(s.day)]
+			amsterdam_only = amsterdam_only and (event.id != "kings_day" or c == "amsterdam")
+		if not s.events.world_today.is_empty():
+			world_seen += 1
+	_check(cities_seen.size() == s.world.cities.size(), "события идут во всех городах")
+	_check(seasons_ok, "сезонные события — только в своё время года")
+	_check(amsterdam_only, "День короля — только в Амстердаме")
+	_check(world_seen > 3 and world_seen < 40, "мировые события редкие (%d из 120)" % world_seen)
+	var m := _calm_session()
+	var base_cost := m.flight_cost("miami")
+	m.events.today = {}
+	m.events.world_today = m.events.find("fuel_prices")
+	_check(m.flight_cost("miami") > base_cost, "дорогое топливо поднимает цену билета")
+	m.inventory.phones = 5
+	m.documents.passport = "real"
+	m.events.world_today = {}
+	var chance := m.customs_chance("amsterdam")
+	m.events.today = { "amsterdam": m.events.find("customs_crackdown") }
+	_check(m.customs_chance("amsterdam") > chance, "проверяющий на таможне — досмотр чаще")
+	m.police.heat.market = 20.0
+	m.events.tomorrow = { "berlin": m.events.find("new_police_chief") }
+	m.events.world_tomorrow = {}
+	m.end_day()
+	_check(m.police.heat.market > 20.0 - float(m.balance.heat_decay) + 5.0, "новый начальник полиции — розыск города растёт")
+
+
+func _test_newspaper() -> void:
+	var s := _calm_session(42, true)
+	_check(not s.news.is_empty() and not s.news_read, "газета есть с первого утра")
+	s.read_news()
+	s.events.tomorrow = { "miami": s.events.find("spring_break") }
+	s.events.world_tomorrow = s.events.find("interpol_week")
+	s.end_day()
+	var kinds := s.news.map(func(item: Array) -> String: return item[2])
+	_check(not s.news_read, "утром — свежая газета")
+	_check(kinds.has("world") and kinds.has("event") and kinds.has("joke"), "в газете мировое событие, события городов и шутка")
+	_check(s.news.any(func(item: Array) -> bool: return item[0] == "NEWS_SPRING_BREAK" and item[1][0] == "CITY_MIAMI"), "заголовок о каникулах в Майами")
+	s.police.heat.clubs = 80.0
+	var about := s._news_about_you()
+	_check(about.any(func(item: Array) -> bool: return item[0] == "NEWS_YOU_HEAT"), "большой розыск — о тебе пишут")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session(7)
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.news) == JSON.stringify(s.news) and JSON.stringify(loaded.events.to_dict()) == JSON.stringify(s.events.to_dict()), "газета и события городов сохраняются")
+
+
+## Начать историю сразу (минуя утренний шанс).
+func _start_story(s: GameSession, id: String) -> void:
+	s.stories[id] = { "step": "start", "city": s.city, "show": s.day, "deadline": s.day + 5 }
+
+
+func _test_stories() -> void:
+	var s := _calm_session()
+	_check(s.story_defs.size() >= 6, "историй контактов не меньше 6 (%d)" % s.story_defs.size())
+	_check(not s.story_ready(s.story_def("shark")), "ростовщик не звонит в первый день")
+	s.day = 3
+	_check(s.story_ready(s.story_def("shark")) and not s.story_ready(s.story_def("detective")), "на 3-й день — ростовщик; детектив — только при розыске")
+	# Ростовщик: взять конверт, доехать до вокзала, через 5 дней — скидка.
+	_start_story(s, "shark")
+	_check(not s.can_story_choose("shark", "pay"), "чужой выбор недоступен")
+	s.story_choose("shark", "accept")
+	_check(s.stories.shark.step == "envelope" and not s.story_task_ready("shark"), "конверт взят, но мы не на вокзале")
+	s.travel("station")
+	_check(s.story_task_ready("shark"), "на вокзале задание выполнимо")
+	s.story_do_task("shark")
+	_check(s.debt == 45000 and s.stories.shark.step == "deal", "долг −$3 000, дальше — предложение Льва")
+	_check(not s.visible_stories().has("shark"), "следующий шаг появится не сразу")
+	s.day += 5
+	s.clean = 3000
+	s.story_choose("shark", "pay")
+	_check(s.debt == 41000 and s.clean == 1000 and s.stories_done.has("shark"), "внёс $2 000 — списали $4 000, история окончена")
+	# Капитан: сигареты из кармана, бонусы к лимитам.
+	var shipments := s.limit("shipments_max")
+	_start_story(s, "captain")
+	s.story_choose("captain", "accept")
+	s.inventory.cigarettes = 25
+	s.story_do_task("captain")
+	_check(s.inventory.cigarettes == 5 and s.limit("shipments_max") == shipments + 1, "отдал 20 пачек — +1 груз за границу")
+	_check(is_equal_approx(s.perk("customs_cut"), 0.1), "и таможня на 10% реже")
+	# Просрочка задания — провал.
+	var p := _calm_session()
+	_start_story(p, "professor")
+	p.story_choose("professor", "accept")
+	for i in 6:
+		p.end_day()
+	_check(p.stories_done.has("professor") and not p.stories.has("professor"), "не принёс реагенты к сроку — история провалена")
+	# Не ответил на выбор — контакт перестаёт звонить.
+	var q := _calm_session()
+	_start_story(q, "journalist")
+	var report: Array = []
+	for i in 6:
+		report.append_array(q.end_day())
+	_check(q.stories_done.has("journalist") and _has(report, "LOG_STORY_IGNORED"), "молчание — журналистка перестаёт звонить")
+	# Адвокат: аресты на день короче.
+	var days := q.arrest_days()
+	q.story_perks = { "arrest_short": 1.0 }
+	_check(q.arrest_days() == maxi(1, days - 1), "адвокат Фогель — арест на день короче")
+	# Истории начинаются сами по утрам и сохраняются.
+	var a := _calm_session()
+	a.balance.story_chance = 1.0
+	for i in 8:
+		a.end_day()
+		a.clean = 1000
+		a.paid_this_period = 1500
+	_check(not a.stories.is_empty() and a.stories.size() <= 2, "истории начинаются сами, не больше двух сразу")
+	var data: Variant = JSON.parse_string(JSON.stringify(a.to_dict()))
+	var loaded := _calm_session(7)
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.stories) == JSON.stringify(a.stories) and JSON.stringify(loaded.stories_done) == JSON.stringify(a.stories_done), "истории сохраняются")
+
+
+func _test_iron_mode() -> void:
+	var s := _calm_session()
+	s.setup("iron", "berlin", "driver")
+	_check(s.arrests_left() == 3, "железный режим: 3 ареста до пожизненного")
+	s.arrest()
+	s.arrest()
+	_check(s.status == GameSession.Status.PLAYING and s.arrests_left() == 1, "после двух арестов ещё играем")
+	var report := s.arrest()
+	_check(s.status == GameSession.Status.LOST and s.ending == "prison" and report[0][0] == "LOG_LIFE_SENTENCE", "третий арест — пожизненный, конец игры")
+	var c := _calm_session()
+	c.setup("career", "berlin", "")
+	for i in 4:
+		c.arrest()
+	_check(c.status != GameSession.Status.LOST or c.ending == "debt", "в карьере аресты не кончают игру сами по себе")
+
+
+func _test_endings() -> void:
+	var s := _calm_session()
+	s.setup("career", "berlin", "")
+	s.clean = 1_100_000
+	s.earned_total = 1_200_000
+	s.clean_earned = 1_100_000
+	s.dirty_earned = 100_000
+	_check(not s.ending_ready("clean"), "с долгом чистой концовки нет")
+	s.pay(48000)
+	_check(s.ending_ready("clean"), "долг выплачен, чистый миллион, грязного 8% — «Чистые руки» доступны")
+	s.end_day()
+	_check(s.ending_offer == "clean", "концовку предлагают в конце дня")
+	s.decline_ending()
+	s.end_day()
+	_check(s.ending_offer == "" and s.status == GameSession.Status.PLAYING, "отказался — играем дальше, второй раз не навязывают")
+	_check(s.offer_ending("clean") and s.take_ending(), "взял концовку позже из карточки целей")
+	_check(s.status == GameSession.Status.WON and s.ending == "clean", "партия окончена победой «Чистые руки»")
+	var d := _calm_session()
+	d.dirty_earned = 900_000
+	d.earned_total = 1_000_000
+	d.debt = 0
+	d.clean = 1_000_000
+	_check(not d.ending_ready("clean"), "90% грязного — не «чистые руки»")
+	d.rank = d.balance.ranks.size() - 1
+	_check(d.ending_ready("dark"), "Император — доступен «Теневой император»")
+	var g := _calm_session()
+	g.visited = { "berlin": true, "amsterdam": true, "marseille": true, "istanbul": true, "miami": true }
+	_check(g.goal_done(g.balance.goals[3]), "5 городов в 5 странах — цель «мир» выполнена")
+	g.visited = { "berlin": true, "amsterdam": true }
+	_check(not g.goal_done(g.balance.goals[3]), "2 города — ещё нет")
+
+
 func _test_save_and_load() -> void:
 	var s := _calm_session()
+	s.setup("iron", "berlin", "cook")
+	s.visited.amsterdam = true
+	s.endings_declined = ["dark"]
+	s.arrests = 1
 	s.buy("cigarettes", 2)
 	s.travel("clubs")
 	s.end_day()
@@ -2775,7 +2990,7 @@ func _test_save_and_load() -> void:
 
 
 ## Не тест, а замер баланса: простой бот торгует 14 дней в районе «рынок».
-## В начале занимает у ростовщика $1 000. Покупает самый «просевший» товар
+## В начале занимает у ростовщика $1 000. Покупает самый «просевший» из стартовых товаров
 ## (цена ниже обычной для района), продаёт, когда цена выше покупки.
 ## На проверке откупается, если хватает денег, иначе сдаёт товар.
 ## Выигрыш = внёс $1 500 к сроку.
@@ -2797,7 +3012,8 @@ func _report_balance_bot() -> void:
 					checks += _bot_resolve(s)
 			var best := ""
 			var best_ratio := 0.85
-			for good: Dictionary in s.market.goods:
+			# Новичок торгует стартовыми товарами: оружие, краденое и редкости (этап 9, поле category) не трогает.
+			for good: Dictionary in s.market.goods.filter(func(g: Dictionary) -> bool: return not g.has("category")):
 				var id: String = good.id
 				var ratio: float = s.buy_price(id) / _fair_price(s, id)
 				if ratio < best_ratio and s.max_affordable(id) > 0:

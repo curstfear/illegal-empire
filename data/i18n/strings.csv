@@ -38,7 +38,7 @@ BTN_END_DAY,End day,Закончить день
 BTN_SAVE,Save,Сохранить
 BTN_TO_MENU,Main menu,В меню
 SAVED,Game saved.,Игра сохранена.
-LOG_NEW_GAME,"You owe the loan shark $%s. First payment of $%s is due in %d days. You have $%s.","Ты должен ростовщику $%s. Первый платёж $%s — через %d дней. В кармане $%s."
+LOG_NEW_GAME,You owe the loan shark $%s. First payment of $%s is due in %d days. You have $%s.,Ты должен ростовщику $%s. Первый платёж $%s — через %d дней. В кармане $%s.
 LOG_LOADED,Game loaded. Day %d.,Игра загружена. День %d.
 LOG_DAY_ENDED,Day %d is over. Prices changed.,День %d закончился. Цены изменились.
 LOG_INTEREST,Interest added to your debt: +$%s,Ростовщик начислил проценты: +$%s
@@ -58,7 +58,7 @@ DISTRICT_MARKET,Market square,Рынок
 DISTRICT_STATION,Train station,Вокзал
 DISTRICT_CLUBS,Club street,Клубы
 TRAVEL_HINT,Moving takes %d hours,Переезд занимает %d ч
-BTN_BORROW,"Borrow $%s (you'll owe $%s)","Занять $%s (вернуть $%s)"
+BTN_BORROW,Borrow $%s (you'll owe $%s),Занять $%s (вернуть $%s)
 BANK_TITLE,Bank,Банк
 BANK_INFO,Savings: $%s · Loan: $%s,Вклад: $%s · Кредит: $%s
 BANK_HINT,Takes clean money only. Police can't touch savings. You can borrow $%s now.,Только чистые деньги. Вклад полиция не тронет. Сейчас дадут в кредит $%s.
@@ -70,7 +70,7 @@ BTN_REPAY_LOAN,Repay loan,Вернуть кредит
 BTN_LAY_LOW,Lay low,Залечь на дно
 BTN_LAY_LOW_HINT,Skip the rest of the day without deals. Heat drops faster.,Пропустить остаток дня без сделок. Розыск спадает быстрее.
 CHECK_TITLE,Police!,Проверка!
-CHECK_TEXT,"Cops stopped you in %s. You're carrying goods worth $%s.","Полиция остановила тебя: %s. При тебе товара на $%s."
+CHECK_TEXT,Cops stopped you in %s. You're carrying goods worth $%s.,Полиция остановила тебя: %s. При тебе товара на $%s.
 CHECK_BRIBE,Bribe them ($%s),Откупиться ($%s)
 CHECK_SURRENDER,Hand over the goods,Сдать товар
 CHECK_FLEE,Run (%d%% chance),Бежать (шанс %d%%)
@@ -90,16 +90,16 @@ LOG_BANK_LOAN,The bank gave you a $%s loan.,Банк выдал кредит $%s
 LOG_EVENT,Today: %s,Сегодня: %s
 EVENT_CITY_RAID,police sweep across the city,облава по всему городу
 RUMOR_CITY_RAID,tomorrow cops sweep the whole city,завтра облава по всему городу
-EVENT_CLUB_PARTY,big party on club street,большая вечеринка в клубах
-RUMOR_CLUB_PARTY,big party at the clubs tomorrow,завтра большая вечеринка в клубах
+EVENT_CLUB_PARTY,big party in the night district,большая вечеринка в ночном районе
+RUMOR_CLUB_PARTY,a big party in the night district tomorrow,завтра большая вечеринка в ночном районе
 EVENT_CIG_SHORTAGE,cigarette shortage,перебои с сигаретами
 RUMOR_CIG_SHORTAGE,cigarettes will run short tomorrow,завтра будут перебои с сигаретами
-EVENT_PHONE_BATCH,a big batch of phones at the station,на вокзале большая партия телефонов
-RUMOR_PHONE_BATCH,a phone batch arrives at the station tomorrow,завтра на вокзал привезут партию телефонов
+EVENT_PHONE_BATCH,a big batch of phones at the port,в порту большая партия телефонов
+RUMOR_PHONE_BATCH,a phone batch arrives at the port tomorrow,завтра в порт привезут партию телефонов
 EVENT_MUSHROOM_SEASON,mushroom season — prices dropped,сезон грибов — цены упали
 RUMOR_MUSHROOM_SEASON,mushroom pickers are coming back tomorrow,завтра грибники вернутся с урожаем
-EVENT_STATION_PATROL,extra patrols at the station,усиленный патруль на вокзале
-RUMOR_STATION_PATROL,extra patrols at the station tomorrow,завтра на вокзале усилят патрули
+EVENT_STATION_PATROL,extra patrols at the port and station,усиленный патруль в порту и на вокзале
+RUMOR_STATION_PATROL,extra patrols at the port tomorrow,завтра в порту и на вокзале усилят патрули
 EVENT_POLICE_DRILL,police are busy with drills,полиция на учениях
 RUMOR_POLICE_DRILL,police have drills tomorrow,завтра у полиции учения
 GOOD_HERBS,Medicinal herbs,Лечебные травы
@@ -134,7 +134,7 @@ TAB_STALL,Stall,Ларёк
 TAB_SKILLS,Skills,Навыки
 BTN_BUY_STALL,Buy a stall ($%s clean),Купить ларёк ($%s чистыми)
 STALL_INFO,"A stall at the market sells your goods by itself every day at the full market price. Mushrooms and herbs openly, bootleg cigarettes under the counter. Spot fee: $%s a day.","Ларёк на рынке сам продаёт твой товар каждый день по полной цене рынка. Грибы и травы — открыто, левые сигареты — из-под прилавка. Место: $%s в день."
-STALL_OWNED,"Your stall sells by itself every day. You can stock it only while at the market. Spot fee: $%s a day.","Ларёк продаёт сам, каждый день. Выкладывать товар можно, только стоя на рынке. Место: $%s в день."
+STALL_OWNED,Your stall sells by itself every day. You can stock it only while at the market. Spot fee: $%s a day.,"Ларёк продаёт сам, каждый день. Выкладывать товар можно, только стоя на рынке. Место: $%s в день."
 STALL_STOCK,in stall: %d (up to %d/day),в ларьке: %d (до %d/день)
 BTN_STOCK,Stock all (%d),Выложить (%d)
 SKILL_TRADE,Trade,Торговля
@@ -159,7 +159,7 @@ POI_FOREST,Forest park,Лесопарк
 BTN_TRAVEL_HERE,Go here (%d h),Перейти сюда (%d ч)
 BTN_OPEN_MARKET,Open the market,Открыть рынок
 CARD_YOU_ARE_HERE,You are here,Ты здесь
-CONTROLS_HINT,"Click a district · two fingers: move · pinch: zoom · Q/E rotate · Space pause","Клик по району · два пальца — двигать · щипок — ближе/дальше · Q/E поворот · Пробел — пауза"
+CONTROLS_HINT,Click a district · two fingers: move · pinch: zoom · Q/E rotate · Space pause,Клик по району · два пальца — двигать · щипок — ближе/дальше · Q/E поворот · Пробел — пауза
 KPI_ENERGY,Energy,Силы
 KPI_CLEAN,Clean cash,Чистые
 KPI_DIRTY,Dirty cash,Грязные
@@ -1047,3 +1047,429 @@ LOG_OP_ARRESTED,%s was arrested and is out of the crew.,"%s — арест, из
 LOG_OP_WON_GOODS,Done: «%s»!,Дело сделано: «%s»!
 NEED_OPERATIONS,Big jobs done,Крупных дел сделано
 NEED_VAULTS,Bank vaults taken,Хранилищ банков взято
+LOG_NEW_GAME_FREE,"Sandbox: no debt, no loan shark. You have $%s. Do whatever you want.","Песочница: ни долга, ни ростовщика. В кармане $%s. Делай что хочешь."
+LOG_DEBT_PAID,Debt paid off on day %d! The loan shark even smiled. Now it's just business.,Долг выплачен на %d-й день! Ростовщик даже улыбнулся. Теперь — только бизнес.
+LOG_LIFE_SENTENCE,Arrest number %d. This time the judge didn't take bribes: life sentence.,Арест номер %d. В этот раз судья взяток не брал: пожизненный срок.
+LOG_ENDING_READY,Ending available: «%s». You can finish the game or keep playing.,Доступна концовка «%s». Можно закончить партию или играть дальше.
+SETUP_MODE,MODE,РЕЖИМ
+SETUP_HOME,HOME CITY,РОДНОЙ ГОРОД
+SETUP_PAST,YOUR PAST,ПРОШЛОЕ
+SETUP_START,Start,Начать
+SETUP_BACK,Back,Назад
+MODE_CAREER,Career,Карьера
+MODE_CAREER_DESC,"The classic: a debt to the loan shark, payments every 2 weeks. Goals and two endings.","Классика: долг ростовщику, платежи раз в 2 недели. Цели и две концовки."
+MODE_SANDBOX,Sandbox,Песочница
+MODE_SANDBOX_DESC,No debt and $3 000 to start. Play at your own pace.,Без долга и с $3 000 на старте. Играй в своём темпе.
+MODE_IRON,Iron,Железный
+MODE_IRON_DESC,"Career with one life: the 3rd arrest means life in prison, and the save is erased when the game ends.","Карьера с одной жизнью: 3-й арест — пожизненный срок, а сохранение стирается в конце партии."
+HOME_BERLIN_DESC,"Balanced start. $%s in your pocket, debt $%s. Airfield nearby, strong market.","Ровный старт. В кармане $%s, долг $%s. Рядом аэродром, крепкий рынок."
+HOME_AMSTERDAM_DESC,"Expensive city, cheap moss. $%s in your pocket, but debt $%s.","Дорогой город, дешёвый мох. В кармане $%s, но долг $%s."
+HOME_MARSEILLE_DESC,"Port and cheap cigarettes. Only $%s in your pocket, debt $%s.","Порт и дешёвые сигареты. В кармане всего $%s, долг $%s."
+PAST_DRIVER,Ex-driver,Бывший водитель
+PAST_DRIVER_DESC,Driving 2 and your own scooter in the garage. Couldn't sell it even when it got bad.,Вождение 2 и свой скутер в гараже. Его не продал даже в самые плохие дни.
+PAST_COOK,Ex-cook,Бывший повар
+PAST_COOK_DESC,Craft 2 and steady hands: labs spoil 5% fewer batches.,Ремесло 2 и твёрдая рука: в лабораториях на 5% меньше брака.
+PAST_HACKER,Ex-IT guy,Бывший айтишник
+PAST_HACKER_DESC,Hacking 2 and old friends: fake documents are 30% cheaper.,Взлом 2 и старые знакомые: поддельные документы на 30% дешевле.
+GOALS_TITLE,Goals: %d of %d,Цели: %d из %d
+BTN_GOALS,Goals,Цели
+IRON_ARRESTS_LEFT,Arrests left before life sentence: %d,Арестов до пожизненного: %d
+GOAL_DEBT,Pay off the debt,Выплатить долг
+GOAL_DISTRICT,Own a district,Взять свой район
+GOAL_CITY,Rule a city (3 districts),Подмять город (3 района)
+GOAL_WORLD,Visit 5 cities in 3 countries,Побывать в 5 городах 3 стран
+GOAL_CAPITAL,Have $10 000 000,Иметь $10 000 000
+NEED_VISITED,Cities visited,Городов посещено
+NEED_COUNTRIES,Countries,Стран
+NEED_CAPITAL,All money,Все деньги
+NEED_CLEAN_CAPITAL,Clean money and deposit,Чистые и вклад
+NEED_DIRTY_SHARE_MAX,Dirty share of earnings,Доля грязного дохода
+NEED_TOP_RANK,Become the Emperor,Стать Императором
+ENDING_CLEAN,Clean Hands,Чистые руки
+ENDING_CLEAN_HINT,"Pay the debt, build a clean million and keep dirty money under 20% of what you earned.","Выплатить долг, собрать чистый миллион, а грязного — не больше 20% всего заработка."
+ENDING_DARK,Shadow Emperor,Теневой император
+ENDING_DARK_HINT,Climb to the top rank: the criminal world of the region is yours.,Дойти до последней ступени: криминальный мир региона — твой.
+ENDING_OFFER_TITLE,Ending: %s,Концовка: %s
+ENDING_OFFER_TEXT,You've done it. Retire now — or keep playing and take the ending later from the Goals card.,Ты добился своего. Можно уйти на покой сейчас — или играть дальше и взять концовку позже в карточке «Цели».
+BTN_ENDING_TAKE,Finish the game,Закончить партию
+BTN_ENDING_DECLINE,Keep playing,Играть дальше
+ENDING_CLEAN_TITLE,Clean Hands,Чистые руки
+ENDING_CLEAN_TEXT,"Debt paid, a million in the bank and not a single court case. Journalists call you a self-made businessman. They don't ask about the first years.","Долг закрыт, миллион в банке и ни одного суда. Журналисты называют тебя бизнесменом, который всего добился сам. Про первые годы не спрашивают."
+ENDING_DARK_TITLE,Shadow Emperor,Теневой император
+ENDING_DARK_TEXT,"Gangs from several cities pay you tribute, police chiefs call you by name. The loan shark who started all this now works for you.","Банды нескольких городов платят тебе дань, начальники полиции зовут тебя по имени. Ростовщик, с которого всё началось, теперь работает на тебя."
+ENDING_DEBT_TITLE,Game over,Игра окончена
+ENDING_DEBT_TEXT,You missed the payment. The loan shark took everything — and he was polite about it.,Ты не заплатил вовремя. Ростовщик забрал всё — и даже был вежлив.
+ENDING_PRISON_TITLE,Life sentence,Пожизненный срок
+ENDING_PRISON_TEXT,Third arrest. The judge has seen enough. Your empire will be divided by those who stayed free.,"Третий арест. Судья насмотрелся. Твою империю поделят те, кто остался на свободе."
+END_STATS,Days: %d · Earned: $%s · Rank: %s · Mode: %s,Дней: %d · Заработано: $%s · Ступень: %s · Режим: %s
+KPI_SUB_DEBT_FREE,no debt,долга нет
+NEWS_CITY_RAID,%s: police sweep the whole city. Dealers suddenly remember their grandmothers' birthdays.,%s: облава по всему городу. У барыг внезапно дни рождения у бабушек.
+NEWS_CLUB_PARTY,%s: the night district parties till dawn. Demand for «moss» and «dust» is through the roof.,%s: ночной район гуляет до утра. Спрос на «мох» и «пыль» — до небес.
+NEWS_CIG_SHORTAGE,"%s: cigarettes vanished from kiosks. Smokers are nervous, smugglers are happy.","%s: сигареты пропали из киосков. Курильщики нервничают, контрабандисты — нет."
+NEWS_PHONE_BATCH,%s: a container of phones «fell off» a ship at the port. Prices dropped.,%s: в порту с корабля «упал» контейнер телефонов. Цены просели.
+NEWS_MUSHROOM_SEASON,%s: mushroom season. Every grandmother at the market has a basket.,%s: сезон грибов. У каждой бабушки на рынке — по корзине.
+NEWS_STATION_PATROL,%s: extra patrols at the port and station. Dogs sniff every suitcase.,%s: в порту и на вокзале усилены патрули. Собаки нюхают каждый чемодан.
+NEWS_POLICE_DRILL,%s: police are at drills out of town. The city breathes easier.,%s: полиция уехала на учения за город. Город вздохнул свободнее.
+EVENT_FESTIVAL,city festival,городской фестиваль
+RUMOR_FESTIVAL,a festival starts tomorrow,завтра начинается фестиваль
+NEWS_FESTIVAL,"%s: city festival — crowds, music and pockets full of cash.","%s: городской фестиваль — толпы, музыка и полные карманы."
+EVENT_BLACKOUT,blackout — cameras are down,блэкаут — камеры не работают
+RUMOR_BLACKOUT,the power grid is about to fail tomorrow,"завтра, говорят, отключат свет"
+NEWS_BLACKOUT,"%s: a blackout. Street cameras are blind, phones are in demand.","%s: блэкаут. Уличные камеры ослепли, телефоны нарасхват."
+EVENT_PORT_STRIKE,customs officers are on strike,таможенники бастуют
+RUMOR_PORT_STRIKE,customs officers plan a strike tomorrow,завтра таможенники выйдут на забастовку
+NEWS_PORT_STRIKE,%s: customs on strike. Containers pass with barely a glance.,%s: таможня бастует. Контейнеры проходят почти без досмотра.
+EVENT_CUSTOMS_CRACKDOWN,customs crackdown,таможня лютует
+RUMOR_CUSTOMS_CRACKDOWN,customs are getting a new boss tomorrow,завтра таможне пришлют проверяющих
+NEWS_CUSTOMS_CRACKDOWN,%s: customs got an inspector from the capital. Every box is opened.,%s: на таможню прислали проверяющего из столицы. Вскрывают каждую коробку.
+EVENT_POLICE_SCANDAL,police scandal,скандал в полиции
+RUMOR_POLICE_SCANDAL,a police scandal breaks tomorrow,завтра грянет скандал в полиции
+NEWS_POLICE_SCANDAL,%s: a police corruption scandal. Cops are busy hiding their own sins.,%s: коррупционный скандал в полиции. Копы заняты своими грехами.
+EVENT_NEW_POLICE_CHIEF,new police chief,новый начальник полиции
+RUMOR_NEW_POLICE_CHIEF,a new police chief arrives tomorrow,завтра назначат нового начальника полиции
+NEWS_NEW_POLICE_CHIEF,%s: the new police chief promises «order in a month». Everyone is on edge.,%s: новый начальник полиции обещает «порядок за месяц». Все напряглись.
+EVENT_OLD_BOSS_FUNERAL,an old boss's funeral — the gangs are at peace,похороны старого авторитета — банды на перемирии
+RUMOR_OLD_BOSS_FUNERAL,an old boss will be buried tomorrow,завтра хоронят старого авторитета
+NEWS_OLD_BOSS_FUNERAL,%s: an old boss was buried. The gangs are unusually polite today.,%s: похоронили старого авторитета. Банды сегодня на редкость вежливы.
+EVENT_GANG_SHOOTOUT,gang shootout,перестрелка банд
+RUMOR_GANG_SHOOTOUT,the gangs are about to clash tomorrow,завтра банды выяснят отношения
+NEWS_GANG_SHOOTOUT,"%s: shootout between gangs. Weapon prices up, everyone's nerves too.","%s: перестрелка между бандами. Оружие подорожало, нервы у всех тоже."
+EVENT_FLU,flu epidemic,эпидемия гриппа
+RUMOR_FLU,"the flu is spreading, tomorrow is worse","грипп косит город, завтра будет хуже"
+NEWS_FLU,%s: flu epidemic. Herbs and tea sell like medicine.,%s: эпидемия гриппа. Травы и чай уходят как лекарства.
+EVENT_TOURISTS,tourist season,туристический сезон
+RUMOR_TOURISTS,tourists arrive in crowds tomorrow,завтра нагрянут толпы туристов
+NEWS_TOURISTS,%s: tourists everywhere. Watches and jewelry fly off the counters.,%s: туристы повсюду. Часы и украшения улетают с прилавков.
+EVENT_ART_FAIR,art fair,ярмарка искусства
+RUMOR_ART_FAIR,an art fair opens tomorrow,завтра открывается ярмарка искусства
+NEWS_ART_FAIR,%s: an art fair. Collectors pay without asking where it came from.,"%s: ярмарка искусства. Коллекционеры платят, не спрашивая, откуда."
+EVENT_CAR_SHOW,car show,автосалон
+RUMOR_CAR_SHOW,a car show opens tomorrow,завтра открывается автосалон
+NEWS_CAR_SHOW,%s: car show in town. Spare parts are suddenly in demand.,%s: в городе автосалон. Запчасти внезапно в цене.
+EVENT_STORM,storm — flights are expensive,шторм — рейсы дорожают
+RUMOR_STORM,a storm is coming tomorrow,завтра придёт шторм
+NEWS_STORM,"%s: storm. Tickets are pricey, customs officers are asleep.","%s: шторм. Билеты дорогие, таможенники спят."
+EVENT_SNOW,snowfall,снегопад
+RUMOR_SNOW,heavy snow tomorrow,завтра снегопад
+NEWS_SNOW,"%s: snowed in. Police stay in their cars, mushrooms stay under the snow.","%s: город замело. Полиция сидит в машинах, грибы — под снегом."
+EVENT_HOLIDAYS,holidays,праздники
+RUMOR_HOLIDAYS,holidays start tomorrow,завтра начинаются праздники
+NEWS_HOLIDAYS,"%s: holidays. Gifts are bought, nobody counts money.","%s: праздники. Подарки покупают, деньги никто не считает."
+EVENT_HERB_HARVEST,herb harvest — prices dropped,урожай трав — цены упали
+RUMOR_HERB_HARVEST,the herb harvest comes in tomorrow,завтра соберут урожай трав
+NEWS_HERB_HARVEST,%s: herb harvest. The market is drowning in it.,%s: урожай трав. Рынок ими завален.
+EVENT_SPRING_RAIN,spring rains,весенние дожди
+RUMOR_SPRING_RAIN,rain tomorrow — the moss will grow,завтра дожди — пойдёт мох
+NEWS_SPRING_RAIN,%s: spring rains. Moss and mushrooms grow by themselves.,%s: весенние дожди. Мох и грибы растут сами.
+EVENT_LAB_BUSTED,a competitor's lab was busted,накрыли чужую лабораторию
+RUMOR_LAB_BUSTED,police will hit a lab tomorrow,завтра полиция накроет чью-то лабораторию
+NEWS_LAB_BUSTED,%s: police busted someone's lab. Not yours — and prices went up.,%s: полиция накрыла чью-то лабораторию. Не твою — и цены выросли.
+EVENT_DUMPING,competitors dump goods,конкуренты сбрасывают товар
+RUMOR_DUMPING,competitors will dump goods tomorrow,завтра конкуренты сбросят товар
+NEWS_DUMPING,"%s: competitors are dumping «dust» and «pollen». Cheap, but for how long?",%s: конкуренты сбрасывают «пыль» и «пыльцу». Дёшево — но надолго ли?
+EVENT_ELECTION,election campaign,предвыборная кампания
+RUMOR_ELECTION,the election campaign starts tomorrow,завтра стартует предвыборная кампания
+NEWS_ELECTION,"%s: the mayor promises to clean the streets before the election. Of you, among others.",%s: мэр перед выборами обещает очистить улицы. В том числе от тебя.
+EVENT_ARMS_SEIZURE,weapons seized at the port,в порту изъяли оружие
+RUMOR_ARMS_SEIZURE,customs will seize weapons tomorrow,завтра в порту будут искать оружие
+NEWS_ARMS_SEIZURE,%s: a weapons shipment seized at the port. The survivors' prices went up.,%s: в порту изъяли партию оружия. Уцелевшие стволы подорожали.
+EVENT_JEWEL_FLOOD,market flooded with jewelry,рынок завален украшениями
+RUMOR_JEWEL_FLOOD,someone is going to dump jewelry tomorrow,завтра кто-то скинет украшения
+NEWS_JEWEL_FLOOD,%s: someone robbed a jewelry store and dumped everything on the market.,%s: кто-то ограбил ювелирный и скинул всё на рынок.
+EVENT_FOOTBALL,big football match,большой футбольный матч
+RUMOR_FOOTBALL,a big match tomorrow,завтра большой матч
+NEWS_FOOTBALL,"%s: big match. Fans in the night district, police too.","%s: большой матч. Фанаты в ночном районе, полиция — тоже."
+EVENT_KINGS_DAY,King's Day — the city is orange,День короля — город в оранжевом
+RUMOR_KINGS_DAY,King's Day tomorrow,завтра День короля
+NEWS_KINGS_DAY,%s: King's Day. The whole city is orange and nobody remembers what they bought.,"%s: День короля. Весь город в оранжевом, и никто не помнит, что купил."
+EVENT_SPRING_BREAK,spring break on the beach,весенние каникулы на пляже
+RUMOR_SPRING_BREAK,students arrive for spring break tomorrow,завтра на пляж приедут студенты на каникулы
+NEWS_SPRING_BREAK,"%s: spring break. Students on the beach, police on the beach, prices on the moon.","%s: весенние каникулы. Студенты на пляже, полиция на пляже, цены на луне."
+EVENT_TEA_HARVEST,tea harvest,урожай чая
+RUMOR_TEA_HARVEST,the tea harvest arrives tomorrow,завтра привезут урожай чая
+NEWS_TEA_HARVEST,%s: fresh tea harvest. Tea houses are cheap.,%s: свежий урожай чая. В чайных дёшево.
+EVENT_FISHERMEN_STRIKE,fishermen block the port,рыбаки перекрыли порт
+RUMOR_FISHERMEN_STRIKE,fishermen will block the port tomorrow,завтра рыбаки перекроют порт
+NEWS_FISHERMEN_STRIKE,%s: fishermen blocked the port. Customs can't get to the boats.,%s: рыбаки перекрыли порт. Таможня не может подойти к лодкам.
+EVENT_TECHNO_MARATHON,techno marathon,техно-марафон
+RUMOR_TECHNO_MARATHON,a three-day techno marathon starts tomorrow,завтра начнётся трёхдневный техно-марафон
+NEWS_TECHNO_MARATHON,%s: a techno marathon in the clubs. Nobody has slept since Friday.,%s: техно-марафон в клубах. С пятницы никто не спал.
+EVENT_INTERPOL_WEEK,Interpol customs week,неделя таможенных проверок Интерпола
+RUMOR_INTERPOL_WEEK,Interpol starts checking customs tomorrow,завтра Интерпол начнёт проверки на таможнях
+NEWS_INTERPOL_WEEK,World: Interpol's customs week. Every border is suspicious.,Мир: неделя таможенных проверок Интерпола. Каждая граница подозрительна.
+EVENT_FUEL_PRICES,fuel prices — flights are expensive,топливо подорожало — билеты дорогие
+RUMOR_FUEL_PRICES,fuel is going up tomorrow,завтра подорожает топливо
+NEWS_FUEL_PRICES,World: fuel prices soared. Airlines raise ticket prices.,Мир: топливо подорожало. Авиакомпании поднимают цены на билеты.
+EVENT_MARKET_CRASH,stock market crash,обвал на бирже
+RUMOR_MARKET_CRASH,the stock market is about to crash,"завтра, говорят, рухнет биржа"
+NEWS_MARKET_CRASH,World: stock market crash. The rich buy paintings and gold.,Мир: обвал на бирже. Богачи скупают картины и золото.
+EVENT_ARMS_EMBARGO,arms embargo,оружейное эмбарго
+RUMOR_ARMS_EMBARGO,an arms embargo is coming,завтра введут оружейное эмбарго
+NEWS_ARMS_EMBARGO,World: new arms embargo. Every barrel is worth more.,Мир: новое оружейное эмбарго. Каждый ствол стоит дороже.
+EVENT_PHONE_LAUNCH,new phone model,вышла новая модель телефона
+RUMOR_PHONE_LAUNCH,a new phone model launches tomorrow,завтра выходит новая модель телефона
+NEWS_PHONE_LAUNCH,World: a new phone came out. The old ones are suddenly cheap.,Мир: вышел новый телефон. Старые внезапно подешевели.
+NEWS_JOKE_1,A man tried to pay his taxes in mushrooms. The tax office took them.,Мужчина пытался заплатить налоги грибами. Налоговая взяла.
+NEWS_JOKE_2,Survey: 9 out of 10 dealers consider themselves «small business».,Опрос: 9 из 10 барыг считают себя «малым бизнесом».
+NEWS_JOKE_3,A pigeon was detained at the airport with a package. The pigeon refuses to talk.,В аэропорту задержали голубя с посылкой. Голубь молчит.
+NEWS_JOKE_4,The loan shark's association complains about low interest rates.,Ассоциация ростовщиков жалуется на низкие проценты.
+NEWS_JOKE_5,A laundromat reported record profits. Nobody saw any customers.,Прачечная отчиталась о рекордной прибыли. Клиентов никто не видел.
+NEWS_JOKE_6,Police found a stolen car. The owner asked them to keep it.,Полиция нашла угнанную машину. Владелец попросил оставить себе.
+NEWS_JOKE_7,"Weather: cloudy, chance of a raid 30%.","Погода: облачно, вероятность облавы 30%."
+NEWS_JOKE_8,A cafe sells one cup of tea a day and pays the most taxes on the street.,Кафе продаёт одну чашку чая в день и платит больше всех налогов на улице.
+NEWS_JOKE_9,Scientists: money doesn't smell. Detectives disagree.,Учёные: деньги не пахнут. Детективы не согласны.
+NEWS_JOKE_10,The city's top businessman again declined to say what his business is.,"Главный бизнесмен города снова не сказал, чем занимается."
+NEWS_JOKE_11,Job ad: «Courier wanted. No questions. Questions are not paid».,Объявление: «Нужен курьер. Без вопросов. Вопросы не оплачиваются».
+NEWS_JOKE_12,A judge was seen in an expensive car. He says it's his cousin's.,Судью видели в дорогой машине. Говорит — двоюродного брата.
+NEWS_JOKE_13,Horoscope: today is a good day to lay low.,"Гороскоп: сегодня хороший день, чтобы залечь на дно."
+NEWS_JOKE_14,A gang leader opened a charity fund. The police are touched and suspicious.,Главарь банды открыл благотворительный фонд. Полиция растрогана и насторожена.
+NEWS_TITLE,Morning paper,Утренняя газета
+NEWS_DATE,Day %d · %s,День %d · %s
+BTN_NEWS_READ,Read,Прочитал
+NEWS_KIND_WORLD,WORLD,МИР
+NEWS_KIND_EVENT,CITY,ГОРОД
+NEWS_KIND_RUMOR,RUMOR,СЛУХ
+NEWS_KIND_YOU,ABOUT YOU,О ТЕБЕ
+NEWS_KIND_TIP,PRICES,ЦЕНЫ
+NEWS_KIND_JOKE,MISC,РАЗНОЕ
+SEASON_AUTUMN,autumn,осень
+SEASON_WINTER,winter,зима
+SEASON_SPRING,spring,весна
+SEASON_SUMMER,summer,лето
+NEWS_RUMOR,%s: rumor has it %s.,%s: ходят слухи — %s.
+NEWS_RUMOR_WORLD,Rumor from abroad: %s.,Слухи из-за границы: %s.
+NEWS_YOU_HEAT,Police are looking for a mysterious dealer in %s. Witnesses describe «someone very ordinary».,Полиция ищет загадочного дельца в районе %s. Свидетели описывают «кого-то очень обычного».
+NEWS_YOU_DISTRICT,%s has a new owner. Shopkeepers already know whom to pay.,"У района %s новый хозяин. Лавочники уже знают, кому платить."
+NEWS_GANG_WAR,%s (%s) are said to be at war with a newcomer. The newcomer isn't named.,"%s (%s), говорят, воюют с новичком. Имя новичка не называют."
+NEWS_YOU_LEGEND,Underworld gossip: a new «%s» has risen. Nobody has seen their face.,Сплетни подполья: появился новый «%s». Лица никто не видел.
+NEWS_TIP,Traders note: %s is cheap in %s and expensive in %s.,Торговцы замечают: %s дёшево в городе %s и дорого в городе %s.
+CONTACT_SHARK,Lev the loan shark,Ростовщик Лев
+STORY_SHARK_START,"Lev, the loan shark himself, calls: «I don't want to bury you early. Take an envelope to my man at the port or station — I'll knock $3 000 off». Better not ask what's inside.","Звонит сам Лев, тот самый ростовщик: «Не хочу хоронить тебя раньше срока. Отвези конверт моему человеку в порт или на вокзал — скощу $3 000». Что в конверте, лучше не спрашивать."
+STORY_SHARK_START_ACCEPT,Take the envelope,Взять конверт
+STORY_SHARK_START_ACCEPT_LOG,"The envelope is yours. Two days, port or station.","Конверт у тебя. Два дня, порт или вокзал."
+STORY_SHARK_START_REFUSE,Refuse,Отказаться
+STORY_SHARK_START_REFUSE_LOG,"«Your choice», said Lev. It sounded like a threat. Or a weather forecast.","«Твоё дело», — сказал Лев. Прозвучало как угроза. Или как прогноз погоды."
+STORY_SHARK_ENVELOPE,Get to the port (or station) of your home city — Lev's man waits there.,Доберись до порта (или вокзала) родного города — там ждёт человек Льва.
+STORY_SHARK_ENVELOPE_DONE_LOG,Lev's man took the envelope without a word. Debt is $3 000 smaller.,"Человек Льва забрал конверт, даже не поздоровался. Долг меньше на $3 000."
+STORY_SHARK_ENVELOPE_FAIL_LOG,The envelope never arrived. Lev added $2 000 to the debt «for the trouble».,Конверт так и не доехал. Лев добавил к долгу $2 000 «за беспокойство».
+STORY_SHARK_DEAL,Lev again: «You're reliable. Pay $2 000 now — I'll write off $4 000. A special offer for friends».,Лев снова на связи: «Ты надёжный. Внеси $2 000 сейчас — спишу $4 000. Акция для своих».
+STORY_SHARK_DEAL_PAY,Pay $2 000,Внести $2 000
+STORY_SHARK_DEAL_PAY_LOG,Lev kept his word. Strange feeling.,Лев сдержал слово. Странное чувство.
+STORY_SHARK_DEAL_REFUSE,Not now,Не сейчас
+STORY_SHARK_DEAL_REFUSE_LOG,Lev hung up. Offers like that don't come twice.,Лев положил трубку. Такие предложения дважды не делают.
+CONTACT_OLD_FRIEND,"Gena, an old friend",Старый друг Гена
+STORY_OLD_FRIEND_START,"Gena shows up — you started out together once: «Lend me $500, I'll pay back triple in a week. Honest».","Объявился Гена, с которым вы когда-то начинали: «Займи $500, через неделю верну втрое. Честно-честно»."
+STORY_OLD_FRIEND_START_GIVE,Lend $500,Занять $500
+STORY_OLD_FRIEND_START_GIVE_LOG,"Gena hugged you and disappeared with the money. For a week, he says.","Гена обнял тебя и исчез с деньгами. На неделю, говорит."
+STORY_OLD_FRIEND_START_REFUSE,Refuse,Отказать
+STORY_OLD_FRIEND_START_REFUSE_LOG,Gena sighed: «You've gone hard». And vanished.,Гена вздохнул: «Зачерствел ты». И пропал.
+STORY_OLD_FRIEND_RETURN,A week has passed. Gena texted: «Meet at the usual place».,Прошла неделя. Гена написал: «Встретимся на старом месте».
+STORY_OLD_FRIEND_RETURN_MEET,Go to the meeting,Пойти на встречу
+STORY_OLD_FRIEND_RETURN_MEET_LOG,Gena came! With $1 500 and a bottle. Miracles happen.,Гена пришёл! С $1 500 и бутылкой. Чудеса бывают.
+STORY_OLD_FRIEND_RETURN_MEET_LOSE_LOG,Gena didn't come. Phone is off. Classic.,Гена не пришёл. Телефон выключен. Классика.
+CONTACT_DETECTIVE,Detective Krause,Детектив Краузе
+STORY_DETECTIVE_START,Detective Krause catches you at the door: «I know what you do. But I have a mortgage. $1 500 — and your file in this city gets thinner».,"Детектив Краузе ловит тебя у подъезда: «Я знаю, чем ты занят. Но у меня ипотека. $1 500 — и твоя папка в этом городе станет тоньше»."
+STORY_DETECTIVE_START_PAY,Pay $1 500,Заплатить $1 500
+STORY_DETECTIVE_START_PAY_LOG,Krause counted the money twice. Part of your file got «lost».,Краузе пересчитал деньги дважды. Часть твоего дела «потерялась».
+STORY_DETECTIVE_START_REFUSE,Refuse,Отказать
+STORY_DETECTIVE_START_REFUSE_LOG,Krause shrugged: «As you wish». In the morning there were more patrols.,Краузе пожал плечами: «Как знаешь». Утром патрулей стало больше.
+STORY_DETECTIVE_FAVOR,Krause again: «I need a loud case. Give me a gang — and I'm your man».,Снова Краузе: «Мне нужно громкое дело. Сдай мне банду — и я твой человек».
+STORY_DETECTIVE_FAVOR_BETRAY,Give up the gangs,Сдать банды
+STORY_DETECTIVE_FAVOR_BETRAY_LOG,"The raid on the gangs was loud. Krause got a medal, you got a friend in the police: «krysha» 15% cheaper.","Облава на банды прошла громко. Краузе получил медаль, ты — друга в полиции: «крыша» на 15% дешевле."
+STORY_DETECTIVE_FAVOR_REFUSE,Refuse,Отказать
+STORY_DETECTIVE_FAVOR_REFUSE_LOG,"«Pity», said Krause. He never called again.","«Жаль», — сказал Краузе. Больше он не звонил."
+CONTACT_JOURNALIST,Journalist Mira Lange,Журналистка Мира Ланге
+STORY_JOURNALIST_START,Journalist Mira is writing about a «new king of the streets» and asks for an interview.,Журналистка Мира пишет статью про «нового короля улиц» и просит интервью.
+STORY_JOURNALIST_START_INTERVIEW,Give an interview,Дать интервью
+STORY_JOURNALIST_START_INTERVIEW_LOG,"The article «A man without a face» is out. More clients (+1 order on the board), more police too.","Вышла статья «Человек без лица». Заказчиков больше (+1 заказ на доске), полиции — тоже."
+STORY_JOURNALIST_START_BRIBE,Pay the editor $1 000,Заплатить редактору $1 000
+STORY_JOURNALIST_START_BRIBE_LOG,"The editor decided the topic is «not relevant». Mira is furious, but there's no article.","Редактор решил, что тема «неактуальна». Мира в ярости, но статьи нет."
+STORY_JOURNALIST_START_IGNORE,Ignore,Промолчать
+STORY_JOURNALIST_START_IGNORE_LOG,You didn't answer. Mira isn't the type to give up.,"Ты не ответил. Мира не из тех, кто сдаётся."
+STORY_JOURNALIST_ARTICLE,Mira's article is out — with photos of your spots.,Вышла статья Миры — с фотографиями твоих точек.
+STORY_JOURNALIST_ARTICLE_READ,Read it,Прочитать
+STORY_JOURNALIST_ARTICLE_READ_LOG,The police read newspapers too. City heat went up.,Полиция тоже читает газеты. Розыск города вырос.
+CONTACT_CAPTAIN,Captain Jan,Капитан Ян
+STORY_CAPTAIN_START,"Captain Jan, owner of an old boat: «Bring me 20 packs of cigarettes — and I'll show you how ports really work».","Капитан Ян, хозяин старого катера: «Привези мне 20 пачек сигарет — и я покажу тебе, как на самом деле работают порты»."
+STORY_CAPTAIN_START_ACCEPT,Deal,По рукам
+STORY_CAPTAIN_START_ACCEPT_LOG,Jan nodded: «Four days. Don't be late — the tide won't wait».,Ян кивнул: «Четыре дня. Не опаздывай — прилив ждать не будет».
+STORY_CAPTAIN_START_REFUSE,Refuse,Отказаться
+STORY_CAPTAIN_START_REFUSE_LOG,Jan spat into the water. Without much offense.,Ян сплюнул в воду. Без особой обиды.
+STORY_CAPTAIN_CARGO,Bring Jan 20 packs of cigarettes (from your pocket).,Принеси Яну 20 пачек сигарет (из кармана).
+STORY_CAPTAIN_CARGO_DONE_LOG,"Jan paid $900: «Now you know whom to smile at in customs». Shipments abroad +1, customs 10% less often.","Ян заплатил $900: «Теперь ты знаешь, кому улыбаться на таможне». Грузов за границу +1, досмотр на 10% реже."
+STORY_CAPTAIN_CARGO_FAIL_LOG,Jan sailed away without the cigarettes and without you.,Ян отплыл без сигарет и без тебя.
+CONTACT_PROFESSOR,Professor Stein,Профессор Штайн
+STORY_PROFESSOR_START,A chemistry professor fired for «experiments»: «Bring me 6 reagents — I'll teach you to cook with almost no spoilage».,"Профессор химии, уволенный за «эксперименты»: «Принеси мне 6 реагентов — научу варить так, что брака почти не будет»."
+STORY_PROFESSOR_START_ACCEPT,Agree,Согласиться
+STORY_PROFESSOR_START_ACCEPT_LOG,The professor wrote a list on a napkin. Only one item on it.,Профессор написал список на салфетке. В нём один пункт.
+STORY_PROFESSOR_START_REFUSE,Refuse,Отказаться
+STORY_PROFESSOR_START_REFUSE_LOG,"«Ignorance is expensive», the professor said, and left.","«Невежество дорого обходится», — сказал профессор и ушёл."
+STORY_PROFESSOR_LESSON,Bring the professor 6 reagents (from your pocket).,Принеси профессору 6 реагентов (из кармана).
+STORY_PROFESSOR_LESSON_DONE_LOG,Two hours of lecture and one burnt jacket. Craft went up.,Два часа лекции и одна прожжённая куртка. Ремесло выросло.
+STORY_PROFESSOR_LESSON_FAIL_LOG,The professor found another student. Younger and more punctual.,Профессор нашёл другого ученика. Моложе и пунктуальнее.
+STORY_PROFESSOR_OFFER,The professor: «I'm bored. Take me in — for $2 000 I'll bring two smart people».,Профессор: «Мне скучно. Возьми меня в дело — за $2 000 приведу двух толковых людей».
+STORY_PROFESSOR_OFFER_PAY,Pay $2 000,Заплатить $2 000
+STORY_PROFESSOR_OFFER_PAY_LOG,The professor brought his friends. Crew size +1.,Профессор привёл знакомых. Мест в бригаде +1.
+STORY_PROFESSOR_OFFER_REFUSE,Not now,Не сейчас
+STORY_PROFESSOR_OFFER_REFUSE_LOG,The professor went back to his experiments. Alone.,Профессор вернулся к своим экспериментам. Один.
+CONTACT_HEIR,The boss's son,Сын босса
+STORY_HEIR_START,An old gang boss in this city is dying. His son asks for support: «$2 000 — and I won't forget».,Старый босс одной из банд города при смерти. Его сын просит поддержки: «$2 000 — и я этого не забуду».
+STORY_HEIR_START_BACK,Back the son,Поддержать сына
+STORY_HEIR_START_BACK_LOG,The son took the money and the throne. The city's gangs noticed.,Сын взял деньги и власть. Банды города это заметили.
+STORY_HEIR_START_RIVAL,Back the rival,Поддержать соперника
+STORY_HEIR_START_RIVAL_LOG,The rival paid $3 000 dirty. The gangs remembered whose side you took.,"Соперник заплатил $3 000 грязными. Банды запомнили, на чьей ты стороне."
+STORY_HEIR_START_STAY,Stay out,Не лезть
+STORY_HEIR_START_STAY_LOG,You stayed out. Wisdom or cowardice — history will decide.,Ты остался в стороне. Мудрость или трусость — решит история.
+STORY_HEIR_THANKS,The heir is in power and keeps his word: «My people are your people».,Наследник у власти и держит слово: «Мои люди — твои люди».
+STORY_HEIR_THANKS_ACCEPT,Accept,Принять
+STORY_HEIR_THANKS_ACCEPT_LOG,The gang shares cars and contacts: +1 vehicle and +1 supplier.,Банда делится машинами и связями: +1 машина и +1 поставщик.
+CONTACT_LAWYER,Lawyer Vogel,Адвокат Фогель
+STORY_LAWYER_START,Lawyer Vogel has seen your case: «$5 000 — and any next case falls apart in court. Joking. Almost».,Адвокат Фогель видел твоё дело: «Пять тысяч — и любое следующее дело развалится в суде. Шучу. Но почти».
+STORY_LAWYER_START_PAY,Pay $5 000,Заплатить $5 000
+STORY_LAWYER_START_PAY_LOG,Vogel is on retainer now. Arrests will be a day shorter.,Фогель теперь на договоре. Аресты будут на день короче.
+STORY_LAWYER_START_REFUSE,Refuse,Отказаться
+STORY_LAWYER_START_REFUSE_LOG,Vogel left his card. «For when it gets bad».,"Фогель оставил визитку. «На случай, когда станет плохо»."
+STORIES_TITLE,Contact: %s,Контакт: %s
+STORY_TASK_VISIT,Be in %s (%s),Быть в районе «%s» (%s)
+STORY_TASK_GOODS,Hand over %d × %s (you have %d),Отдать %d × %s (в кармане %d)
+STORY_DAYS_LEFT,%d d. left,осталось %d дн.
+BTN_STORY_DO,Done,Выполнить
+LOG_STORY_NEW,%s wants to talk. See the «Jobs» panel.,С тобой хочет поговорить: %s. Смотри панель «Дела».
+LOG_STORY_IGNORED,%s stopped calling.,%s больше не звонит.
+LOG_STORY,%s: %s,%s: %s
+DISTRICT_LON_CITY,The City,Сити
+DISTRICT_LON_DOCKS,Docklands,Доклендс
+DISTRICT_LON_SOHO,Soho,Сохо
+DISTRICT_LON_PARK,Epping Forest,Эппинг-форест
+DISTRICT_MEX_CENTRO,Centro,Центро
+DISTRICT_MEX_TERMINAL,North terminal,Северный терминал
+DISTRICT_MEX_CONDESA,Condesa,Кондеса
+DISTRICT_MEX_PARK,Chapultepec,Чапультепек
+DISTRICT_RIO_CENTRO,Centro,Центр
+DISTRICT_RIO_PORT,Porto Maravilha,Порту-Маравилья
+DISTRICT_RIO_COPACABANA,Copacabana,Копакабана
+DISTRICT_RIO_TIJUCA,Tijuca forest,Лес Тижука
+DISTRICT_DXB_DEIRA,Deira,Дейра
+DISTRICT_DXB_PORT,Jebel Ali,Джебель-Али
+DISTRICT_DXB_MARINA,Marina,Марина
+DISTRICT_DXB_DESERT,Desert,Пустыня
+DISTRICT_BKK_CHATUCHAK,Chatuchak,Чатучак
+DISTRICT_BKK_KLONGTOEY,Khlong Toei,Клонгтой
+DISTRICT_BKK_SUKHUMVIT,Sukhumvit,Сукхумвит
+DISTRICT_BKK_LUMPINI,Lumpini,Лумпини
+COUNTRY_UK,United Kingdom,Великобритания
+ZONE_UK,United Kingdom,Великобритания
+CITY_LONDON,London,Лондон
+SUP_DOCKLANDS,Docklands wholesaler,Оптовик из Доклендса
+SUP_DOCKLANDS_DESC,"tea, cigarettes, reagents","чай, сигареты, реагенты"
+SUP_FRANK,Frank the fence,Скупщик Фрэнк
+SUP_FRANK_DESC,"phones, watches, «pollen», pistols","телефоны, часы, «пыльца», пистолеты"
+COUNTRY_MEXICO,Mexico,Мексика
+ZONE_MEXICO,Mexico,Мексика
+CITY_MEXICO,Mexico City,Мехико
+SUP_MERCED,La Merced stalls,Лавки Ла-Мерсед
+SUP_MERCED_DESC,"herbs, mushrooms, tea","травы, грибы, чай"
+SUP_RAUL,Raúl the chemist,Химик Рауль
+SUP_RAUL_DESC,"reagents, moss, «pollen», guns — cheap","реагенты, мох, «пыльца», стволы — дёшево"
+COUNTRY_BRAZIL,Brazil,Бразилия
+ZONE_BRAZIL,Brazil,Бразилия
+CITY_RIO,Rio de Janeiro,Рио-де-Жанейро
+SUP_TIJUCA_FARMS,Tijuca farms,Фермы Тижуки
+SUP_TIJUCA_FARMS_DESC,"herbs, mushrooms, tea","травы, грибы, чай"
+SUP_JUKA,Juka the fisherman,Рыбак Жука
+SUP_JUKA_DESC,"moss, cigarettes, guns, parts","мох, сигареты, стволы, запчасти"
+COUNTRY_UAE,UAE,ОАЭ
+ZONE_UAE,UAE,ОАЭ
+CITY_DUBAI,Dubai,Дубай
+SUP_DEIRA_HOUSE,Deira trading house,Торговый дом Дейры
+SUP_DEIRA_HOUSE_DESC,"tea, herbs, reagents","чай, травы, реагенты"
+SUP_GOLD_BROKER,Gold broker,Золотой брокер
+SUP_GOLD_BROKER_DESC,"watches, phones, rifles, armor","часы, телефоны, автоматы, броня"
+COUNTRY_THAILAND,Thailand,Таиланд
+ZONE_THAILAND,Thailand,Таиланд
+CITY_BANGKOK,Bangkok,Бангкок
+SUP_KLONGTOEY_MARKET,Khlong Toei market,Рынок Клонгтой
+SUP_KLONGTOEY_MARKET_DESC,"tea, herbs, mushrooms","чай, травы, грибы"
+SUP_SOMCHAI,Somchai the boatman,Лодочник Сомчай
+SUP_SOMCHAI_DESC,"phones, watches, cigarettes, moss","телефоны, часы, сигареты, мох"
+GANG_FOG,The Fog,Туман
+BOSS_FOG,Lord Umbrella,Лорд Зонтик
+GANG_BOSUNS,Bosuns,Боцманы
+BOSS_BOSUNS,Old Anchor,Старый Якорь
+GANG_JAGUARS,Jaguars,Ягуары
+BOSS_JAGUARS,Doña Pepper,Донья Перец
+GANG_MECHANICS,Mechanics,Механики
+BOSS_MECHANICS,The Wrench,Эль Ключ
+GANG_PARROTS,Parrots,Попугаи
+BOSS_PARROTS,Samba,Самба
+GANG_COCONUTS,Coconuts,Кокосы
+BOSS_COCONUTS,Captain Coco,Капитан Кокос
+GANG_QUIET,The Quiet Ones,Тихие
+BOSS_QUIET,Mr. Gold,Мистер Золото
+GANG_MIRAGE,Mirage,Мираж
+BOSS_MIRAGE,The Falcon,Сокол
+GANG_TUKTUK,Tuk-tuks,Тук-туки
+BOSS_TUKTUK,Speedy,Скорость
+GANG_ORCHID,Orchid,Орхидея
+BOSS_ORCHID,Madame Lotus,Мадам Лотос
+PROP_LON_WAREHOUSE,Docklands warehouse,Склад в Доклендсе
+PROP_LON_LAB,Soho basement,Подвал в Сохо
+PROP_LON_FRONT,Tea room,Чайная комната
+PROP_LON_CASINO,The Gentlemen's Club,Клуб «Джентльмены»
+PROP_LON_PIER,Thames pier,Причал на Темзе
+PROP_MEX_WAREHOUSE,Terminal warehouse,Склад у терминала
+PROP_MEX_LAB,Garage in Condesa,Гараж в Кондесе
+PROP_MEX_FRONT,Taquería «El Gordo»,Такерия «Эль Гордо»
+PROP_MEX_CASINO,Casino «Sol»,Казино «Соль»
+PROP_MEX_HANGAR,Hangar at the airfield,Ангар у аэродрома
+PROP_RIO_WAREHOUSE,Port warehouse,Портовый склад
+PROP_RIO_LAB,Back room on the hill,Каморка на холме
+PROP_RIO_FRONT,Juice bar,Сок-бар
+PROP_RIO_CASINO,Casino «Carnival»,Казино «Карнавал»
+PROP_RIO_PIER,Guanabara pier,Причал в заливе Гуанабара
+PROP_DXB_WAREHOUSE,Free-zone warehouse,Склад в свободной зоне
+PROP_DXB_LAB,Villa basement,Подвал виллы
+PROP_DXB_FRONT,Perfume shop,Парфюмерная лавка
+PROP_DXB_TOWER,Office in a business tower,Офис в бизнес-башне
+PROP_DXB_PIER,Creek pier,Причал на Крике
+PROP_DXB_HANGAR,Cargo terminal,Грузовой терминал
+PROP_BKK_WAREHOUSE,Riverside warehouse,Склад у реки
+PROP_BKK_LAB,Back of a noodle shop,Задняя комната лапшичной
+PROP_BKK_FRONT,Massage salon,Массажный салон
+PROP_BKK_CASINO,Underground casino «Lotus»,Подпольное казино «Лотос»
+PROP_BKK_PIER,Chao Phraya pier,Причал на Чао-Прайя
+ACT_LON_COURIER,Deliver papers in the City,Разносить бумаги в Сити
+ACT_LON_DOCKS_JOB,Unload a crate «without paperwork»,Разгрузить ящик «без накладной»
+ACT_MEX_KITCHEN,Wash dishes at a taquería,Мыть посуду в такерии
+ACT_MEX_BUS,Meet a bus with a «parcel»,Встретить автобус с «посылкой»
+ACT_RIO_BEACH,Sell water on the beach,Продавать воду на пляже
+ACT_RIO_CONTAINER,Unload a «grey» container,Разгрузить «левый» контейнер
+ACT_DXB_VALET,Park supercars,Парковать суперкары
+ACT_DXB_GOLD,Carry gold past the scales,Пронести золото мимо весов
+ACT_BKK_STALL,Help at a Chatuchak stall,Помогать на рынке Чатучак
+ACT_BKK_BOAT,Night boat along the canals,Ночная лодка по каналам
+VISA_UK,United Kingdom visa,виза: Великобритания
+VISA_MEXICO,Mexico visa,виза: Мексика
+VISA_BRAZIL,Brazil visa,виза: Бразилия
+VISA_UAE,UAE visa,виза: ОАЭ
+VISA_THAILAND,Thailand visa,виза: Таиланд
+POI_LON_CITY,Leadenhall Market,Рынок Лиденхолл
+POI_LON_DOCKS,Royal Docks,Королевские доки
+POI_LON_SOHO,Soho club,Клуб в Сохо
+POI_LON_PARK,Epping Forest,Эппинг-форест
+POI_MEX_CENTRO,La Merced market,Рынок Ла-Мерсед
+POI_MEX_TERMINAL,Bus terminal,Автовокзал
+POI_MEX_CONDESA,Condesa club,Клуб в Кондесе
+POI_MEX_PARK,Chapultepec forest,Лес Чапультепек
+POI_RIO_CENTRO,Saara market,Рынок Саара
+POI_RIO_PORT,Pier Mauá,Пирс Мауа
+POI_RIO_COPACABANA,Copacabana club,Клуб на Копакабане
+POI_RIO_TIJUCA,Tijuca forest,Лес Тижука
+POI_DXB_DEIRA,Gold Souk,Золотой рынок
+POI_DXB_PORT,Jebel Ali port,Порт Джебель-Али
+POI_DXB_MARINA,Marina lounge,Лаунж в Марине
+POI_DXB_DESERT,Oasis,Оазис
+POI_BKK_CHATUCHAK,Chatuchak market,Рынок Чатучак
+POI_BKK_KLONGTOEY,Khlong Toei port,Порт Клонгтой
+POI_BKK_SUKHUMVIT,Sukhumvit club,Клуб на Сукхумвит
+POI_BKK_LUMPINI,Lumpini park,Парк Лумпини

@@ -13,10 +13,15 @@ var session: GameSession
 var intro: Array = []
 
 
-func new_game() -> void:
+## Новая партия: режим (career / sandbox / iron), родной город и прошлое героя (раздел 3.1).
+func new_game(mode: String = "career", home: String = "berlin", past: String = "") -> void:
 	session = _make_session()
+	session.setup(mode, home, past)
 	var b := session.balance
-	intro = ["LOG_NEW_GAME", [int(b.start_debt), int(b.payment_min), int(b.payment_interval_days), int(b.start_money)]]
+	if session.debt > 0:
+		intro = ["LOG_NEW_GAME", [session.debt, int(b.payment_min), int(b.payment_interval_days), session.money]]
+	else:
+		intro = ["LOG_NEW_GAME_FREE", [session.money]]
 	Clock.reset()
 	changed.emit()
 
@@ -124,10 +129,13 @@ func do_activity(id: String) -> void:
 			Audio.ui("confirmation")
 		"LOG_ACTIVITY_BUSTED":
 			Audio.ui("error")
-		"LOG_ARRESTED":
+		"LOG_ARRESTED", "LOG_LIFE_SENTENCE":
 			Audio.siren()
 	reported.emit(report)
 	changed.emit()
+	# Арест мог кончить партию (пожизненный срок или пропущенный платёж за дни в камере).
+	if _check_finished():
+		return
 	Clock.advance_hours(session.get_activity(id).hours)
 
 
@@ -448,8 +456,49 @@ func launder(id: String) -> void:
 
 func pay(amount: int) -> void:
 	if session.pay(amount) > 0:
+		if session.debt == 0:
+			Audio.ui("confirmation")
+			reported.emit([["LOG_DEBT_PAID", [session.day]]])
 		changed.emit()
+
+
+## Предложенная концовка: закончить партию победой или играть дальше.
+func take_ending() -> void:
+	if session.take_ending():
+		Audio.ui("confirmation")
 		_check_finished()
+
+
+## Мини-истории: выбор в разговоре с контактом или выполнить задание.
+func story_choose(id: String, choice: String) -> void:
+	_story_report(session.story_choose(id, choice))
+
+
+func story_do_task(id: String) -> void:
+	_story_report(session.story_do_task(id))
+
+
+func _story_report(report: Array) -> void:
+	if report.is_empty():
+		return
+	Audio.ui("confirmation")
+	reported.emit(report)
+	changed.emit()
+
+
+func read_news() -> void:
+	session.read_news()
+	changed.emit()
+
+
+func decline_ending() -> void:
+	session.decline_ending()
+	changed.emit()
+
+
+func offer_ending(id: String) -> void:
+	if session.offer_ending(id):
+		changed.emit()
 
 
 func borrow_from_shark() -> void:
@@ -581,7 +630,7 @@ func resolve_check(choice: String) -> void:
 	var report: Array = session.call(choice)
 	if report.is_empty():
 		return
-	if report[0][0] == "LOG_ARRESTED":
+	if report[0][0] in ["LOG_ARRESTED", "LOG_LIFE_SENTENCE"]:
 		Audio.siren()
 	reported.emit(report)
 	if session.day != day_before:
@@ -643,6 +692,9 @@ func _check_finished() -> bool:
 	if session.status == GameSession.Status.PLAYING:
 		return false
 	Clock.paused = true
+	# Железный режим: одна жизнь — после конца партии её не переиграть.
+	if session.mode == "iron":
+		SaveSystem.delete_save()
 	finished.emit(session.status)
 	return true
 

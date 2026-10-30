@@ -164,6 +164,156 @@
 			"people": 16,
 			"cash": 7000,
 			"relation": -10
+		},
+		{
+			"id": "fog",
+			"name_key": "GANG_FOG",
+			"boss_key": "BOSS_FOG",
+			"temper": "cautious",
+			"home": "lon_city",
+			"color": [
+				0.55,
+				0.6,
+				0.7
+			],
+			"people": 14,
+			"cash": 7000,
+			"relation": 0
+		},
+		{
+			"id": "bosuns",
+			"name_key": "GANG_BOSUNS",
+			"boss_key": "BOSS_BOSUNS",
+			"temper": "hothead",
+			"home": "lon_docks",
+			"color": [
+				0.15,
+				0.35,
+				0.65
+			],
+			"people": 12,
+			"cash": 5000,
+			"relation": -5
+		},
+		{
+			"id": "jaguars",
+			"name_key": "GANG_JAGUARS",
+			"boss_key": "BOSS_JAGUARS",
+			"temper": "greedy",
+			"home": "mex_centro",
+			"color": [
+				0.85,
+				0.55,
+				0.15
+			],
+			"people": 16,
+			"cash": 6000,
+			"relation": 0
+		},
+		{
+			"id": "mechanics",
+			"name_key": "GANG_MECHANICS",
+			"boss_key": "BOSS_MECHANICS",
+			"temper": "hothead",
+			"home": "mex_terminal",
+			"color": [
+				0.45,
+				0.45,
+				0.5
+			],
+			"people": 14,
+			"cash": 4500,
+			"relation": -5
+		},
+		{
+			"id": "parrots",
+			"name_key": "GANG_PARROTS",
+			"boss_key": "BOSS_PARROTS",
+			"temper": "greedy",
+			"home": "rio_copacabana",
+			"color": [
+				0.2,
+				0.75,
+				0.35
+			],
+			"people": 15,
+			"cash": 5000,
+			"relation": 0
+		},
+		{
+			"id": "coconuts",
+			"name_key": "GANG_COCONUTS",
+			"boss_key": "BOSS_COCONUTS",
+			"temper": "cautious",
+			"home": "rio_port",
+			"color": [
+				0.6,
+				0.45,
+				0.3
+			],
+			"people": 12,
+			"cash": 4500,
+			"relation": 0
+		},
+		{
+			"id": "quiet",
+			"name_key": "GANG_QUIET",
+			"boss_key": "BOSS_QUIET",
+			"temper": "greedy",
+			"home": "dxb_deira",
+			"color": [
+				0.9,
+				0.75,
+				0.25
+			],
+			"people": 10,
+			"cash": 12000,
+			"relation": 0
+		},
+		{
+			"id": "mirage",
+			"name_key": "GANG_MIRAGE",
+			"boss_key": "BOSS_MIRAGE",
+			"temper": "cautious",
+			"home": "dxb_marina",
+			"color": [
+				0.85,
+				0.85,
+				0.85
+			],
+			"people": 9,
+			"cash": 15000,
+			"relation": 0
+		},
+		{
+			"id": "tuktuk",
+			"name_key": "GANG_TUKTUK",
+			"boss_key": "BOSS_TUKTUK",
+			"temper": "hothead",
+			"home": "bkk_klongtoey",
+			"color": [
+				0.2,
+				0.7,
+				0.75
+			],
+			"people": 15,
+			"cash": 4000,
+			"relation": -5
+		},
+		{
+			"id": "orchid",
+			"name_key": "GANG_ORCHID",
+			"boss_key": "BOSS_ORCHID",
+			"temper": "greedy",
+			"home": "bkk_sukhumvit",
+			"color": [
+				0.8,
+				0.3,
+				0.7
+			],
+			"people": 12,
+			"cash": 6000,
+			"relation": 5
 		}
 	],
 	"tempers": {

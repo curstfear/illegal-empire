@@ -14,7 +14,9 @@ extends RefCounted
 ## документы (паспорт, визы, подделки) и таможня на границе, грузы между городами (фрахт, пошлина, досмотр);
 ## бизнес работает по часам, поставщики сами привозят сырьё по утрам, менеджеры выполняют приказы;
 ## заказы с дедлайном от банд и контактов, ситуации с выбором прямо в городе; ступени карьеры
-## (balance.ranks): требования, бонусы к лимитам, дань с твоих районов; крупные дела (ограбления с подготовкой).
+## (balance.ranks): требования, бонусы к лимитам, дань с твоих районов; крупные дела (ограбления с подготовкой);
+## режимы (карьера, песочница, железный), родной город и прошлое героя, цели и концовки (balance.goals, balance.endings);
+## события в каждом городе и утренняя газета; мини-истории контактов (data/stories.json): шаги с выбором и заданиями.
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -104,6 +106,33 @@ var ops_done: int = 0
 var vaults_done: int = 0
 ## Свой человек на таможне по зонам (schengen, turkey, usa): { зона: день следующей платы }.
 var insiders: Dictionary = {}
+## Режим партии (balance.modes): career — с долгом, sandbox — без долга, iron — одна жизнь (сохранение стирается).
+var mode: String = "career"
+## Родной город (паспорт оформляют здесь) и прошлое героя (balance.backgrounds, "" — без прошлого).
+var home_city: String
+var background: String = ""
+## Сколько раз арестован (в железном режиме последний арест — пожизненный срок).
+var arrests: int = 0
+## Где побывал (для цели «5 городов в 3 странах»).
+var visited: Dictionary = {}
+## Сколько заработано грязными (доля грязного решает «чистую» концовку).
+var dirty_earned: int = 0
+## Чем кончилась партия (ключ balance.endings или "debt" / "prison" для провала); "" — ещё играем.
+var ending: String = ""
+## Концовка, которую можно взять прямо сейчас (игрок решает: закончить или играть дальше),
+## и концовки, от которых он уже отказался (второй раз не предлагаем).
+var ending_offer: String = ""
+var endings_declined: Array = []
+## Утренняя газета: заголовки [ключ, аргументы, вид] (вид: event, rumor, world, you, tip, joke) и прочитана ли.
+var news: Array = []
+var news_read: bool = true
+## Мини-истории контактов (data/stories.json). Идущие: { id: { "step", "city", "show" (день, с которого видно),
+## "deadline" (последний день задания, −1 — без срока) } }; закончившиеся: { id: true }.
+## Бонусы историй складываются с бонусами ступеней (см. perk): { ключ: число }.
+var story_defs: Array = []
+var stories: Dictionary = {}
+var stories_done: Dictionary = {}
+var story_perks: Dictionary = {}
 
 var money: int:
 	get:
@@ -128,8 +157,10 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	suppliers = Suppliers.new(world_data.get("suppliers", []))
 	jobs = Jobs.new(world_data.get("clients", []))
 	op_defs = world_data.get("operations", [])
+	story_defs = GameData.load_stories()
 	city = world.home
-	market.event_city = city
+	home_city = city
+	visited[city] = true
 	activities = activity_list
 	energy = balance.energy_max
 	if seed_value != 0:
@@ -143,9 +174,314 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	for good: Dictionary in goods:
 		inventory[good.id] = 0
 		spent_on[good.id] = 0
-	events.roll(rng)
+	_roll_events(day + 1)
 	crew.roll_candidates(rng, int(balance.crew_candidates))
 	_roll_offers()
+	news = _make_news()
+	news_read = false
+
+
+## Старт новой партии: режим, родной город и прошлое героя (раздел 3.1). Зовётся сразу после создания.
+func setup(new_mode: String, home: String, past: String) -> void:
+	mode = new_mode if balance.modes.has(new_mode) else "career"
+	if balance.home_cities.has(home):
+		var start: Dictionary = balance.home_cities[home]
+		home_city = home
+		city = home
+		district = world.get_city(home).start
+		visited = { city: true }
+		clean = int(start.money)
+		debt = int(start.debt)
+	var rules: Dictionary = balance.modes[mode]
+	if not rules.debt:
+		debt = 0
+	if rules.has("money"):
+		clean = int(rules.money)
+	background = past if balance.backgrounds.has(past) else ""
+	if background != "":
+		var info: Dictionary = balance.backgrounds[background]
+		skills.set_level(info.skill, int(info.level))
+		if info.has("vehicle"):
+			logistics.add_vehicle(info.vehicle)
+	_roll_offers()
+
+
+## Бонус прошлого героя (balance.backgrounds): скидка на подделки, меньше брака и т.п.; 0 — нет.
+func background_perk(key: String) -> float:
+	return float(balance.backgrounds[background].get(key, 0.0)) if background != "" else 0.0
+
+
+# --- Мини-истории контактов ---
+
+func story_def(id: String) -> Dictionary:
+	for def: Dictionary in story_defs:
+		if def.id == id:
+			return def
+	return {}
+
+
+func story_step(id: String) -> Dictionary:
+	return story_def(id).steps[stories[id].step]
+
+
+## Истории, которые сейчас видно (шаг уже наступил), в порядке начала.
+func visible_stories() -> Array:
+	return stories.keys().filter(func(id: String) -> bool: return int(stories[id].show) <= day)
+
+
+## Можно ли начать историю: ещё не была, условия "when" выполнены.
+func story_ready(def: Dictionary) -> bool:
+	if stories.has(def.id) or stories_done.has(def.id):
+		return false
+	for key: String in def.when:
+		var need := int(def.when[key])
+		var ok := true
+		match key:
+			"day":
+				ok = day >= need
+			"debt":
+				ok = debt > 0
+			"rank":
+				ok = rank >= need
+			"heat":
+				ok = police.max_heat() >= need
+			"arrests":
+				ok = arrests >= need
+			_:
+				ok = rank_stat(key) >= need
+		if not ok:
+			return false
+	return true
+
+
+## Утро: с шансом начинается новая история (не больше двух сразу). Контакт ищет тебя в твоём городе,
+## а «родные» контакты ("city": "home") — только в родном.
+func _stories_morning() -> Array:
+	if stories.size() >= int(balance.story_active_max) or rng.randf() >= float(balance.story_chance):
+		return []
+	var ready := story_defs.filter(func(def: Dictionary) -> bool:
+		return story_ready(def) and (def.city != "home" or city == home_city))
+	if ready.is_empty():
+		return []
+	var def: Dictionary = ready[rng.randi() % ready.size()]
+	stories[def.id] = { "step": "start", "city": city, "show": day, "deadline": day + int(balance.story_choice_days) }
+	return [["LOG_STORY_NEW", [def.contact_key]]]
+
+
+## Задание шага выполнимо прямо сейчас (быть в районе нужного вида в городе истории или отдать товар).
+func story_task_ready(id: String) -> bool:
+	var task: Dictionary = story_step(id).get("task", {})
+	match String(task.get("kind", "")):
+		"visit":
+			return city == stories[id].city and market.get_district(district).get("kind", "") == task.district_kind
+		"goods":
+			return inventory.get(task.good, 0) >= int(task.amount)
+	return false
+
+
+func can_story_choose(id: String, choice_id: String) -> bool:
+	if not can_act() or not stories.has(id) or int(stories[id].show) > day:
+		return false
+	for choice: Dictionary in story_step(id).get("choices", []):
+		if choice.id == choice_id:
+			return money >= int(choice.get("cost", 0))
+	return false
+
+
+## Выбор в истории: платим, бросаем кубик (если есть шанс), применяем последствия, идём дальше.
+func story_choose(id: String, choice_id: String) -> Array:
+	if not can_story_choose(id, choice_id):
+		return []
+	var step_id: String = stories[id].step
+	var choice: Dictionary = story_step(id).choices.filter(func(c: Dictionary) -> bool: return c.id == choice_id)[0]
+	var key := "STORY_%s_%s_%s" % [String(id).to_upper(), step_id.to_upper(), choice_id.to_upper()]
+	_spend(int(choice.get("cost", 0)))
+	var outcome := choice
+	var log_key := key + "_LOG"
+	if choice.has("chance") and rng.randf() >= float(choice.chance):
+		outcome = choice.get("lose", {})
+		log_key = key + "_LOSE_LOG"
+	return _story_outcome(id, outcome, log_key)
+
+
+func story_do_task(id: String) -> Array:
+	if not can_act() or not stories.has(id) or int(stories[id].show) > day or not story_task_ready(id):
+		return []
+	var step := story_step(id)
+	var task: Dictionary = step.task
+	if task.kind == "goods":
+		_remove_from_inventory(task.good, int(task.amount))
+	return _story_outcome(id, step.done, "STORY_%s_%s_DONE_LOG" % [String(id).to_upper(), String(stories[id].step).to_upper()])
+
+
+## Последствия и переход: "next" — следующий шаг (через "wait" дней), без него история закончена.
+func _story_outcome(id: String, outcome: Dictionary, log_key: String) -> Array:
+	var story_city: String = stories[id].city
+	_story_effects(outcome.get("effects", {}), story_city)
+	var report := [["LOG_STORY", [story_def(id).contact_key, log_key]]]
+	var next := String(outcome.get("next", ""))
+	if next == "":
+		stories.erase(id)
+		stories_done[id] = true
+		return report
+	var step: Dictionary = story_def(id).steps[next]
+	var show := day + int(outcome.get("wait", 0))
+	var days := int(step.get("days", balance.story_choice_days))
+	stories[id] = { "step": next, "city": story_city, "show": show, "deadline": show + days }
+	return report
+
+
+## Последствия истории: деньги, долг, розыск и дело детективов в городе истории, отношение банд города,
+## опыт навыков, постоянные бонусы (как у ступеней) и товар в карман.
+func _story_effects(effects: Dictionary, story_city: String) -> void:
+	for key: String in effects:
+		var value: Variant = effects[key]
+		match key:
+			"clean":
+				_earn(int(value), true)
+			"dirty":
+				_earn(int(value), false)
+			"debt":
+				debt = maxi(0, debt + int(value))
+			"heat":
+				for d: Dictionary in world.districts_of(story_city):
+					police.add_heat(d.id, float(value))
+			"dossier":
+				for d: Dictionary in world.districts_of(story_city):
+					police.add_dossier(d.id, float(value))
+			"relation":
+				for gang: Dictionary in gangs.defs:
+					if world.city_of(gang.home) == story_city:
+						gangs.change_relation(gang.id, float(value))
+			"xp":
+				for skill: String in value:
+					skills.add_xp(skill, int(value[skill]))
+			"perk":
+				for perk_key: String in value:
+					story_perks[perk_key] = float(story_perks.get(perk_key, 0.0)) + float(value[perk_key])
+			"goods":
+				for good: String in value:
+					inventory[good] += int(value[good])
+
+
+## Конец дня: просроченное задание — провал; на выбор не ответил — контакт перестаёт звонить.
+func _expire_stories() -> Array:
+	var report: Array = []
+	for id: String in visible_stories():
+		if int(stories[id].deadline) > day:
+			continue
+		var step := story_step(id)
+		if step.has("task"):
+			report.append_array(_story_outcome(id, step.fail, "STORY_%s_%s_FAIL_LOG" % [String(id).to_upper(), String(stories[id].step).to_upper()]))
+		else:
+			stories.erase(id)
+			stories_done[id] = true
+			report.append(["LOG_STORY_IGNORED", [story_def(id).contact_key]])
+	return report
+
+
+# --- События и газета ---
+
+## Ночь: новые «завтрашние» события во всех городах; рынку — сегодняшние (своё + мировое по городам).
+## for_day — день, когда новые события начнутся (для времени года).
+func _roll_events(for_day: int) -> void:
+	events.roll(rng, world.cities.map(func(c: Dictionary) -> String: return c.id), for_day, city)
+	market.city_events = {}
+	for c: Dictionary in world.cities:
+		market.city_events[c.id] = events.active_in(c.id)
+
+
+## Утро: событие в твоём городе — в журнал; разовое влияние событий (розыск, отношение банд) — во всех городах.
+func _events_morning() -> Array:
+	var report: Array = []
+	for c: Dictionary in world.cities:
+		for event: Dictionary in events.active_in(c.id):
+			if event.has("heat"):
+				for d: String in world.districts_of(c.id).map(func(x: Dictionary) -> String: return x.id):
+					police.add_heat(d, float(event.heat))
+			if event.has("relation"):
+				for gang: Dictionary in gangs.defs:
+					if world.city_of(gang.home) == c.id:
+						gangs.change_relation(gang.id, float(event.relation))
+	for event: Dictionary in events.active_in(city):
+		report.append(["LOG_EVENT", [event.text_key]])
+	news = _make_news()
+	news_read = false
+	report.append_array(_stories_morning())
+	return report
+
+
+## Утренняя газета: события по городам, мировое, слухи на завтра, заметки о тебе, подсказка по ценам и шутка.
+## Заголовок: [ключ, аргументы, вид]; строковые аргументы — ключи перевода.
+func _make_news() -> Array:
+	var result: Array = []
+	if not events.world_today.is_empty():
+		result.append([events.world_today.news_key, [], "world"])
+	for c: Dictionary in world.cities:
+		if events.today.has(c.id):
+			result.append([events.today[c.id].news_key, [c.name_key], "event"])
+	for c: Dictionary in world.cities:
+		if events.rumor_known(c.id):
+			result.append(["NEWS_RUMOR", [c.name_key, events.tomorrow[c.id].rumor_key], "rumor"])
+	if events.rumors.has("@world") and not events.world_tomorrow.is_empty():
+		result.append(["NEWS_RUMOR_WORLD", [events.world_tomorrow.rumor_key], "rumor"])
+	result.append_array(_news_about_you())
+	var tip := _news_tip()
+	if not tip.is_empty():
+		result.append(tip)
+	result.append(["NEWS_JOKE_%d" % (rng.randi() % int(balance.news_jokes) + 1), [], "joke"])
+	return result
+
+
+## Мир замечает тебя: громкий розыск, свои районы, война с бандой, слава высоких ступеней.
+func _news_about_you() -> Array:
+	var result: Array = []
+	var hottest := ""
+	for d: String in police.heat:
+		if hottest == "" or police.heat[d] > police.heat[hottest]:
+			hottest = d
+	if hottest != "" and police.heat[hottest] >= float(balance.news_heat):
+		result.append(["NEWS_YOU_HEAT", [market.get_district(hottest).name_key], "you"])
+	var mine := gangs.territories(Gangs.PLAYER)
+	if not mine.is_empty():
+		result.append(["NEWS_YOU_DISTRICT", [market.get_district(mine[rng.randi() % mine.size()]).name_key], "you"])
+	for gang: Dictionary in gangs.defs:
+		if gangs.level(gang.id) == "enemy":
+			result.append(["NEWS_GANG_WAR", [gang.name_key, world.get_city(world.city_of(gang.home)).name_key], "you"])
+			break
+	if rank >= int(balance.news_legend_rank):
+		result.append(["NEWS_YOU_LEGEND", [rank_name_key()], "you"])
+	return result
+
+
+## Подсказка дня: товар с самой большой разницей цен между городами — где купить и где продать.
+func _news_tip() -> Array:
+	var best := 0.0
+	var tip: Array = []
+	for good: Dictionary in market.goods:
+		var low := { "price": 0, "city": "" }
+		var high := { "price": 0, "city": "" }
+		for d: Dictionary in market.districts:
+			if not d.has_market or not market.trades(d.id, good.id):
+				continue
+			var buy := market.buy_price(d.id, good.id)
+			var sell := market.sell_price(d.id, good.id)
+			if low.city == "" or buy < low.price:
+				low = { "price": buy, "city": String(d.city) }
+			if sell > high.price:
+				high = { "price": sell, "city": String(d.city) }
+		if low.city == "" or low.city == high.city:
+			continue
+		var ratio := float(high.price) / maxf(1.0, low.price)
+		if ratio > best:
+			best = ratio
+			tip = ["NEWS_TIP", [good.name_key, world.get_city(low.city).name_key, world.get_city(high.city).name_key], "tip"]
+	return tip if best >= float(balance.news_tip_ratio) else []
+
+
+## Газету прочитали (закрыли карточку) — до следующего утра не показываем.
+func read_news() -> void:
+	news_read = true
 
 
 ## Все деньги: чистые, грязные и вклад в банке.
@@ -257,6 +593,7 @@ func _earn(amount: int, is_clean: bool) -> void:
 		clean_earned += amount
 	else:
 		dirty += amount
+		dirty_earned += amount
 
 
 ## Средняя цена, по которой куплен товар в кармане (0, если пусто).
@@ -591,6 +928,7 @@ func cleanup(id: String) -> bool:
 func defect_chance(id: String) -> float:
 	var level: int = properties.state[id].level
 	return maxf(0.02, float(balance.lab_defect_chance[level - 1]) - skills.level("craft") * float(balance.defect_per_craft_level)
+			- background_perk("defect_cut")
 			- _best_skill(id, "cook") * float(balance.cook_defect_per_skill))
 
 
@@ -1277,7 +1615,7 @@ func is_top_rank() -> bool:
 
 ## Сумма бонуса всех взятых ступеней (лимиты прибавляются, скидки складываются).
 func perk(key: String) -> float:
-	var total := 0.0
+	var total := float(story_perks.get(key, 0.0))
 	for i in rank + 1:
 		total += float(rank_def(i).perks.get(key, 0.0))
 	return total
@@ -1319,7 +1657,73 @@ func rank_stat(key: String) -> int:
 			return world.cities.filter(func(c: Dictionary) -> bool: return _owned_in(c.id) >= 3).size()
 		"debt_free":
 			return 1 if debt <= 0 else 0
+		"visited":
+			return visited.size()
+		"countries":
+			var countries := {}
+			for c: String in visited:
+				countries[world.get_city(c).country] = true
+			return countries.size()
+		"capital":
+			return net_money()
+		"clean_capital":
+			return clean + bank.deposit
+		"dirty_share_max":
+			return roundi(100.0 * dirty_earned / maxf(1.0, earned_total))
+		"top_rank":
+			return 1 if is_top_rank() else 0
 	return 0
+
+
+## Выполнено ли требование: обычные — «не меньше», с окончанием _max — «не больше».
+func need_met(key: String, need: int) -> bool:
+	return rank_stat(key) <= need if key.ends_with("_max") else rank_stat(key) >= need
+
+
+# --- Цели и концовки ---
+
+func goal_done(goal: Dictionary) -> bool:
+	return goal.needs.keys().all(func(key: String) -> bool: return need_met(key, int(goal.needs[key])))
+
+
+func ending_ready(id: String) -> bool:
+	return goal_done(balance.endings[id])
+
+
+## Конец дня: если какая-то концовка стала доступна — предлагаем (по одной, отказ запоминаем).
+func _check_endings() -> Array:
+	if ending_offer != "":
+		return []
+	for id: String in balance.endings:
+		if not endings_declined.has(id) and ending_ready(id):
+			ending_offer = id
+			return [["LOG_ENDING_READY", ["ENDING_" + id.to_upper()]]]
+	return []
+
+
+## Игрок взял предложенную концовку — партия окончена победой.
+func take_ending() -> bool:
+	if ending_offer == "" or status != Status.PLAYING:
+		return false
+	ending = ending_offer
+	ending_offer = ""
+	status = Status.WON
+	return true
+
+
+## Играть дальше: эту концовку больше не предлагаем (её можно взять позже из карточки целей).
+func decline_ending() -> void:
+	if ending_offer != "":
+		endings_declined.append(ending_offer)
+		ending_offer = ""
+
+
+## Взять концовку позже, из карточки целей (если условия всё ещё выполнены).
+func offer_ending(id: String) -> bool:
+	if status != Status.PLAYING or not balance.endings.has(id) or not ending_ready(id):
+		return false
+	ending_offer = id
+	return true
 
 
 func _owned_in(city_id: String) -> int:
@@ -2428,6 +2832,12 @@ func flee() -> Array:
 ## Адвокат в бригаде: штраф меньше, а опытный (от 3 ур.) сокращает срок на день.
 func arrest() -> Array:
 	last_arrest_day = day
+	arrests += 1
+	if is_last_arrest():
+		_lose_illegal_goods()
+		status = Status.LOST
+		ending = "prison"
+		return [["LOG_LIFE_SENTENCE", [arrests]]]
 	_lose_illegal_goods()
 	var lawyer := crew.best_skill("lawyer")
 	var fine := floori(dirty * float(balance.arrest_dirty_fine) * maxf(0.0, 1.0 - lawyer * float(balance.lawyer_fine_per_skill)))
@@ -2444,8 +2854,20 @@ func arrest() -> Array:
 	return report
 
 
+## Железный режим: этот арест — последний (пожизненный срок, конец игры).
+func is_last_arrest() -> bool:
+	var most := int(balance.modes[mode].get("max_arrests", 0))
+	return most > 0 and arrests >= most
+
+
+## Сколько арестов ещё можно пережить (−1 — без ограничений).
+func arrests_left() -> int:
+	var most := int(balance.modes[mode].get("max_arrests", 0))
+	return maxi(0, most - arrests) if most > 0 else -1
+
+
 func arrest_days() -> int:
-	var short := 1 if crew.best_skill("lawyer") >= int(balance.lawyer_short_skill) else 0
+	var short := (1 if crew.best_skill("lawyer") >= int(balance.lawyer_short_skill) else 0) + int(perk("arrest_short"))
 	return maxi(1, int(balance.arrest_days) - short)
 
 
@@ -2480,8 +2902,6 @@ func pay(amount: int) -> int:
 	_spend(paid)
 	debt -= paid
 	paid_this_period += paid
-	if debt == 0:
-		status = Status.WON
 	return paid
 
 
@@ -2623,15 +3043,19 @@ func end_day() -> Array:
 	report.append_array(_pay_rent())
 	report.append_array(_run_gangs())
 	report.append_array(_run_tribute())
-	if day % 7 == 0:
+	if day % 7 == 0 and debt > 0:
 		var interest := roundi(debt * float(balance.weekly_interest))
 		debt += interest
 		report.append(["LOG_INTEREST", [interest]])
 		if bank.loan > 0:
 			report.append(["LOG_BANK_INTEREST", [bank.add_interest()]])
-	if day == next_payment_day:
+	if day == next_payment_day and debt <= 0:
+		next_payment_day += int(balance.payment_interval_days)
+		paid_this_period = 0
+	elif day == next_payment_day:
 		if payment_left() > 0:
 			status = Status.LOST
+			ending = "debt"
 			report.append(["LOG_PAYMENT_MISSED", []])
 			return report
 		report.append(["LOG_PAYMENT_OK", []])
@@ -2640,9 +3064,10 @@ func end_day() -> Array:
 	report.append_array(_run_police())
 	_remember_day()
 	police.decay(balance.heat_decay)
-	events.roll(rng)
-	market.event_city = city
-	market.roll_day(rng, events.today)
+	report.append_array(_expire_stories())
+	# Вечер дня day: «завтрашнее» станет сегодняшним завтра, а новое начнётся послезавтра.
+	_roll_events(day + 2)
+	market.roll_day(rng)
 	crew.roll_candidates(rng, int(balance.crew_candidates))
 	report.append_array(_expire_orders())
 	report.insert(0, ["LOG_DAY_ENDED", [day]])
@@ -2650,13 +3075,13 @@ func end_day() -> Array:
 	neighbor_mood = {}
 	_roll_offers()
 	report.append_array(_check_rank())
+	report.append_array(_check_endings())
 	hours_done = 0.0
 	_sales = {}
 	income_today = {}
 	report.append_array(documents.collect(day, balance))
 	energy = balance.energy_max
-	if not events.today.is_empty():
-		report.append(["LOG_EVENT", [events.today.text_key]])
+	report.append_array(_events_morning())
 	return report
 
 
@@ -2664,7 +3089,7 @@ func end_day() -> Array:
 
 func can_fly(to_city: String) -> bool:
 	return can_act() and to_city != city and not world.get_city(to_city).is_empty() \
-			and money >= world.flight_cost(city, to_city) and docs_ok(to_city)
+			and money >= flight_cost(to_city) and docs_ok(to_city)
 
 
 func zone_of(city_id: String) -> String:
@@ -2698,7 +3123,13 @@ func customs_chance(to_city: String) -> float:
 	chance *= 1.0 - perk("customs_cut")
 	if has_insider(zone_of(to_city)):
 		chance *= float(balance.insider_flight)
+	chance *= events.factor(to_city, "customs")
 	return minf(float(balance.customs_max), chance)
+
+
+## Цена билета: по расстоянию, а события (шторм, дорогое топливо) в обоих городах её поднимают.
+func flight_cost(to_city: String) -> int:
+	return roundi(world.flight_cost(city, to_city) * events.factor(city, "flight") * events.factor(to_city, "flight"))
 
 
 ## Перелёт в другой город: билет, часы в пути (их отсчитывают часы игры); прилетаешь в главный район.
@@ -2707,7 +3138,7 @@ func customs_chance(to_city: String) -> float:
 func fly(to_city: String) -> Array:
 	if not can_fly(to_city):
 		return []
-	var cost := world.flight_cost(city, to_city)
+	var cost := flight_cost(to_city)
 	_spend(cost)
 	var report: Array = []
 	if crosses_border(to_city):
@@ -2723,6 +3154,7 @@ func fly(to_city: String) -> Array:
 				return [["LOG_FAKE_CAUGHT", [world.get_city(to_city).name_key, fine]]]
 	var chance := customs_chance(to_city)
 	city = to_city
+	visited[to_city] = true
 	district = world.get_city(to_city).start
 	_roll_offers()
 	report.append(["LOG_FLEW", [world.get_city(to_city).name_key, cost]])
@@ -2769,6 +3201,7 @@ func shipment_quote(from: String, to: String, good: String, amount: int, disguis
 		if has_insider(zone):
 			risk *= float(balance.insider_cut)
 		risk *= 1.0 - perk("customs_cut")
+		risk = minf(float(balance.shipment_customs_max), risk * events.factor(to_city, "customs"))
 	# Свой транспорт: катер дешевле и незаметнее, но дольше; самолёт дорогой, зато за день.
 	var days := 1 + floori(km / float(balance.freight_km_per_day))
 	if transport != "":
@@ -3143,7 +3576,7 @@ func _run_insiders() -> Array:
 
 ## Паспорт оформляют только в родном городе, несколько дней.
 func can_apply_passport() -> bool:
-	return can_act() and documents.passport != "real" and documents.passport_ready == 0 and city == world.home \
+	return can_act() and documents.passport != "real" and documents.passport_ready == 0 and city == home_city \
 			and money >= int(balance.passport_cost)
 
 
@@ -3186,26 +3619,32 @@ func at_forger() -> bool:
 
 
 func can_buy_fake_passport() -> bool:
-	return can_act() and at_forger() and not documents.has_passport() and money >= int(balance.fake_passport_cost)
+	return can_act() and at_forger() and not documents.has_passport() and money >= fake_cost("passport")
+
+
+## Цена подделки: паспорт ("passport") или виза зоны; бывшему айтишнику дешевле.
+func fake_cost(what: String) -> int:
+	var base := int(balance.fake_passport_cost) if what == "passport" else int(balance.fake_visa_cost[what])
+	return roundi(base * (1.0 - background_perk("fake_discount")))
 
 
 func buy_fake_passport() -> bool:
 	if not can_buy_fake_passport():
 		return false
-	_spend(int(balance.fake_passport_cost))
+	_spend(fake_cost("passport"))
 	documents.passport = "fake"
 	return true
 
 
 func can_buy_fake_visa(zone: String) -> bool:
 	return can_act() and at_forger() and balance.fake_visa_cost.has(zone) and documents.visa(zone, day).is_empty() \
-			and money >= int(balance.fake_visa_cost[zone])
+			and money >= fake_cost(zone)
 
 
 func buy_fake_visa(zone: String) -> bool:
 	if not can_buy_fake_visa(zone):
 		return false
-	_spend(int(balance.fake_visa_cost[zone]))
+	_spend(fake_cost(zone))
 	documents.visas[zone] = { "kind": "fake", "until": day + int(balance.fake_visa_valid) }
 	return true
 
@@ -3401,7 +3840,8 @@ func gang_attack_chance(id: String, property_id: String) -> float:
 	defense *= gear_power()
 	if properties.has_upgrade(property_id, "alarm"):
 		defense += float(balance.alarm_defense)
-	return attack / (attack + defense)
+	# Нападать некому (и защищаться некому) — налёта нет, а не 0/0.
+	return attack / (attack + defense) if attack > 0.0 else 0.0
 
 
 ## Налёт на твоё здание с товаром: на их земле, а врагу или мстителю — любое. Удался — забирают долю товара;
@@ -4019,7 +4459,11 @@ func to_dict() -> Dictionary:
 		"day": day,
 		"district": district,
 		"city": city,
-		"event_city": market.event_city,
+		"news": news.duplicate(true),
+		"stories": stories.duplicate(true),
+		"stories_done": stories_done.keys(),
+		"story_perks": story_perks.duplicate(),
+		"news_read": news_read,
 		"energy": energy,
 		"skills": skills.to_dict(),
 		"stall": stall.to_dict(),
@@ -4059,6 +4503,15 @@ func to_dict() -> Dictionary:
 		"operations": operations.duplicate(true),
 		"ops_done": ops_done,
 		"vaults_done": vaults_done,
+		"mode": mode,
+		"home_city": home_city,
+		"background": background,
+		"arrests": arrests,
+		"visited": visited.keys(),
+		"dirty_earned": dirty_earned,
+		"ending": ending,
+		"ending_offer": ending_offer,
+		"endings_declined": endings_declined.duplicate(),
 		"rng_state": str(rng.state),
 		"market": market.to_dict(),
 		"police": police.to_dict(),
@@ -4117,6 +4570,18 @@ func load_dict(data: Dictionary) -> void:
 		operations[id] = { "preps": Array(st.get("preps", [])).map(func(p: Variant) -> String: return String(p)), "ready": int(st.get("ready", 0)) }
 	ops_done = int(data.get("ops_done", 0))
 	vaults_done = int(data.get("vaults_done", 0))
+	mode = String(data.get("mode", "career"))
+	home_city = String(data.get("home_city", world.home))
+	background = String(data.get("background", ""))
+	arrests = int(data.get("arrests", 0))
+	visited = {}
+	for c: Variant in data.get("visited", [home_city, city]):
+		visited[String(c)] = true
+	# Старые сохранения: грязные не считали — всё, что не чистое.
+	dirty_earned = int(data.get("dirty_earned", maxi(0, earned_total - clean_earned)))
+	ending = String(data.get("ending", ""))
+	ending_offer = String(data.get("ending_offer", ""))
+	endings_declined = Array(data.get("endings_declined", [])).map(func(e: Variant) -> String: return String(e))
 	insiders = {}
 	for zone: String in data.get("insiders", {}):
 		insiders[zone] = int(data.insiders[zone])
@@ -4130,8 +4595,21 @@ func load_dict(data: Dictionary) -> void:
 			fight_result[key] = int(fight_result[key])
 	rng.state = int(data.rng_state)
 	police.load_dict(data.police)
-	events.load_dict(data.events)
+	events.load_dict(data.events, String(data.get("event_city", city)))
 	bank.load_dict(data.bank)
-	market.event = events.today
-	market.event_city = String(data.get("event_city", city))
+	market.city_events = {}
+	for c: Dictionary in world.cities:
+		market.city_events[c.id] = events.active_in(c.id)
+	news = data.get("news", [])
+	stories = {}
+	for id: String in data.get("stories", {}):
+		var st: Dictionary = data.stories[id]
+		stories[id] = { "step": String(st.step), "city": String(st.city), "show": int(st.show), "deadline": int(st.deadline) }
+	stories_done = {}
+	for id: Variant in data.get("stories_done", []):
+		stories_done[String(id)] = true
+	story_perks = {}
+	for key: String in data.get("story_perks", {}):
+		story_perks[key] = float(data.story_perks[key])
+	news_read = bool(data.get("news_read", true))
 	market.load_dict(data.market)

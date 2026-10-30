@@ -1,0 +1,222 @@
+{
+	"size": 29,
+	"roads": [
+		6,
+		14,
+		22
+	],
+	"center": 14,
+	"tile": 2.0,
+	"seed": 59,
+	"quadrants": {
+		"mex_centro": "nw",
+		"mex_terminal": "ne",
+		"mex_condesa": "sw",
+		"mex_park": "se"
+	},
+	"styles": {
+		"mex_centro": {
+			"models": [
+				"kenney_city_suburban/building-type-a.glb",
+				"kenney_city_suburban/building-type-b.glb",
+				"kenney_city_suburban/building-type-c.glb",
+				"kenney_city_suburban/building-type-d.glb",
+				"kenney_city_suburban/building-type-e.glb",
+				"kenney_city_suburban/building-type-f.glb",
+				"kenney_city_suburban/building-type-g.glb",
+				"kenney_city_suburban/building-type-h.glb",
+				"kenney_city_suburban/building-type-i.glb",
+				"kenney_city_suburban/building-type-j.glb",
+				"kenney_city_suburban/building-type-k.glb"
+			],
+			"scale": 1.6,
+			"on_base": false,
+			"density": 0.5
+		},
+		"mex_terminal": {
+			"models": [
+				"kenney_city_industrial/building-a.glb",
+				"kenney_city_industrial/building-b.glb",
+				"kenney_city_industrial/building-c.glb",
+				"kenney_city_industrial/building-e.glb",
+				"kenney_city_industrial/building-f.glb",
+				"kenney_city_industrial/building-g.glb",
+				"kenney_city_industrial/building-l.glb",
+				"kenney_city_industrial/building-m.glb",
+				"kenney_city_industrial/building-q.glb",
+				"kenney_city_industrial/building-r.glb",
+				"kenney_city_industrial/building-t.glb"
+			],
+			"scale": 0.85,
+			"on_base": true,
+			"density": 0.34
+		},
+		"mex_condesa": {
+			"models": [
+				"kenney_city_commercial/building-a.glb",
+				"kenney_city_commercial/building-b.glb",
+				"kenney_city_commercial/building-c.glb",
+				"kenney_city_commercial/building-d.glb",
+				"kenney_city_commercial/building-h.glb",
+				"kaykit_city/building_G.gltf",
+				"kaykit_city/building_H.gltf"
+			],
+			"scale": 1.5,
+			"on_base": true,
+			"density": 0.44
+		},
+		"mex_park": {
+			"models": [],
+			"scale": 1.0,
+			"on_base": false,
+			"density": 0.0,
+			"park": true
+		}
+	},
+	"open_space": {
+		"plaza": 0.35,
+		"park": 0.4,
+		"parking": 0.25
+	},
+	"pond": [
+		[
+			18,
+			18
+		],
+		[
+			19,
+			18
+		],
+		[
+			20,
+			18
+		],
+		[
+			18,
+			19
+		],
+		[
+			19,
+			19
+		],
+		[
+			20,
+			19
+		],
+		[
+			18,
+			20
+		],
+		[
+			19,
+			20
+		],
+		[
+			26,
+			26
+		],
+		[
+			27,
+			26
+		],
+		[
+			26,
+			27
+		]
+	],
+	"pois": [
+		{
+			"id": "mexico_market",
+			"district": "mex_centro",
+			"name_key": "POI_MEX_CENTRO",
+			"tile": [
+				12,
+				13
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-n.glb",
+			"scale": 0.85,
+			"rot": 0
+		},
+		{
+			"id": "mexico_port",
+			"district": "mex_terminal",
+			"name_key": "POI_MEX_TERMINAL",
+			"tile": [
+				17,
+				13
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-j.glb",
+			"scale": 0.95,
+			"rot": 0
+		},
+		{
+			"id": "mexico_night",
+			"district": "mex_condesa",
+			"name_key": "POI_MEX_CONDESA",
+			"tile": [
+				12,
+				15
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-k.glb",
+			"scale": 0.95,
+			"rot": 180,
+			"neon": [
+				1.0,
+				0.35,
+				0.55
+			]
+		},
+		{
+			"id": "mexico_park",
+			"district": "mex_park",
+			"name_key": "POI_MEX_PARK",
+			"tile": [
+				17,
+				15
+			],
+			"main": true,
+			"model": "kaykit_city/bench.gltf",
+			"scale": 3.0,
+			"rot": 0
+		}
+	],
+	"lighting": {
+		"day": [
+			1.02,
+			0.93,
+			0.8
+		],
+		"night": [
+			1.0,
+			0.84,
+			0.88
+		],
+		"energy": 1.1,
+		"saturation": 1.22
+	},
+	"colors": {
+		"ground": [
+			0.96,
+			0.88,
+			0.8
+		],
+		"grass": [
+			0.66,
+			0.8,
+			0.45
+		],
+		"water": [
+			0.25,
+			0.55,
+			0.75
+		],
+		"lamp": [
+			1.0,
+			0.6,
+			0.3
+		]
+	}
+}

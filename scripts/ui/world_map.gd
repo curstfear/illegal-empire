@@ -190,7 +190,7 @@ func _refresh_globe() -> void:
 	for city: Dictionary in s.world.cities:
 		list[city.id] = { "lat": city.lat, "lon": city.lon, "name": tr(city.name_key), "sub": _value_text(city.id),
 				"color": _city_color(city.id), "here": city.id == s.city, "selected": city.id == _selected,
-				"left": city.get("label", "") == "left" }
+				"label": String(city.get("label", "right")) }
 	_globe.set_cities(list)
 	_globe.set_arc(s.city, _hovered if _hovered != "" else _selected)
 
@@ -235,7 +235,7 @@ func _refresh_side() -> void:
 	if city.id == s.city:
 		_side_box.add_child(_label(tr("PILL_HERE"), 12, GOOD))
 	else:
-		_side_box.add_child(_label(tr("WORLD_FLIGHT") % [str(s.world.flight_cost(s.city, city.id)),
+		_side_box.add_child(_label(tr("WORLD_FLIGHT") % [str(s.flight_cost(city.id)),
 				str(s.world.flight_hours(s.city, city.id))], 12, TEXT))
 		if s.crosses_border(city.id):
 			if s.docs_ok(city.id):
@@ -303,7 +303,7 @@ func _refresh_documents() -> void:
 		_doc_button(tr("BTN_PASSPORT") % [str(int(s.balance.passport_cost)), int(s.balance.passport_days)],
 				s.can_apply_passport(), GameState.apply_passport)
 	if s.at_forger() and not docs.has_passport():
-		_doc_button(tr("BTN_FAKE_PASSPORT") % str(int(s.balance.fake_passport_cost)), s.can_buy_fake_passport(),
+		_doc_button(tr("BTN_FAKE_PASSPORT") % str(s.fake_cost("passport")), s.can_buy_fake_passport(),
 				GameState.buy_fake.bind("passport"))
 	for zone: String in s.balance.visas:
 		var info: Dictionary = s.balance.visas[zone]
@@ -320,7 +320,7 @@ func _refresh_documents() -> void:
 			else:
 				_doc_button(tr("BTN_VISA") % str(int(info.cost)), s.can_apply_visa(zone), GameState.apply_visa.bind(zone))
 		if s.at_forger() and v.is_empty():
-			_doc_button(tr("BTN_FAKE_VISA") % str(int(s.balance.fake_visa_cost[zone])), s.can_buy_fake_visa(zone),
+			_doc_button(tr("BTN_FAKE_VISA") % str(s.fake_cost(zone)), s.can_buy_fake_visa(zone),
 					GameState.buy_fake.bind("visa", zone))
 	if s.at_forger():
 		var note := _label(tr("DOCS_FORGER"), 11, WARN)

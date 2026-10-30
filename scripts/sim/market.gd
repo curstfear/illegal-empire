@@ -14,10 +14,8 @@ var factors: Dictionary = {}
 var pressure: Dictionary = {}
 ## Цены покупки вчера вечером — чтобы показать, выросла цена или упала.
 var previous_prices: Dictionary = {}
-## Влияние сегодняшнего события (пусто — события нет).
-var event: Dictionary = {}
-## Город, где случилось сегодняшнее событие «на весь город» ("" — везде).
-var event_city: String = ""
+## События сегодня по городам: { город: [событие, …] } — своё и мировое (ставит GameSession из EventDeck).
+var city_events: Dictionary = {}
 ## Цены прошлых дней для графиков: { район: { товар: [цена вечером дня, …] } }, не длиннее HISTORY_DAYS.
 var history: Dictionary = {}
 
@@ -139,8 +137,8 @@ func risk_level(id: String) -> int:
 	return 1 if heat < 1.0 else (2 if heat < 3.0 else 3)
 
 
-## Ночь: запоминаем вчерашние цены, ставим событие нового дня, цены гуляют, давление спадает.
-func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
+## Ночь: запоминаем вчерашние цены, цены гуляют, давление спадает (события нового дня ставит GameSession).
+func roll_day(rng: RandomNumberGenerator) -> void:
 	_remember_prices()
 	for district: String in history:
 		for id: String in history[district]:
@@ -148,7 +146,6 @@ func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
 			days.append(previous_prices[district][id])
 			if days.size() > HISTORY_DAYS - 1:
 				days.pop_front()
-	event = new_event
 	for city: String in factors:
 		for good: Dictionary in goods:
 			var factor: float = factors[city][good.id]
@@ -159,18 +156,19 @@ func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
 			pressure[district][id] *= _balance.pressure_kept_overnight
 
 
-## Множитель полиции от события в этом районе.
+## Множитель полиции от событий в этом районе.
 func event_police(district: String) -> float:
-	return event.police if _event_here(district) else 1.0
+	var result := 1.0
+	for event: Dictionary in events_at(district):
+		result *= float(event.police)
+	return result
 
 
-## Событие дня касается района: события «на весь город» — только в городе, где они случились (event_city).
-func _event_here(district: String) -> bool:
-	if event.is_empty():
-		return false
-	if event.district != "":
-		return event.district == district
-	return event_city == "" or get_district(district).get("city", event_city) == event_city
+## События дня, что касаются района: только своего города, а с полем "kind" — только района такого вида.
+func events_at(district: String) -> Array:
+	var d := get_district(district)
+	return Array(city_events.get(String(d.get("city", "")), [])).filter(func(event: Dictionary) -> bool:
+		return String(event.get("kind", "")) in ["", String(d.get("kind", ""))])
 
 
 func _remember_prices() -> void:
@@ -183,8 +181,8 @@ func _remember_prices() -> void:
 func _price(district: String, id: String, p: float) -> int:
 	var d := get_district(district)
 	var price: float = get_good(id).base_price * float(d.prices.get(id, 1.0)) * factors[String(d.get("city", ""))][id] * (1.0 + p)
-	if _event_here(district):
-		price *= event.prices.get(id, 1.0)
+	for event: Dictionary in events_at(district):
+		price *= float(event.prices.get(id, 1.0))
 	return maxi(1, roundi(price))
 
 

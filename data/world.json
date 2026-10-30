@@ -25,6 +25,31 @@
 			"id": "usa",
 			"name_key": "COUNTRY_USA",
 			"zone": "usa"
+		},
+		{
+			"id": "uk",
+			"name_key": "COUNTRY_UK",
+			"zone": "uk"
+		},
+		{
+			"id": "mexico",
+			"name_key": "COUNTRY_MEXICO",
+			"zone": "mexico"
+		},
+		{
+			"id": "brazil",
+			"name_key": "COUNTRY_BRAZIL",
+			"zone": "brazil"
+		},
+		{
+			"id": "uae",
+			"name_key": "COUNTRY_UAE",
+			"zone": "uae"
+		},
+		{
+			"id": "thailand",
+			"name_key": "COUNTRY_THAILAND",
+			"zone": "thailand"
 		}
 	],
 	"cities": [
@@ -45,7 +70,7 @@
 			"lon": 4.9,
 			"layout": "res://data/cities/amsterdam.json",
 			"start": "ams_canals",
-			"label": "left"
+			"label": "up"
 		},
 		{
 			"id": "marseille",
@@ -73,41 +98,107 @@
 			"lon": -80.19,
 			"layout": "res://data/cities/miami.json",
 			"start": "mia_downtown"
+		},
+		{
+			"id": "london",
+			"name_key": "CITY_LONDON",
+			"country": "uk",
+			"lat": 51.51,
+			"lon": -0.13,
+			"layout": "res://data/cities/london.json",
+			"start": "lon_city",
+			"label": "left"
+		},
+		{
+			"id": "mexico",
+			"name_key": "CITY_MEXICO",
+			"country": "mexico",
+			"lat": 19.43,
+			"lon": -99.13,
+			"layout": "res://data/cities/mexico.json",
+			"start": "mex_centro"
+		},
+		{
+			"id": "rio",
+			"name_key": "CITY_RIO",
+			"country": "brazil",
+			"lat": -22.91,
+			"lon": -43.17,
+			"layout": "res://data/cities/rio.json",
+			"start": "rio_centro"
+		},
+		{
+			"id": "dubai",
+			"name_key": "CITY_DUBAI",
+			"country": "uae",
+			"lat": 25.2,
+			"lon": 55.27,
+			"layout": "res://data/cities/dubai.json",
+			"start": "dxb_deira"
+		},
+		{
+			"id": "bangkok",
+			"name_key": "CITY_BANGKOK",
+			"country": "thailand",
+			"lat": 13.75,
+			"lon": 100.5,
+			"layout": "res://data/cities/bangkok.json",
+			"start": "bkk_chatuchak"
 		}
 	],
 	"suppliers": [
-		{ "id": "otto", "city": "berlin", "name_key": "SUP_OTTO", "goods": ["mushrooms", "herbs"], "price": 0.85, "risk": 0.0 },
-		{ "id": "chemsnab", "city": "berlin", "name_key": "SUP_CHEMSNAB", "goods": ["reagents", "cigarettes"], "price": 1.0, "risk": 0.03 },
-		{ "id": "shram", "city": "berlin", "name_key": "SUP_SHRAM", "goods": ["moon_moss", "reagents", "cigarettes", "phones", "watches", "car_parts", "ammo", "pistol"], "price": 0.7, "risk": 0.15 },
-		{ "id": "tulip", "city": "amsterdam", "name_key": "SUP_TULIP", "goods": ["herbs", "mushrooms", "moon_moss"], "price": 0.9, "risk": 0.02 },
-		{ "id": "wim", "city": "amsterdam", "name_key": "SUP_WIM", "goods": ["moon_moss", "reagents", "phones", "watches"], "price": 0.65, "risk": 0.16 },
-		{ "id": "quay", "city": "marseille", "name_key": "SUP_QUAY", "goods": ["cigarettes", "reagents", "herbs"], "price": 0.95, "risk": 0.03 },
-		{ "id": "corsican", "city": "marseille", "name_key": "SUP_CORSICAN", "goods": ["cigarettes", "reagents", "phones", "ammo", "pistol", "shotgun", "car_parts"], "price": 0.7, "risk": 0.18 },
-		{ "id": "teahouse", "city": "istanbul", "name_key": "SUP_TEAHOUSE", "goods": ["herbs", "mushrooms", "cigarettes"], "price": 0.85, "risk": 0.02 },
-		{ "id": "ahmet", "city": "istanbul", "name_key": "SUP_AHMET", "goods": ["phones", "cigarettes", "reagents", "watches", "ammo", "pistol"], "price": 0.7, "risk": 0.15 },
-		{ "id": "portlog", "city": "miami", "name_key": "SUP_PORTLOG", "goods": ["reagents", "herbs", "mushrooms"], "price": 1.1, "risk": 0.03 },
-		{ "id": "cuban", "city": "miami", "name_key": "SUP_CUBAN", "goods": ["moon_moss", "cigarettes", "reagents", "ammo", "pistol", "shotgun", "rifle", "armor"], "price": 0.75, "risk": 0.2 }
+		{"id": "otto", "city": "berlin", "name_key": "SUP_OTTO", "goods": ["mushrooms", "herbs"], "price": 0.85, "risk": 0.0},
+		{"id": "chemsnab", "city": "berlin", "name_key": "SUP_CHEMSNAB", "goods": ["reagents", "cigarettes"], "price": 1.0, "risk": 0.03},
+		{"id": "shram", "city": "berlin", "name_key": "SUP_SHRAM", "goods": ["moon_moss", "reagents", "cigarettes", "phones", "watches", "car_parts", "ammo", "pistol"], "price": 0.7, "risk": 0.15},
+		{"id": "tulip", "city": "amsterdam", "name_key": "SUP_TULIP", "goods": ["herbs", "mushrooms", "moon_moss"], "price": 0.9, "risk": 0.02},
+		{"id": "wim", "city": "amsterdam", "name_key": "SUP_WIM", "goods": ["moon_moss", "reagents", "phones", "watches"], "price": 0.65, "risk": 0.16},
+		{"id": "quay", "city": "marseille", "name_key": "SUP_QUAY", "goods": ["cigarettes", "reagents", "herbs"], "price": 0.95, "risk": 0.03},
+		{"id": "corsican", "city": "marseille", "name_key": "SUP_CORSICAN", "goods": ["cigarettes", "reagents", "phones", "ammo", "pistol", "shotgun", "car_parts"], "price": 0.7, "risk": 0.18},
+		{"id": "teahouse", "city": "istanbul", "name_key": "SUP_TEAHOUSE", "goods": ["herbs", "mushrooms", "cigarettes"], "price": 0.85, "risk": 0.02},
+		{"id": "ahmet", "city": "istanbul", "name_key": "SUP_AHMET", "goods": ["phones", "cigarettes", "reagents", "watches", "ammo", "pistol"], "price": 0.7, "risk": 0.15},
+		{"id": "portlog", "city": "miami", "name_key": "SUP_PORTLOG", "goods": ["reagents", "herbs", "mushrooms"], "price": 1.1, "risk": 0.03},
+		{"id": "cuban", "city": "miami", "name_key": "SUP_CUBAN", "goods": ["moon_moss", "cigarettes", "reagents", "ammo", "pistol", "shotgun", "rifle", "armor"], "price": 0.75, "risk": 0.2},
+		{"id": "docklands", "city": "london", "name_key": "SUP_DOCKLANDS", "goods": ["tea", "cigarettes", "reagents"], "price": 1.05, "risk": 0.03},
+		{"id": "frank", "city": "london", "name_key": "SUP_FRANK", "goods": ["phones", "watches", "moon_pollen", "pistol", "ammo"], "price": 0.75, "risk": 0.17},
+		{"id": "merced", "city": "mexico", "name_key": "SUP_MERCED", "goods": ["herbs", "mushrooms", "tea"], "price": 0.8, "risk": 0.02},
+		{"id": "raul", "city": "mexico", "name_key": "SUP_RAUL", "goods": ["reagents", "moon_moss", "moon_pollen", "ammo", "pistol", "shotgun"], "price": 0.6, "risk": 0.2},
+		{"id": "tijuca_farms", "city": "rio", "name_key": "SUP_TIJUCA_FARMS", "goods": ["herbs", "mushrooms", "tea"], "price": 0.85, "risk": 0.02},
+		{"id": "juka", "city": "rio", "name_key": "SUP_JUKA", "goods": ["moon_moss", "cigarettes", "ammo", "pistol", "car_parts"], "price": 0.7, "risk": 0.17},
+		{"id": "deira_house", "city": "dubai", "name_key": "SUP_DEIRA_HOUSE", "goods": ["tea", "herbs", "reagents"], "price": 1.1, "risk": 0.02},
+		{"id": "gold_broker", "city": "dubai", "name_key": "SUP_GOLD_BROKER", "goods": ["watches", "phones", "rifle", "armor", "ammo"], "price": 0.8, "risk": 0.15},
+		{"id": "klongtoey_market", "city": "bangkok", "name_key": "SUP_KLONGTOEY_MARKET", "goods": ["tea", "herbs", "mushrooms"], "price": 0.75, "risk": 0.02},
+		{"id": "somchai", "city": "bangkok", "name_key": "SUP_SOMCHAI", "goods": ["phones", "watches", "cigarettes", "reagents", "moon_moss"], "price": 0.6, "risk": 0.18}
 	],
 	"clients": [
-		{ "id": "promoter", "city": "*", "name_key": "CLIENT_PROMOTER", "goods": ["moon_pollen", "blue_dust", "cigarettes"] },
-		{ "id": "chef", "city": "*", "name_key": "CLIENT_CHEF", "goods": ["mushrooms", "herbs", "tea"] },
-		{ "id": "fixer", "city": "*", "name_key": "CLIENT_FIXER", "goods": ["phones", "cigarettes"] },
-		{ "id": "apothecary", "city": "*", "name_key": "CLIENT_APOTHECARY", "goods": ["moon_moss", "herbs", "reagents"] },
-		{ "id": "mercs", "city": "*", "name_key": "CLIENT_MERCS", "goods": ["ammo", "pistol", "shotgun", "armor", "rifle"] },
-		{ "id": "chop_shop", "city": "*", "name_key": "CLIENT_CHOP_SHOP", "goods": ["car_parts", "watches"] },
-		{ "id": "collector", "city": "amsterdam", "name_key": "CLIENT_COLLECTOR", "goods": ["jewelry", "antique", "painting"] },
-		{ "id": "yacht_owner", "city": "miami", "name_key": "CLIENT_YACHT_OWNER", "goods": ["jewelry", "painting", "watches"] }
+		{"id": "promoter", "city": "*", "name_key": "CLIENT_PROMOTER", "goods": ["moon_pollen", "blue_dust", "cigarettes"]},
+		{"id": "chef", "city": "*", "name_key": "CLIENT_CHEF", "goods": ["mushrooms", "herbs", "tea"]},
+		{"id": "fixer", "city": "*", "name_key": "CLIENT_FIXER", "goods": ["phones", "cigarettes"]},
+		{"id": "apothecary", "city": "*", "name_key": "CLIENT_APOTHECARY", "goods": ["moon_moss", "herbs", "reagents"]},
+		{"id": "mercs", "city": "*", "name_key": "CLIENT_MERCS", "goods": ["ammo", "pistol", "shotgun", "armor", "rifle"]},
+		{"id": "chop_shop", "city": "*", "name_key": "CLIENT_CHOP_SHOP", "goods": ["car_parts", "watches"]},
+		{"id": "collector", "city": "amsterdam", "name_key": "CLIENT_COLLECTOR", "goods": ["jewelry", "antique", "painting"]},
+		{"id": "yacht_owner", "city": "miami", "name_key": "CLIENT_YACHT_OWNER", "goods": ["jewelry", "painting", "watches"]}
 	],
 	"operations": [
-		{ "id": "ber_truck", "kind": "armored_truck", "city": "berlin", "district": "station" },
-		{ "id": "ber_vault", "kind": "bank_vault", "city": "berlin", "district": "market" },
-		{ "id": "ams_museum", "kind": "museum", "city": "amsterdam", "district": "ams_canals" },
-		{ "id": "ams_jewels", "kind": "jewelry_store", "city": "amsterdam", "district": "ams_night" },
-		{ "id": "mrs_truck", "kind": "armored_truck", "city": "marseille", "district": "mrs_docks" },
-		{ "id": "mrs_museum", "kind": "museum", "city": "marseille", "district": "mrs_center" },
-		{ "id": "ist_jewels", "kind": "jewelry_store", "city": "istanbul", "district": "ist_bazaar" },
-		{ "id": "ist_truck", "kind": "armored_truck", "city": "istanbul", "district": "ist_port" },
-		{ "id": "mia_vault", "kind": "bank_vault", "city": "miami", "district": "mia_downtown" },
-		{ "id": "mia_jewels", "kind": "jewelry_store", "city": "miami", "district": "mia_beach" }
+		{"id": "ber_truck", "kind": "armored_truck", "city": "berlin", "district": "station"},
+		{"id": "ber_vault", "kind": "bank_vault", "city": "berlin", "district": "market"},
+		{"id": "ams_museum", "kind": "museum", "city": "amsterdam", "district": "ams_canals"},
+		{"id": "ams_jewels", "kind": "jewelry_store", "city": "amsterdam", "district": "ams_night"},
+		{"id": "mrs_truck", "kind": "armored_truck", "city": "marseille", "district": "mrs_docks"},
+		{"id": "mrs_museum", "kind": "museum", "city": "marseille", "district": "mrs_center"},
+		{"id": "ist_jewels", "kind": "jewelry_store", "city": "istanbul", "district": "ist_bazaar"},
+		{"id": "ist_truck", "kind": "armored_truck", "city": "istanbul", "district": "ist_port"},
+		{"id": "mia_vault", "kind": "bank_vault", "city": "miami", "district": "mia_downtown"},
+		{"id": "mia_jewels", "kind": "jewelry_store", "city": "miami", "district": "mia_beach"},
+		{"id": "lon_vault", "kind": "bank_vault", "city": "london", "district": "lon_city"},
+		{"id": "lon_museum", "kind": "museum", "city": "london", "district": "lon_soho"},
+		{"id": "mex_truck", "kind": "armored_truck", "city": "mexico", "district": "mex_terminal"},
+		{"id": "mex_jewels", "kind": "jewelry_store", "city": "mexico", "district": "mex_centro"},
+		{"id": "rio_truck", "kind": "armored_truck", "city": "rio", "district": "rio_port"},
+		{"id": "rio_jewels", "kind": "jewelry_store", "city": "rio", "district": "rio_copacabana"},
+		{"id": "dxb_jewels", "kind": "jewelry_store", "city": "dubai", "district": "dxb_deira"},
+		{"id": "dxb_vault", "kind": "bank_vault", "city": "dubai", "district": "dxb_marina"},
+		{"id": "bkk_truck", "kind": "armored_truck", "city": "bangkok", "district": "bkk_klongtoey"},
+		{"id": "bkk_museum", "kind": "museum", "city": "bangkok", "district": "bkk_chatuchak"}
 	]
 }

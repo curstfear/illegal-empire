@@ -1,0 +1,483 @@
+{
+	"size": 29,
+	"roads": [
+		6,
+		14,
+		22
+	],
+	"center": 14,
+	"tile": 2.0,
+	"seed": 67,
+	"quadrants": {
+		"dxb_deira": "nw",
+		"dxb_port": "ne",
+		"dxb_marina": "sw",
+		"dxb_desert": "se"
+	},
+	"styles": {
+		"dxb_deira": {
+			"models": [
+				"kaykit_city/building_A.gltf",
+				"kaykit_city/building_B.gltf",
+				"kaykit_city/building_C.gltf",
+				"kaykit_city/building_D.gltf",
+				"kaykit_city/building_E.gltf",
+				"kaykit_city/building_F.gltf"
+			],
+			"scale": 1.0,
+			"on_base": false,
+			"density": 0.36
+		},
+		"dxb_port": {
+			"models": [
+				"kenney_city_industrial/building-a.glb",
+				"kenney_city_industrial/building-b.glb",
+				"kenney_city_industrial/building-c.glb",
+				"kenney_city_industrial/building-e.glb",
+				"kenney_city_industrial/building-f.glb",
+				"kenney_city_industrial/building-g.glb",
+				"kenney_city_industrial/building-l.glb",
+				"kenney_city_industrial/building-m.glb",
+				"kenney_city_industrial/building-q.glb",
+				"kenney_city_industrial/building-r.glb",
+				"kenney_city_industrial/building-t.glb"
+			],
+			"scale": 0.85,
+			"on_base": true,
+			"density": 0.28
+		},
+		"dxb_marina": {
+			"models": [
+				"kenney_city_commercial/building-skyscraper-a.glb",
+				"kenney_city_commercial/building-skyscraper-b.glb",
+				"kenney_city_commercial/building-skyscraper-c.glb",
+				"kenney_city_commercial/building-skyscraper-d.glb",
+				"kenney_city_commercial/building-skyscraper-e.glb"
+			],
+			"scale": 0.75,
+			"on_base": true,
+			"density": 0.3
+		},
+		"dxb_desert": {
+			"models": [],
+			"scale": 1.0,
+			"on_base": false,
+			"density": 0.0,
+			"park": true
+		}
+	},
+	"open_space": {
+		"plaza": 0.35,
+		"park": 0.4,
+		"parking": 0.25
+	},
+	"pond": [
+		[
+			26,
+			0
+		],
+		[
+			26,
+			1
+		],
+		[
+			26,
+			2
+		],
+		[
+			26,
+			3
+		],
+		[
+			26,
+			4
+		],
+		[
+			26,
+			5
+		],
+		[
+			26,
+			7
+		],
+		[
+			26,
+			8
+		],
+		[
+			26,
+			9
+		],
+		[
+			26,
+			10
+		],
+		[
+			26,
+			11
+		],
+		[
+			26,
+			12
+		],
+		[
+			26,
+			13
+		],
+		[
+			26,
+			15
+		],
+		[
+			26,
+			16
+		],
+		[
+			26,
+			17
+		],
+		[
+			26,
+			18
+		],
+		[
+			26,
+			19
+		],
+		[
+			26,
+			20
+		],
+		[
+			26,
+			21
+		],
+		[
+			26,
+			23
+		],
+		[
+			26,
+			24
+		],
+		[
+			26,
+			25
+		],
+		[
+			26,
+			26
+		],
+		[
+			26,
+			27
+		],
+		[
+			26,
+			28
+		],
+		[
+			27,
+			0
+		],
+		[
+			27,
+			1
+		],
+		[
+			27,
+			2
+		],
+		[
+			27,
+			3
+		],
+		[
+			27,
+			4
+		],
+		[
+			27,
+			5
+		],
+		[
+			27,
+			7
+		],
+		[
+			27,
+			8
+		],
+		[
+			27,
+			9
+		],
+		[
+			27,
+			10
+		],
+		[
+			27,
+			11
+		],
+		[
+			27,
+			12
+		],
+		[
+			27,
+			13
+		],
+		[
+			27,
+			15
+		],
+		[
+			27,
+			16
+		],
+		[
+			27,
+			17
+		],
+		[
+			27,
+			18
+		],
+		[
+			27,
+			19
+		],
+		[
+			27,
+			20
+		],
+		[
+			27,
+			21
+		],
+		[
+			27,
+			23
+		],
+		[
+			27,
+			24
+		],
+		[
+			27,
+			25
+		],
+		[
+			27,
+			26
+		],
+		[
+			27,
+			27
+		],
+		[
+			27,
+			28
+		],
+		[
+			28,
+			0
+		],
+		[
+			28,
+			1
+		],
+		[
+			28,
+			2
+		],
+		[
+			28,
+			3
+		],
+		[
+			28,
+			4
+		],
+		[
+			28,
+			5
+		],
+		[
+			28,
+			7
+		],
+		[
+			28,
+			8
+		],
+		[
+			28,
+			9
+		],
+		[
+			28,
+			10
+		],
+		[
+			28,
+			11
+		],
+		[
+			28,
+			12
+		],
+		[
+			28,
+			13
+		],
+		[
+			28,
+			15
+		],
+		[
+			28,
+			16
+		],
+		[
+			28,
+			17
+		],
+		[
+			28,
+			18
+		],
+		[
+			28,
+			19
+		],
+		[
+			28,
+			20
+		],
+		[
+			28,
+			21
+		],
+		[
+			28,
+			23
+		],
+		[
+			28,
+			24
+		],
+		[
+			28,
+			25
+		],
+		[
+			28,
+			26
+		],
+		[
+			28,
+			27
+		],
+		[
+			28,
+			28
+		]
+	],
+	"pois": [
+		{
+			"id": "dubai_market",
+			"district": "dxb_deira",
+			"name_key": "POI_DXB_DEIRA",
+			"tile": [
+				12,
+				13
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-n.glb",
+			"scale": 0.85,
+			"rot": 0
+		},
+		{
+			"id": "dubai_port",
+			"district": "dxb_port",
+			"name_key": "POI_DXB_PORT",
+			"tile": [
+				17,
+				13
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-j.glb",
+			"scale": 0.95,
+			"rot": 0
+		},
+		{
+			"id": "dubai_night",
+			"district": "dxb_marina",
+			"name_key": "POI_DXB_MARINA",
+			"tile": [
+				12,
+				15
+			],
+			"main": true,
+			"model": "kenney_city_commercial/building-k.glb",
+			"scale": 0.95,
+			"rot": 180,
+			"neon": [
+				1.0,
+				0.8,
+				0.3
+			]
+		},
+		{
+			"id": "dubai_park",
+			"district": "dxb_desert",
+			"name_key": "POI_DXB_DESERT",
+			"tile": [
+				17,
+				15
+			],
+			"main": true,
+			"model": "kaykit_city/bench.gltf",
+			"scale": 3.0,
+			"rot": 0
+		}
+	],
+	"lighting": {
+		"day": [
+			1.06,
+			0.96,
+			0.8
+		],
+		"night": [
+			1.0,
+			0.9,
+			0.8
+		],
+		"energy": 1.2,
+		"saturation": 1.15
+	},
+	"colors": {
+		"ground": [
+			0.98,
+			0.92,
+			0.78
+		],
+		"grass": [
+			0.72,
+			0.8,
+			0.5
+		],
+		"water": [
+			0.15,
+			0.6,
+			0.85
+		],
+		"lamp": [
+			1.0,
+			0.82,
+			0.45
+		]
+	}
+}

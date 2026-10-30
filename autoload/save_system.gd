@@ -18,6 +18,12 @@ func save_game(data: Dictionary) -> bool:
 	return true
 
 
+## Стереть сохранение (железный режим: проигрыш не переиграть).
+func delete_save() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
 func load_game() -> Dictionary:
 	var data := _read()
 	if data.is_empty():

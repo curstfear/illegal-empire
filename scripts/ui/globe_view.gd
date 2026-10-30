@@ -160,9 +160,11 @@ func set_cities(list: Dictionary) -> void:
 		(ring.material_override as StandardMaterial3D).albedo_color = Color(0.45, 0.65, 1.0) if info.here else Color.WHITE
 		var label: Label3D = marker.get_node("Label")
 		label.text = "%s\n%s" % [info.name, info.sub]
-		var left: bool = info.get("left", false)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if left else HORIZONTAL_ALIGNMENT_LEFT
-		label.offset = Vector2(-22 if left else 22, 4)
+		# Подпись справа от точки, слева ("left") или над ней ("up") — чтобы соседние города не налезали.
+		var side: String = info.get("label", "right")
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if side == "left" \
+				else (HORIZONTAL_ALIGNMENT_CENTER if side == "up" else HORIZONTAL_ALIGNMENT_LEFT)
+		label.offset = Vector2(0, 40) if side == "up" else Vector2(-22 if side == "left" else 22, 4)
 		label.modulate = Color.WHITE if info.selected or id == _hovered else Color(0.85, 0.88, 0.95)
 
 

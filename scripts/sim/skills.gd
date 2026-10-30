@@ -43,6 +43,13 @@ func add_xp(id: String, amount: int) -> bool:
 	return level(id) > before
 
 
+## Сразу поставить уровень (прошлое героя на старте): опыт ровно на начало этого уровня.
+func set_level(id: String, lvl: int) -> void:
+	xp[id] = 0
+	for i in mini(lvl, int(_balance.skill_max)):
+		xp[id] += _need(i)
+
+
 ## Множитель цены продажи от Торговли.
 func sell_multiplier() -> float:
 	return 1.0 + level("trade") * _balance.trade_bonus_per_level

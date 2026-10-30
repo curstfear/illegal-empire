@@ -5,7 +5,7 @@ extends Control
 
 ## Какую иконку рисовать: clean, dirty, debt, heat, energy, day,
 ## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, ammo, pistol, shotgun, rifle, armor, watches,
-## car_parts, jewelry, antique, painting, district, warehouse, lab, front, van, globe.
+## car_parts, jewelry, antique, painting, district, warehouse, lab, front, van, globe, news.
 var kind := ""
 
 
@@ -160,6 +160,14 @@ func _draw() -> void:
 			_rounded_rect(Rect2(c - Vector2(s * 0.4, s * 0.4), Vector2(s * 0.8, s * 0.8)), s * 0.1, ink)
 			draw_rect(Rect2(c + Vector2(-s * 0.22, -s * 0.4), Vector2(s * 0.4, s * 0.26)), Color.WHITE)
 			draw_rect(Rect2(c + Vector2(-s * 0.26, s * 0.06), Vector2(s * 0.52, s * 0.3)), Color(1, 1, 1, 0.9))
+		"news":
+			# Газета: лист, заголовок и строки.
+			var ink := Color(0.27, 0.3, 0.38)
+			_rounded_rect(Rect2(c - Vector2(s * 0.4, s * 0.36), Vector2(s * 0.8, s * 0.72)), s * 0.08, ink)
+			draw_rect(Rect2(c + Vector2(-s * 0.28, -s * 0.25), Vector2(s * 0.56, s * 0.14)), Color.WHITE)
+			draw_rect(Rect2(c + Vector2(-s * 0.28, -s * 0.03), Vector2(s * 0.24, s * 0.24)), Color(1, 1, 1, 0.75))
+			for y in [-0.02, 0.08, 0.18]:
+				draw_rect(Rect2(c + Vector2(s * 0.02, s * y), Vector2(s * 0.26, s * 0.05)), Color(1, 1, 1, 0.75))
 		"globe":
 			# Глобус: круг, экватор, меридиан-овал.
 			var ink := Color(0.27, 0.3, 0.38)

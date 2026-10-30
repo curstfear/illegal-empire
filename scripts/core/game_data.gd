@@ -11,6 +11,7 @@ const RECIPES_PATH := "res://data/recipes.json"
 const CREW_PATH := "res://data/crew.json"
 const GANGS_PATH := "res://data/gangs.json"
 const WORLD_PATH := "res://data/world.json"
+const STORIES_PATH := "res://data/stories.json"
 
 
 static func load_balance() -> Dictionary:
@@ -51,6 +52,10 @@ static func load_gangs() -> Dictionary:
 
 static func load_world() -> Dictionary:
 	return _load_json(WORLD_PATH)
+
+
+static func load_stories() -> Array:
+	return _load_json(STORIES_PATH)
 
 
 static func _load_json(path: String) -> Variant:

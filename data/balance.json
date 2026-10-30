@@ -42,6 +42,16 @@
 
 	"event_chance": 0.6,
 	"rumor_chance": 0.7,
+	"rumor_far_chance": 0.35,
+	"world_event_chance": 0.12,
+	"season_days": 28,
+	"news_jokes": 14,
+	"news_heat": 50,
+	"news_legend_rank": 4,
+	"news_tip_ratio": 1.4,
+	"story_chance": 0.5,
+	"story_active_max": 2,
+	"story_choice_days": 5,
 
 	"energy_max": 100,
 	"activity_bust_heat": 10,
@@ -415,22 +425,27 @@
 	"passport_cost": 250,
 	"passport_days": 2,
 	"visas": {
-		"turkey": { "name_key": "VISA_TURKEY", "cost": 120, "days": 0, "valid": 30 },
-		"usa": { "name_key": "VISA_USA", "cost": 900, "days": 3, "valid": 60, "max_heat": 60, "arrest_days": 14 }
+		"turkey": {"name_key": "VISA_TURKEY", "cost": 120, "days": 0, "valid": 30},
+		"usa": {"name_key": "VISA_USA", "cost": 900, "days": 3, "valid": 60, "max_heat": 60, "arrest_days": 14},
+		"uk": {"name_key": "VISA_UK", "cost": 300, "days": 2, "valid": 60, "max_heat": 60},
+		"mexico": {"name_key": "VISA_MEXICO", "cost": 80, "days": 0, "valid": 30},
+		"brazil": {"name_key": "VISA_BRAZIL", "cost": 150, "days": 1, "valid": 30},
+		"uae": {"name_key": "VISA_UAE", "cost": 200, "days": 0, "valid": 30, "max_heat": 60},
+		"thailand": {"name_key": "VISA_THAILAND", "cost": 60, "days": 0, "valid": 30}
 	},
-	"forger_districts": ["station", "mrs_docks", "ist_bazaar"],
+	"forger_districts": ["station", "mrs_docks", "ist_bazaar", "mex_terminal", "bkk_klongtoey"],
 	"fake_passport_cost": 400,
-	"fake_visa_cost": { "turkey": 90, "usa": 600 },
+	"fake_visa_cost": { "turkey": 90, "usa": 600, "uk": 250, "mexico": 60, "brazil": 110, "uae": 180, "thailand": 45 },
 	"fake_visa_valid": 20,
 	"fake_detect": { "passport": 0.15, "visa": 0.25 },
 	"fake_caught_fine": 400,
 	"fake_caught_heat": 20,
-	"customs": { "schengen": 0.12, "turkey": 0.25, "usa": 0.45 },
+	"customs": { "schengen": 0.12, "turkey": 0.25, "usa": 0.45, "uk": 0.35, "mexico": 0.2, "brazil": 0.22, "uae": 0.5, "thailand": 0.3 },
 	"customs_per_heat": 0.003,
-	"customs_per_1000": 0.05,
+	"customs_per_1000": 0.03,
 	"customs_max": 0.8,
-	"customs_bribe_share": 0.4,
-	"customs_bribe_mult": { "schengen": 1.0, "turkey": 0.7, "usa": 2.0 },
+	"customs_bribe_share": 0.3,
+	"customs_bribe_mult": { "schengen": 1.0, "turkey": 0.7, "usa": 2.0, "uk": 1.6, "mexico": 0.6, "brazil": 0.7, "uae": 2.2, "thailand": 0.8 },
 	"customs_heat": 10,
 	"smuggle_case_cost": 500,
 	"smuggle_case_factor": 0.5,
@@ -438,8 +453,8 @@
 	"freight_base": 25,
 	"freight_per_unit_1000km": 0.8,
 	"freight_km_per_day": 3000,
-	"duty": { "schengen": 0.0, "turkey": 0.1, "usa": 0.15 },
-	"shipment_customs": { "schengen": 0.08, "turkey": 0.15, "usa": 0.3 },
+	"duty": { "schengen": 0.0, "turkey": 0.1, "usa": 0.15, "uk": 0.12, "mexico": 0.08, "brazil": 0.1, "uae": 0.05, "thailand": 0.1 },
+	"shipment_customs": { "schengen": 0.08, "turkey": 0.15, "usa": 0.3, "uk": 0.25, "mexico": 0.12, "brazil": 0.14, "uae": 0.32, "thailand": 0.18 },
 	"shipment_customs_per_1000": 0.02,
 	"shipment_customs_max": 0.7,
 	"shipment_disguise_share": 0.1,
@@ -454,7 +469,7 @@
 		"boat": { "name_key": "TRANSPORT_BOAT", "freight": 0.6, "extra_days": 1, "risk": 0.6, "every": 3, "capacity": 200 },
 		"plane": { "name_key": "TRANSPORT_PLANE", "freight": 1.6, "extra_days": 0, "risk": 1.0, "every": 2, "capacity": 60, "fast": true }
 	},
-	"insider_fee": { "schengen": 600, "turkey": 400, "usa": 1200 },
+	"insider_fee": { "schengen": 600, "turkey": 400, "usa": 1200, "uk": 1000, "mexico": 350, "brazil": 450, "uae": 1500, "thailand": 400 },
 	"insider_cut": 0.3,
 	"insider_flight": 0.5,
 	"insider_rat": 0.03,
@@ -483,5 +498,32 @@
 	"op_fail_wound": 0.5,
 	"op_fail_arrest": 0.25,
 	"op_fail_heat": 1.5,
-	"op_gang_relation": 10
+	"op_gang_relation": 10,
+
+	"modes": {
+		"career": { "name_key": "MODE_CAREER", "desc_key": "MODE_CAREER_DESC", "debt": true },
+		"sandbox": { "name_key": "MODE_SANDBOX", "desc_key": "MODE_SANDBOX_DESC", "debt": false, "money": 3000 },
+		"iron": { "name_key": "MODE_IRON", "desc_key": "MODE_IRON_DESC", "debt": true, "max_arrests": 3 }
+	},
+	"home_cities": {
+		"berlin": { "desc_key": "HOME_BERLIN_DESC", "money": 120, "debt": 48000 },
+		"amsterdam": { "desc_key": "HOME_AMSTERDAM_DESC", "money": 300, "debt": 55000 },
+		"marseille": { "desc_key": "HOME_MARSEILLE_DESC", "money": 60, "debt": 42000 }
+	},
+	"backgrounds": {
+		"driver": { "name_key": "PAST_DRIVER", "desc_key": "PAST_DRIVER_DESC", "skill": "driving", "level": 2, "vehicle": "scooter" },
+		"cook": { "name_key": "PAST_COOK", "desc_key": "PAST_COOK_DESC", "skill": "craft", "level": 2, "defect_cut": 0.05 },
+		"hacker": { "name_key": "PAST_HACKER", "desc_key": "PAST_HACKER_DESC", "skill": "hacking", "level": 2, "fake_discount": 0.3 }
+	},
+	"goals": [
+		{ "id": "debt", "needs": { "debt_free": 1 } },
+		{ "id": "district", "needs": { "districts": 1 } },
+		{ "id": "city", "needs": { "city_districts": 3 } },
+		{ "id": "world", "needs": { "visited": 5, "countries": 3 } },
+		{ "id": "capital", "needs": { "capital": 10000000 } }
+	],
+	"endings": {
+		"clean": { "needs": { "debt_free": 1, "clean_capital": 1000000, "dirty_share_max": 20 } },
+		"dark": { "needs": { "top_rank": 1 } }
+	}
 }

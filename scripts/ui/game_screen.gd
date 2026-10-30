@@ -133,6 +133,7 @@ var _skill_rows: Dictionary = {}
 var _jobs_box := VBoxContainer.new()
 var _offers_open := false
 var _ladder_open := false
+var _goals_open := false
 ## Вкладка «Перевозки» (строится кодом) и выбор в форме нового маршрута.
 var _routes_list := VBoxContainer.new()
 var _route_form := { "from": "", "to": "", "good": "", "vehicle": 0, "courier": 0, "scout": 0,
@@ -450,9 +451,16 @@ func _build_jobs_panel() -> void:
 func _refresh_jobs() -> void:
 	var s := GameState.session
 	_clear(_jobs_box)
+	if s.ending_offer != "":
+		_jobs_box.add_child(_ending_offer_card())
+	if not s.news_read and not s.news.is_empty():
+		_jobs_box.add_child(_news_card())
 	_jobs_box.add_child(_rank_card())
+	_jobs_box.add_child(_goals_card())
 	for sit: Dictionary in s.jobs.situations:
 		_jobs_box.add_child(_situation_card(sit))
+	for id: String in s.visible_stories():
+		_jobs_box.add_child(_story_card(id))
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", _card_style(12, 10))
 	var box := VBoxContainer.new()
@@ -550,6 +558,204 @@ func _rank_card() -> PanelContainer:
 		box.add_child(_wrapped(tr("RANK_OPENS") % _perks_text(s.rank + 1, ""), 10, COLOR_ACCENT))
 	card.add_child(box)
 	return card
+
+
+## Мини-история: контакт, его слова и либо выбор, либо задание со сроком.
+func _story_card(id: String) -> PanelContainer:
+	var s := GameState.session
+	var st: Dictionary = s.stories[id]
+	var step := s.story_step(id)
+	var card := PanelContainer.new()
+	var style := _card_style(12, 10)
+	style.border_color = COLOR_ACCENT
+	style.set_border_width_all(2)
+	card.add_theme_stylebox_override("panel", style)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	var title := _small_label(tr("STORIES_TITLE") % tr(s.story_def(id).contact_key), 13, COLOR_TEXT)
+	_bold(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(_pill(tr("STORY_DAYS_LEFT") % maxi(0, int(st.deadline) - s.day), COLOR_ACCENT))
+	box.add_child(head)
+	box.add_child(_wrapped(tr("STORY_%s_%s" % [id.to_upper(), String(st.step).to_upper()]), 11, COLOR_TEXT))
+	var buttons := HFlowContainer.new()
+	buttons.add_theme_constant_override("h_separation", 4)
+	buttons.add_theme_constant_override("v_separation", 4)
+	if step.has("task"):
+		var task: Dictionary = step.task
+		var line := ""
+		if task.kind == "visit":
+			var where: Array = s.world.districts_of(st.city).filter(func(d: Dictionary) -> bool: return d.get("kind", "") == task.district_kind)
+			line = tr("STORY_TASK_VISIT") % [tr(where[0].name_key) if not where.is_empty() else "?", tr(s.world.get_city(st.city).name_key)]
+		else:
+			line = tr("STORY_TASK_GOODS") % [int(task.amount), tr(s.market.get_good(task.good).name_key), int(s.inventory.get(task.good, 0))]
+		box.add_child(_small_label(line, 10, COLOR_UP if s.story_task_ready(id) else COLOR_MUTED))
+		buttons.add_child(_prop_button(tr("BTN_STORY_DO"), GameState.story_do_task.bind(id), not s.story_task_ready(id) or not s.can_act(), true))
+	else:
+		var first := true
+		for choice: Dictionary in step.choices:
+			var label := tr("STORY_%s_%s_%s" % [id.to_upper(), String(st.step).to_upper(), String(choice.id).to_upper()])
+			buttons.add_child(_prop_button(label, GameState.story_choose.bind(id, String(choice.id)),
+					not s.can_story_choose(id, String(choice.id)), first))
+			first = false
+	box.add_child(buttons)
+	card.add_child(box)
+	return card
+
+
+## Утренняя газета: заголовки дня с цветной меткой вида; «Прочитал» прячет её до следующего утра.
+func _news_card() -> PanelContainer:
+	var s := GameState.session
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _card_style(12, 10))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(_icon_square("news", COLOR_TEXT, 22))
+	var titles := VBoxContainer.new()
+	titles.add_theme_constant_override("separation", -2)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_child(_small_label((tr("NEWS_DATE") % [s.day, tr("SEASON_" + s.events.season(s.day).to_upper())]).to_upper(), 9, COLOR_MUTED))
+	var title := _small_label(tr("NEWS_TITLE"), 14, COLOR_TEXT)
+	_bold(title)
+	titles.add_child(title)
+	head.add_child(titles)
+	var close := Button.new()
+	close.text = tr("BTN_NEWS_READ")
+	_make_small(close, 8)
+	close.pressed.connect(GameState.read_news)
+	head.add_child(close)
+	box.add_child(head)
+	var colors := { "world": COLOR_ACCENT, "event": COLOR_TEXT, "rumor": COLOR_WARN, "you": COLOR_DOWN, "tip": COLOR_UP, "joke": COLOR_MUTED }
+	for item: Array in s.news:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var tag := _small_label(tr("NEWS_KIND_" + String(item[2]).to_upper()), 9, colors.get(item[2], COLOR_MUTED))
+		tag.custom_minimum_size.x = 58
+		tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		row.add_child(tag)
+		var text := _wrapped(_news_text(item), 11, COLOR_MUTED if item[2] == "joke" else COLOR_TEXT)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text)
+		box.add_child(row)
+	card.add_child(box)
+	return card
+
+
+func _news_text(item: Array) -> String:
+	var text := tr(item[0])
+	if Array(item[1]).is_empty():
+		return text
+	return text % Array(item[1]).map(func(arg: Variant) -> Variant: return tr(arg) if arg is String else arg)
+
+
+## Концовка доступна: закончить партию победой или играть дальше.
+func _ending_offer_card() -> PanelContainer:
+	var s := GameState.session
+	var card := PanelContainer.new()
+	var style := _card_style(12, 10)
+	style.border_color = COLOR_UP
+	style.set_border_width_all(2)
+	card.add_theme_stylebox_override("panel", style)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var key := "ENDING_" + s.ending_offer.to_upper()
+	var title := _small_label(tr("ENDING_OFFER_TITLE") % tr(key), 13, COLOR_TEXT)
+	_bold(title)
+	box.add_child(title)
+	box.add_child(_wrapped(tr("ENDING_OFFER_TEXT"), 11, COLOR_TEXT))
+	var buttons := HFlowContainer.new()
+	buttons.add_theme_constant_override("h_separation", 4)
+	buttons.add_child(_prop_button(tr("BTN_ENDING_TAKE"), GameState.take_ending, false, true))
+	buttons.add_child(_prop_button(tr("BTN_ENDING_DECLINE"), GameState.decline_ending, false, false))
+	box.add_child(buttons)
+	card.add_child(box)
+	return card
+
+
+## Цели партии (раздел 13.3) и путь к двум концовкам; в железном режиме — сколько арестов осталось.
+func _goals_card() -> PanelContainer:
+	var s := GameState.session
+	var goals: Array = s.balance.goals
+	var done := goals.filter(func(g: Dictionary) -> bool: return s.goal_done(g)).size()
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _card_style(12, 10))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 5)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(_icon_square("day", COLOR_ACCENT, 22))
+	var titles := VBoxContainer.new()
+	titles.add_theme_constant_override("separation", -2)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_child(_small_label(tr(s.balance.modes[s.mode].name_key).to_upper(), 9, COLOR_MUTED))
+	var title := _small_label(tr("GOALS_TITLE") % [done, goals.size()], 14, COLOR_TEXT)
+	_bold(title)
+	titles.add_child(title)
+	head.add_child(titles)
+	var toggle := Button.new()
+	toggle.text = tr("BTN_GOALS")
+	toggle.toggle_mode = true
+	toggle.button_pressed = _goals_open
+	_make_small(toggle, 8)
+	toggle.toggled.connect(func(on: bool) -> void:
+		_goals_open = on
+		_refresh_jobs())
+	head.add_child(toggle)
+	box.add_child(head)
+	if s.arrests_left() >= 0:
+		box.add_child(_small_label(tr("IRON_ARRESTS_LEFT") % s.arrests_left(), 10, COLOR_DOWN if s.arrests_left() <= 1 else COLOR_MUTED))
+	if not _goals_open:
+		card.add_child(box)
+		return card
+	for goal: Dictionary in goals:
+		var ok := s.goal_done(goal)
+		box.add_child(_small_label(("✓ " if ok else "· ") + tr("GOAL_" + String(goal.id).to_upper()), 11, COLOR_UP if ok else COLOR_TEXT))
+	for id: String in s.balance.endings:
+		box.add_child(HSeparator.new())
+		var ready := s.ending_ready(id)
+		var name := _small_label(tr("ENDING_" + id.to_upper()), 12, COLOR_UP if ready else COLOR_TEXT)
+		_bold(name)
+		box.add_child(name)
+		box.add_child(_wrapped(tr("ENDING_" + id.to_upper() + "_HINT"), 10, COLOR_MUTED))
+		var needs: Dictionary = s.balance.endings[id].needs
+		for key: String in needs:
+			box.add_child(_need_row(key, int(needs[key])))
+		if ready and s.ending_offer == "":
+			box.add_child(_prop_button(tr("BTN_ENDING_TAKE"), GameState.offer_ending.bind(id), false, true))
+	card.add_child(box)
+	return card
+
+
+## Строка требования: подпись, полоска, «есть / нужно» (для «_max» — «не больше»).
+func _need_row(key: String, need: int) -> HBoxContainer:
+	var s := GameState.session
+	var have := s.rank_stat(key)
+	var met := s.need_met(key, need)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var label := _small_label(tr("NEED_" + key.to_upper()), 10, COLOR_MUTED)
+	label.custom_minimum_size.x = 130
+	row.add_child(label)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0, 6)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	bar.value = 1.0 if met else (0.0 if key.ends_with("_max") else float(have) / maxf(1.0, need))
+	row.add_child(bar)
+	var text := "%d / %d" % [mini(have, need), need]
+	if key in ["earned", "capital", "clean_capital"]:
+		text = "$%s / $%s" % [_format_money(have), _format_money(need)]
+	elif key.ends_with("_max"):
+		text = "%d%% / ≤%d%%" % [have, need]
+	row.add_child(_small_label(text, 10, COLOR_UP if met else COLOR_TEXT))
+	return row
 
 
 ## Бонусы ступени словами: «+1 заказ в работе, +2 поставщика».
@@ -1057,7 +1263,8 @@ func _refresh_kpi_subs() -> void:
 		queued += int(s.properties.state[prop.id].dirty_queue)
 	_kpi_subs.dirty[1].text = tr("KPI_SUB_LAUNDER") % _format_money(queued)
 	var days_to_interest := 7 - (s.day - 1) % 7
-	_kpi_subs.debt[1].text = tr("KPI_SUB_INTEREST") % [roundi(s.balance.weekly_interest * 100), days_to_interest]
+	_kpi_subs.debt[1].text = tr("KPI_SUB_INTEREST") % [roundi(s.balance.weekly_interest * 100), days_to_interest] if s.debt > 0 \
+			else tr("KPI_SUB_DEBT_FREE")
 	_kpi_subs.heat[1].text = tr(s.world.get_city(s.city).name_key) + " · " + tr(s.market.get_district(s.district).name_key)
 	_kpi_subs.energy[1].visible = false
 
@@ -1065,6 +1272,10 @@ func _refresh_kpi_subs() -> void:
 ## Трекер платежа: дни срока, проценты, сколько внесено.
 func _refresh_payment() -> void:
 	var s := GameState.session
+	# Долг выплачен (или песочница без долга) — трекер не нужен.
+	_payment_card.visible = s.debt > 0
+	if s.debt <= 0:
+		return
 	var period := int(s.balance.payment_interval_days)
 	var last := s.next_payment_day
 	var first := last - period + 1
@@ -2791,12 +3002,13 @@ func _refresh_skills() -> void:
 
 
 func _refresh_event_label() -> void:
-	var events := GameState.session.events
+	var s := GameState.session
+	var events := s.events
 	var parts: Array[String] = []
-	if not events.today.is_empty():
-		parts.append(tr("EVENT_TODAY") % tr(events.today.text_key))
-	if events.rumor_known:
-		parts.append(tr("RUMOR") % tr(events.tomorrow.rumor_key))
+	for event: Dictionary in events.active_in(s.city):
+		parts.append(tr("EVENT_TODAY") % tr(event.text_key))
+	if events.rumor_known(s.city):
+		parts.append(tr("RUMOR") % tr(events.tomorrow_in(s.city).rumor_key))
 	_event_label.text = "   ·   ".join(parts)
 
 
@@ -2839,12 +3051,13 @@ func _on_save_pressed() -> void:
 func _show_end(status: GameSession.Status) -> void:
 	_check_overlay.visible = false
 	_end_overlay.visible = true
-	if status == GameSession.Status.WON:
-		_end_title.text = "END_WON_TITLE"
-		_end_text.text = tr("END_WON_TEXT") % GameState.session.day
-	else:
-		_end_title.text = "END_LOST_TITLE"
-		_end_text.text = "END_LOST_TEXT"
+	_end_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_end_text.custom_minimum_size.x = 640
+	var s := GameState.session
+	var key := "ENDING_" + (s.ending if s.ending != "" else ("debt" if status == GameSession.Status.LOST else "clean")).to_upper()
+	_end_title.text = tr(key + "_TITLE")
+	_end_text.text = tr(key + "_TEXT") + "\n\n" + tr("END_STATS") % [s.day, _format_money(s.earned_total),
+			tr(s.rank_name_key()), tr(s.balance.modes[s.mode].name_key)]
 	_end_menu_button.grab_focus()
 
 

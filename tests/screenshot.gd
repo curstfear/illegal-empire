@@ -6,7 +6,7 @@ extends Node
 ## "supply" (поставщик, приказы менеджеру, утренняя доставка), "jobs" (заказы и ситуации), "rank" (ступени карьеры)
 ## "arms" (оружие, краденое и редкости на рынке, арсенал бригады), "theft" (угон машин, хакер, Взлом)
 ## "casino" (казино, подпольный покер, крупный игрок, ринг и гонки), "port" (причалы, линии контрабанды, таможня)
-## или "ops" (крупные дела: подготовка и налёт).
+## "ops" (крупные дела: подготовка и налёт), "modes" (экран новой игры, цели, концовка), "news" (утренняя газета) или "stories" (мини-истории контактов).
 ## Чтобы окно не мешало: --resolution 960x540 --position 0,0 перед --path.
 
 const GAME_SCENE := preload("res://scenes/game.tscn")
@@ -25,6 +25,18 @@ func _ready() -> void:
 		return
 	if part == "cities":
 		await _city_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "stories":
+		await _stories_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "news":
+		await _news_shots(out_dir)
+		get_tree().quit()
+		return
+	if part == "modes":
+		await _modes_shots(out_dir)
 		get_tree().quit()
 		return
 	if part == "ops":
@@ -520,6 +532,90 @@ func _rank_shots(out_dir: String) -> void:
 	await _frames(20)
 	_shot(out_dir.path_join("rank_2_ladder.png"))
 	print("после: ступень ", s.rank, " ", s.rank_name_key(), ", заказов в работе до ", s.limit("order_active_max"))
+
+
+## Этап 10, часть 3: ростовщик предлагает конверт, затем задание «доехать до вокзала» и журналистка с выбором.
+func _stories_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	s.read_news()
+	screen.close_card()
+	s.stories["shark"] = { "step": "start", "city": s.city, "show": s.day, "deadline": s.day + 5 }
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("stories_1_offer.png"))
+	GameState.story_choose("shark", "accept")
+	s.rank = 2
+	s.stories["journalist"] = { "step": "start", "city": s.city, "show": s.day, "deadline": s.day + 5 }
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("stories_2_task.png"))
+	GameState.travel("station")
+	await _frames(10)
+	GameState.story_do_task("shark")
+	await _frames(20)
+	_shot(out_dir.path_join("stories_3_done.png"))
+	print("долг после конверта: ", s.debt)
+
+
+## Этап 10, часть 2: утренняя газета в первый день и на 4-й день (с розыском, мировым событием и слухами).
+func _news_shots(out_dir: String) -> void:
+	GameState.new_game()
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	screen.close_card()
+	await _frames(20)
+	_shot(out_dir.path_join("news_1_first.png"))
+	for i in 3:
+		GameState.end_day()
+	s.police.heat.clubs = 70.0
+	s.events.tomorrow = { "berlin": s.events.find("techno_marathon"), "miami": s.events.find("storm") }
+	s.events.rumors = { "amsterdam": true }
+	s.events.tomorrow["amsterdam"] = s.events.find("art_fair")
+	s.events.world_tomorrow = s.events.find("interpol_week")
+	GameState.end_day()
+	await _frames(20)
+	_shot(out_dir.path_join("news_2_day5.png"))
+	for item: Array in s.news:
+		print(item)
+
+
+## Этап 10, часть 1: экран новой игры, карточка целей в Амстердаме (песочница), предложение концовки и экран конца.
+func _modes_shots(out_dir: String) -> void:
+	var menu: Control = load("res://scenes/ui/main_menu.tscn").instantiate()
+	add_child(menu)
+	await _frames(5)
+	menu._open_setup()
+	await _frames(10)
+	_shot(out_dir.path_join("modes_1_setup.png"))
+	menu.queue_free()
+	GameState.new_game("sandbox", "amsterdam", "hacker")
+	var game := GAME_SCENE.instantiate()
+	add_child(game)
+	var screen: Control = game.get_node("Hud/GameScreen")
+	var s := GameState.session
+	s.balance.situation_chance = 0.0
+	screen._goals_open = true
+	GameState.changed.emit()
+	await _frames(20)
+	_shot(out_dir.path_join("modes_2_goals.png"))
+	s.clean = 1_200_000
+	s.earned_total = 1_300_000
+	s.clean_earned = 1_200_000
+	GameState.end_day()
+	await _frames(20)
+	_shot(out_dir.path_join("modes_3_offer.png"))
+	print("предложена концовка: ", s.ending_offer)
+	GameState.take_ending()
+	await _frames(10)
+	_shot(out_dir.path_join("modes_4_end.png"))
 
 
 ## Этап 9, часть 1: рынок Берлина с оружием и краденым, рынок Майами с редкостями, арсенал во вкладке «Люди».
