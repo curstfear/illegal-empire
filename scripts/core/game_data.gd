@@ -10,6 +10,7 @@ const PROPERTIES_PATH := "res://data/properties.json"
 const RECIPES_PATH := "res://data/recipes.json"
 const CREW_PATH := "res://data/crew.json"
 const GANGS_PATH := "res://data/gangs.json"
+const WORLD_PATH := "res://data/world.json"
 
 
 static func load_balance() -> Dictionary:
@@ -46,6 +47,10 @@ static func load_crew() -> Dictionary:
 
 static func load_gangs() -> Dictionary:
 	return _load_json(GANGS_PATH)
+
+
+static func load_world() -> Dictionary:
+	return _load_json(WORLD_PATH)
 
 
 static func _load_json(path: String) -> Variant:

@@ -311,5 +311,10 @@
 	"gang_retake": 12,
 	"gang_retake_defense_per_power": 0.05,
 	"hush_cost_per_point": 12,
-	"hush_amount": 50
+	"hush_amount": 50,
+
+	"flight_base": 60,
+	"flight_per_km": 0.08,
+	"flight_hours_base": 2,
+	"flight_km_per_hour": 800
 }

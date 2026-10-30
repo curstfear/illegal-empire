@@ -1,0 +1,77 @@
+{
+	"home": "berlin",
+	"countries": [
+		{
+			"id": "germany",
+			"name_key": "COUNTRY_GERMANY",
+			"zone": "schengen"
+		},
+		{
+			"id": "netherlands",
+			"name_key": "COUNTRY_NETHERLANDS",
+			"zone": "schengen"
+		},
+		{
+			"id": "france",
+			"name_key": "COUNTRY_FRANCE",
+			"zone": "schengen"
+		},
+		{
+			"id": "turkey",
+			"name_key": "COUNTRY_TURKEY",
+			"zone": "turkey"
+		},
+		{
+			"id": "usa",
+			"name_key": "COUNTRY_USA",
+			"zone": "usa"
+		}
+	],
+	"cities": [
+		{
+			"id": "berlin",
+			"name_key": "CITY_BERLIN",
+			"country": "germany",
+			"lat": 52.52,
+			"lon": 13.4,
+			"layout": "res://data/city.json",
+			"start": "market"
+		},
+		{
+			"id": "amsterdam",
+			"name_key": "CITY_AMSTERDAM",
+			"country": "netherlands",
+			"lat": 52.37,
+			"lon": 4.9,
+			"layout": "res://data/cities/amsterdam.json",
+			"start": "ams_canals"
+		},
+		{
+			"id": "marseille",
+			"name_key": "CITY_MARSEILLE",
+			"country": "france",
+			"lat": 43.3,
+			"lon": 5.37,
+			"layout": "res://data/cities/marseille.json",
+			"start": "mrs_center"
+		},
+		{
+			"id": "istanbul",
+			"name_key": "CITY_ISTANBUL",
+			"country": "turkey",
+			"lat": 41.01,
+			"lon": 28.98,
+			"layout": "res://data/cities/istanbul.json",
+			"start": "ist_bazaar"
+		},
+		{
+			"id": "miami",
+			"name_key": "CITY_MIAMI",
+			"country": "usa",
+			"lat": 25.76,
+			"lon": -80.19,
+			"layout": "res://data/cities/miami.json",
+			"start": "mia_downtown"
+		}
+	]
+}

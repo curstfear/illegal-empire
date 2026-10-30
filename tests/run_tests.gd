@@ -78,6 +78,9 @@ func _init() -> void:
 	_test_krysha()
 	_test_retake_and_hush()
 	_test_police_save()
+	_test_world()
+	_test_flights()
+	_test_world_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -88,7 +91,7 @@ func _init() -> void:
 func _new_session(seed_value: int = 42) -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
 			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
-			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs(), seed_value)
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs(), GameData.load_world(), seed_value)
 
 
 ## Сессия без случайных проверок полиции — для тестов торговли.
@@ -1749,6 +1752,70 @@ func _test_police_save() -> void:
 	old.load_dict(data)
 	old.police.load_dict({ "market": 33.0 })
 	_check(old.police.heat.market == 33.0, "старое сохранение розыска читается")
+
+
+func _test_world() -> void:
+	var s := _new_session()
+	_check(s.world.cities.size() == 5 and s.city == "berlin", "5 городов, старт в Берлине")
+	_check(s.world.city_of("market") == "berlin" and s.world.city_of("mia_beach") == "miami", "районы знают свой город")
+	_check(s.world.districts_of("amsterdam").size() == 4, "у города 4 района")
+	var countries := {}
+	for city: Dictionary in s.world.cities:
+		countries[city.country] = true
+		_check(FileAccess.file_exists(city.layout), "у города %s есть раскладка" % city.id)
+		_check(s.world.districts_of(city.id).any(func(d: Dictionary) -> bool: return d.id == city.start), "город %s: старт в своём районе" % city.id)
+		var gangs: Array = s.gangs.defs.filter(func(g: Dictionary) -> bool: return s.world.city_of(g.home) == city.id)
+		_check(gangs.size() >= 2, "в городе %s есть банды" % city.id)
+	_check(countries.size() >= 3, "города в 3+ странах")
+	_check(s.gangs.gang_owner("ist_bazaar") == "horn", "в Стамбуле свои хозяева")
+	_check(not s.travel("ams_canals"), "в район другого города пешком не перейти")
+	_check(s.world.distance_km("berlin", "amsterdam") > 500.0 and s.world.distance_km("berlin", "amsterdam") < 650.0,
+			"расстояние Берлин — Амстердам похоже на правду")
+	_check(s.market.get_district("mia_beach").police > s.market.get_district("ams_night").police, "в Майами полиция жёстче")
+
+
+func _test_flights() -> void:
+	var s := _calm_session()
+	s.clean = 2000
+	var cost := s.world.flight_cost("berlin", "amsterdam")
+	_check(cost < s.world.flight_cost("berlin", "miami"), "дальше — дороже")
+	_check(s.world.flight_hours("berlin", "amsterdam") < s.world.flight_hours("berlin", "miami"), "дальше — дольше")
+	var report := s.fly("amsterdam")
+	_check(_has(report, "LOG_FLEW") and s.city == "amsterdam" and s.district == "ams_canals", "перелёт: прилетел в главный район")
+	_check(s.clean == 2000 - cost, "билет оплачен")
+	_check(s.travel("ams_night") and s.district == "ams_night", "по новому городу ходишь как дома")
+	s.inventory.moon_moss = 3
+	_check(s.sell("moon_moss", 3) and s.gangs.relation("tulip") < 0.0, "торговля злит местных бандитов")
+	_check(not s.fly("amsterdam"), "в тот же город не лететь")
+	s.clean = 0
+	s.dirty = 0
+	_check(not s.can_fly("miami"), "без денег не улетишь")
+	# События «на весь город» — только в городе, где случились.
+	s.market.event = { "id": "x", "district": "", "police": 2.0, "prices": {} }
+	s.market.event_city = "berlin"
+	_check(s.market.event_police("market") == 2.0 and s.market.event_police("ams_night") == 1.0, "событие Берлина не касается Амстердама")
+	# Маршрут между городами пока нельзя.
+	var r := _route_session()
+	r.buy_vehicle("car")
+	var courier := _candidate(r, "courier", "loyal", 2)
+	r.hire(courier)
+	_check(not r.can_add_route("market_warehouse", "@ams_canals", "cigarettes", r.logistics.vehicles[0].id, courier),
+			"маршрут в другой город пока нельзя")
+	_check(r.can_add_route("market_warehouse", "@clubs", "cigarettes", r.logistics.vehicles[0].id, courier), "маршрут внутри города — можно")
+
+
+func _test_world_save() -> void:
+	var s := _calm_session()
+	s.clean = 2000
+	s.fly("istanbul")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _calm_session()
+	loaded.load_dict(data)
+	_check(loaded.city == "istanbul" and loaded.district == "ist_bazaar", "город сохраняется")
+	data.erase("city")
+	data.district = "station"
+	loaded.load_dict(data)
+	_check(loaded.city == "berlin", "старое сохранение — город по району")
 
 
 func _test_save_and_load() -> void:

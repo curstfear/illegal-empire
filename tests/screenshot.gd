@@ -217,6 +217,26 @@ func _ready() -> void:
 	await _frames(10)
 	_shot(out_dir.path_join("7_end.png"))
 	print("continue: ", GameState.continue_game(), ", day ", GameState.session.day, ", status ", GameState.session.status)
+
+	# Мир: окно городов, перелёт в Амстердам — город пересобирается.
+	game.queue_free()
+	await _frames(2)
+	GameState.new_game()
+	GameState.session.clean = 3000
+	game = GAME_SCENE.instantiate()
+	add_child(game)
+	screen = game.get_node("Hud/GameScreen")
+	await _frames(10)
+	screen._world_button.pressed.emit()
+	await _frames(10)
+	_shot(out_dir.path_join("8_world.png"))
+	screen._world_overlay.visible = false
+	GameState.fly("amsterdam")
+	await _frames(20)
+	screen.open_tab("gangs")
+	await _frames(10)
+	_shot(out_dir.path_join("8b_amsterdam.png"))
+	print("город: ", GameState.session.city, ", район ", GameState.session.district, ", узел города ", game.get_node("City").name)
 	get_tree().quit()
 
 

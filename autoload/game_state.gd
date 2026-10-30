@@ -54,6 +54,17 @@ func travel(district: String) -> void:
 		Clock.advance_hours(session.travel_hours())
 
 
+## Перелёт в другой город: долгий полёт может съесть остаток дня.
+func fly(city_id: String) -> void:
+	var hours := session.world.flight_hours(session.city, city_id)
+	var report := session.fly(city_id)
+	if not report.is_empty():
+		Audio.ui("confirmation")
+		reported.emit(report)
+		changed.emit()
+		Clock.advance_hours(hours)
+
+
 ## Подработка или сбор: занимает часы, и до конца дня их должно хватить.
 func can_do_activity(id: String) -> bool:
 	return session.can_do_activity(id) and Clock.hours_left() >= float(session.get_activity(id).hours)
@@ -438,4 +449,4 @@ func _check_finished() -> bool:
 func _make_session() -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
 			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
-			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs())
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), GameData.load_gangs(), GameData.load_world())

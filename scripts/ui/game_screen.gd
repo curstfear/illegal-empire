@@ -135,6 +135,10 @@ var _gangs_list := VBoxContainer.new()
 var _fight_overlay := ColorRect.new()
 var _fight_box := VBoxContainer.new()
 var _fight_gang: String = ""
+## Окно «Мир»: список городов с перелётом (строится кодом).
+var _world_button := Button.new()
+var _world_overlay := ColorRect.new()
+var _world_box := VBoxContainer.new()
 
 
 func _ready() -> void:
@@ -153,6 +157,7 @@ func _ready() -> void:
 	_build_routes_tab()
 	_build_gangs_tab()
 	_build_fight_overlay()
+	_build_world()
 	_build_tab_buttons()
 	_build_market()
 	_build_stall()
@@ -735,6 +740,7 @@ func _refresh() -> void:
 	_refresh_skills()
 	_refresh_check()
 	_refresh_fight()
+	_refresh_world()
 
 
 ## Строки под числами: разница денег за день, отмыв, проценты, район, силы.
@@ -752,7 +758,7 @@ func _refresh_kpi_subs() -> void:
 	_kpi_subs.dirty[1].text = tr("KPI_SUB_LAUNDER") % _format_money(queued)
 	var days_to_interest := 7 - (s.day - 1) % 7
 	_kpi_subs.debt[1].text = tr("KPI_SUB_INTEREST") % [roundi(s.balance.weekly_interest * 100), days_to_interest]
-	_kpi_subs.heat[1].text = tr(s.market.get_district(s.district).name_key)
+	_kpi_subs.heat[1].text = tr(s.world.get_city(s.city).name_key) + " · " + tr(s.market.get_district(s.district).name_key)
 	_kpi_subs.energy[1].visible = false
 
 
@@ -1555,7 +1561,7 @@ func _refresh_gangs() -> void:
 		_gangs_list.add_child(_small_label(tr("GANGS_OFFERS").to_upper(), 10, COLOR_MUTED))
 	for offer: Dictionary in gangs.offers:
 		_gangs_list.add_child(_offer_row(offer))
-	for gang: Dictionary in gangs.defs:
+	for gang: Dictionary in gangs.defs.filter(func(g: Dictionary) -> bool: return s.world.city_of(g.home) == s.city):
 		var st: Dictionary = gangs.state[gang.id]
 		var level := gangs.level(gang.id)
 		var row := HBoxContainer.new()
@@ -1599,7 +1605,7 @@ func _refresh_gangs() -> void:
 		_gangs_list.add_child(_diplomacy_row(gang.id))
 	_gangs_list.add_child(HSeparator.new())
 	_gangs_list.add_child(_small_label(tr("GANGS_INFLUENCE").to_upper(), 10, COLOR_MUTED))
-	for district: Dictionary in s.market.districts:
+	for district: Dictionary in s.world.districts_of(s.city):
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 6)
 		var name_label := _small_label(tr(district.name_key), 11, COLOR_TEXT)
@@ -1621,6 +1627,81 @@ func _refresh_gangs() -> void:
 		legend.add_child(swatch)
 		legend.add_child(_small_label(item[0], 10, COLOR_MUTED))
 	_gangs_list.add_child(legend)
+
+
+## Кнопка «Мир» рядом с «Сохранить» и окно со списком городов.
+func _build_world() -> void:
+	_world_button.tooltip_text = tr("BTN_WORLD")
+	_world_button.custom_minimum_size = Vector2(30, 30)
+	_make_small(_world_button, 4)
+	var icon := GameIcon.new("globe", 16.0)
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 7)
+	_world_button.add_child(icon)
+	_world_button.pressed.connect(func() -> void:
+		_world_overlay.visible = not _world_overlay.visible
+		_refresh_world())
+	_save_button.get_parent().add_child(_world_button)
+	_save_button.get_parent().move_child(_world_button, _save_button.get_index())
+	_world_overlay.color = _check_overlay.color
+	_world_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_world_overlay.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 0)
+	panel.add_theme_stylebox_override("panel", _check_overlay.get_node("Center/Panel").get_theme_stylebox("panel"))
+	_world_box.add_theme_constant_override("separation", 8)
+	panel.add_child(_world_box)
+	center.add_child(panel)
+	_world_overlay.add_child(center)
+	add_child(_world_overlay)
+	move_child(_world_overlay, _check_overlay.get_index())
+
+
+## Список городов: страна, где ты, билет и часы в пути, кнопка «Лететь».
+func _refresh_world() -> void:
+	if not _world_overlay.visible:
+		return
+	var s := GameState.session
+	_clear(_world_box)
+	var title := _small_label(tr("WORLD_TITLE"), 22, COLOR_ACCENT)
+	_bold(title)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_world_box.add_child(title)
+	for city: Dictionary in s.world.cities:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var texts := VBoxContainer.new()
+		texts.add_theme_constant_override("separation", -2)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var name_label := _small_label(tr(city.name_key), 14, COLOR_TEXT)
+		_bold(name_label)
+		texts.add_child(name_label)
+		var gangs: Array = s.gangs.defs.filter(func(g: Dictionary) -> bool: return s.world.city_of(g.home) == city.id)
+		texts.add_child(_small_label(tr(s.world.get_country(city.country).name_key) + " · "
+				+ tr("WORLD_GANGS") % ", ".join(gangs.map(func(g: Dictionary) -> String: return tr(g.name_key))), 10, COLOR_MUTED))
+		row.add_child(texts)
+		if city.id == s.city:
+			row.add_child(_pill(tr("PILL_HERE"), COLOR_UP))
+		else:
+			row.add_child(_small_label(tr("WORLD_FLIGHT") % [_format_money(s.world.flight_cost(s.city, city.id)),
+					str(s.world.flight_hours(s.city, city.id))], 11, COLOR_MUTED))
+			var fly := Button.new()
+			fly.text = tr("BTN_FLY")
+			fly.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			_make_small(fly, 8)
+			fly.disabled = not s.can_fly(city.id)
+			var id: String = city.id
+			fly.pressed.connect(func() -> void:
+				_world_overlay.visible = false
+				GameState.fly(id))
+			row.add_child(fly)
+		_world_box.add_child(row)
+	var close := Button.new()
+	close.text = tr("BTN_CLOSE")
+	close.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	close.pressed.connect(func() -> void: _world_overlay.visible = false)
+	_world_box.add_child(close)
 
 
 func _build_fight_overlay() -> void:
@@ -1811,7 +1892,8 @@ func _influence_bar(district: String) -> HBoxContainer:
 	bar.custom_minimum_size.y = 10
 	var parts: Array = []
 	for gang: Dictionary in gangs.defs:
-		parts.append([gangs.share(district, gang.id), gangs.color(gang.id)])
+		if gangs.share(district, gang.id) > 0.0:
+			parts.append([gangs.share(district, gang.id), gangs.color(gang.id)])
 	parts.append([gangs.share(district, Gangs.PLAYER), COLOR_ACCENT])
 	parts.append([gangs.free_share(district), Color(0.88, 0.9, 0.93)])
 	for part: Array in parts:
@@ -1844,7 +1926,7 @@ func _build_route_form() -> void:
 	var places: Array = mine.map(func(p: Dictionary) -> Array: return [p.id, tr(p.name_key)])
 	# Куда: свои здания и рынки районов.
 	var targets: Array = places.duplicate()
-	for d: Dictionary in s.market.districts:
+	for d: Dictionary in s.world.districts_of(s.city):
 		if d.has_market:
 			targets.append([s.market_place(d.id), _place_title(s.market_place(d.id))])
 	var goods: Array = s.market.goods.map(func(g: Dictionary) -> Array: return [g.id, tr(g.name_key)])

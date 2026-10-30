@@ -28,7 +28,7 @@
 		},
 		"forest": {
 			"models": [],
-			"scale": 1.0, "on_base": false, "density": 0.0
+			"scale": 1.0, "on_base": false, "density": 0.0, "park": true
 		}
 	},
 	"open_space": { "plaza": 0.35, "park": 0.4, "parking": 0.25 },

@@ -9,7 +9,8 @@ extends RefCounted
 ## нападают на здания и перевозки, переманивают людей, предлагают сделки; разборки с ними — бойцы, снаряжение,
 ## раненые и погибшие, отчёт о бое и выбор последствий; дипломатия — встречи с боссами, договоры
 ## о ненападении, налог за мир, перемирие, союз; предательство договоров с обеих сторон)
-## и полиция посложнее: детективы ведут дело, спецназ на крупных облавах, «крыша» — продажный полицейский.
+## и полиция посложнее: детективы ведут дело, спецназ на крупных облавах, «крыша» — продажный полицейский;
+## мир из нескольких городов в разных странах (у каждого свои районы, рынок, полиция и банды), перелёты.
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -29,12 +30,32 @@ var properties: Properties
 var crew: Crew
 var logistics: Logistics
 var gangs: Gangs
+var world: World
+# --- Мир ---
+
+func can_fly(to_city: String) -> bool:
+	return can_act() and to_city != city and not world.get_city(to_city).is_empty() and money >= world.flight_cost(city, to_city)
+
+
+## Перелёт в другой город: билет, часы в пути (их отсчитывают часы игры); прилетаешь в главный район.
+func fly(to_city: String) -> Array:
+	if not can_fly(to_city):
+		return []
+	var cost := world.flight_cost(city, to_city)
+	_spend(cost)
+	city = to_city
+	district = world.get_city(to_city).start
+	return [["LOG_FLEW", [world.get_city(to_city).name_key, cost]]]
+
+
 ## Подработки и сбор (data/activities.json).
 var activities: Array = []
 var rng := RandomNumberGenerator.new()
 
 var day: int = 1
 var district: String = START_DISTRICT
+## Город, где ты сейчас (в нём текущий район).
+var city: String
 ## Силы: тратятся на подработки и сбор, за ночь восстанавливаются.
 var energy: int
 ## Чистые — от легальной торговли, грязные — от нелегальной.
@@ -70,7 +91,7 @@ var money: int:
 
 func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list: Array,
 		activity_list: Array, property_list: Array, recipe_list: Array, crew_data: Dictionary,
-		gang_data: Dictionary, seed_value: int = 0) -> void:
+		gang_data: Dictionary, world_data: Dictionary, seed_value: int = 0) -> void:
 	balance = balance_data
 	market = Market.new(goods, districts, balance)
 	police = Police.new(districts, balance)
@@ -82,6 +103,9 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	crew = Crew.new(crew_data, int(balance_data.crew_skill_max), float(balance_data.loyalty_start))
 	logistics = Logistics.new(balance_data.vehicles)
 	gangs = Gangs.new(gang_data, districts, balance)
+	world = World.new(world_data, districts, balance)
+	city = world.home
+	market.event_city = city
 	activities = activity_list
 	energy = balance.energy_max
 	if seed_value != 0:
@@ -225,9 +249,10 @@ func illegal_goods_value() -> int:
 	return total
 
 
-## Переезд в другой район. Время в пути отсчитывают часы.
+## Переезд в другой район своего города. Время в пути отсчитывают часы.
 func travel(to_district: String) -> bool:
-	if not can_act() or to_district == district or market.get_district(to_district).is_empty():
+	if not can_act() or to_district == district or market.get_district(to_district).is_empty() \
+			or world.city_of(to_district) != city:
 		return false
 	district = to_district
 	skills.add_xp("driving", int(balance.xp_travel))
@@ -983,6 +1008,8 @@ func place_name_key(place: String) -> String:
 
 ## Место ещё годится: своё здание или район с рынком.
 func place_ok(place: String) -> bool:
+	if not is_market_place(place) and properties.get_def(place).is_empty():
+		return false
 	if is_market_place(place):
 		return market.get_district(place.substr(1)).get("has_market", false)
 	return properties.is_mine(place)
@@ -996,6 +1023,10 @@ func can_add_route(from: String, to: String, good: String, vehicle_id: int, cour
 		var scout := crew.get_person(scout_id)
 		if scout.is_empty() or scout.role != "scout" or logistics.scout_busy(scout_id):
 			return false
+	# Пока маршруты только внутри одного города (между городами — через таможню, позже).
+	if not properties.get_def(from).is_empty() and place_ok(to) \
+			and world.city_of(place_district(from)) != world.city_of(place_district(to)):
+		return false
 	return can_act() and from != to and properties.is_mine(from) and place_ok(to) \
 			and not market.get_good(good).is_empty() and not logistics.get_vehicle(vehicle_id).is_empty() \
 			and not logistics.vehicle_busy(vehicle_id) and not courier.is_empty() and courier.role == "courier" \
@@ -1607,6 +1638,7 @@ func end_day() -> Array:
 	_remember_day()
 	police.decay(balance.heat_decay)
 	events.roll(rng)
+	market.event_city = city
 	market.roll_day(rng, events.today)
 	crew.roll_candidates(rng, int(balance.crew_candidates))
 	report.insert(0, ["LOG_DAY_ENDED", [day]])
@@ -2313,6 +2345,8 @@ func to_dict() -> Dictionary:
 		"version": SAVE_VERSION,
 		"day": day,
 		"district": district,
+		"city": city,
+		"event_city": market.event_city,
 		"energy": energy,
 		"skills": skills.to_dict(),
 		"stall": stall.to_dict(),
@@ -2345,6 +2379,7 @@ func to_dict() -> Dictionary:
 func load_dict(data: Dictionary) -> void:
 	day = int(data.day)
 	district = data.district
+	city = String(data.get("city", world.city_of(district)))
 	energy = int(data.energy)
 	skills.load_dict(data.skills)
 	stall.load_dict(data.stall)
@@ -2378,4 +2413,5 @@ func load_dict(data: Dictionary) -> void:
 	events.load_dict(data.events)
 	bank.load_dict(data.bank)
 	market.event = events.today
+	market.event_city = String(data.get("event_city", city))
 	market.load_dict(data.market)

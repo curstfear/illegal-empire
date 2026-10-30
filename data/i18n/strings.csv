@@ -611,3 +611,53 @@ LOG_GANG_RETAKE,%s won back ground in %s: your influence −%d.,%s отбили 
 BTN_HUSH,Hush up the case ($%s),Замять дело ($%s)
 BTN_HUSH_TIP,Your inside cop loses papers: the case shrinks by 50.,«Крыша» теряет бумаги: дело худеет на 50.
 LOG_CASE_HUSHED,Your cop hushed up part of the case in %s: $%s.,«Крыша» замяла часть дела в районе %s: $%s.
+COUNTRY_GERMANY,Germany,Германия
+COUNTRY_NETHERLANDS,Netherlands,Нидерланды
+COUNTRY_FRANCE,France,Франция
+COUNTRY_TURKEY,Turkey,Турция
+COUNTRY_USA,USA,США
+CITY_BERLIN,Berlin,Берлин
+CITY_AMSTERDAM,Amsterdam,Амстердам
+CITY_MARSEILLE,Marseille,Марсель
+CITY_ISTANBUL,Istanbul,Стамбул
+CITY_MIAMI,Miami,Майами
+DISTRICT_AMS_CANALS,Canal ring,Каналы
+DISTRICT_AMS_PORT,Port,Порт
+DISTRICT_AMS_NIGHT,Nightlife quarter,Ночной квартал
+DISTRICT_AMS_PARK,City park,Городской парк
+DISTRICT_MRS_CENTER,City centre,Центр
+DISTRICT_MRS_DOCKS,Docks,Доки
+DISTRICT_MRS_QUAY,Old port quay,Набережная
+DISTRICT_MRS_CALANQUES,Calanques,Каланки
+DISTRICT_IST_BAZAAR,Grand Bazaar,Гранд-базар
+DISTRICT_IST_PORT,Port,Порт
+DISTRICT_IST_BEYOGLU,Beyoğlu,Бейоглу
+DISTRICT_IST_FOREST,Belgrad forest,Белградский лес
+DISTRICT_MIA_DOWNTOWN,Downtown,Даунтаун
+DISTRICT_MIA_PORT,Port,Порт
+DISTRICT_MIA_BEACH,South Beach,Саут-Бич
+DISTRICT_MIA_GLADES,Everglades,Эверглейдс
+GANG_LOCKS,Lock Keepers,Шлюзовые
+BOSS_LOCKS,Captain Jan,Капитан Ян
+GANG_TULIP,Tulip,Тюльпан
+BOSS_TULIP,Madam Rosa,Мадам Роза
+GANG_PILOTS,Harbour Pilots,Лоцманы
+BOSS_PILOTS,The Old Pilot,Старый Лоцман
+GANG_MISTRAL,Mistral,Мистраль
+BOSS_MISTRAL,Handsome Luc,Красавчик Люк
+GANG_HORN,Golden Horn,Золотой Рог
+BOSS_HORN,The Landlord,Хозяин
+GANG_GULLS,Gulls,Чайки
+BOSS_GULLS,Auntie Tea,Тётушка Чай
+GANG_FLAMINGO,Flamingo,Фламинго
+BOSS_FLAMINGO,Doc,Док
+GANG_HURRICANE,Hurricane,Ураган
+BOSS_HURRICANE,Miss Candy,Мисс Конфетка
+POI_PORT,Port,Порт
+BTN_WORLD,World: cities and flights,Мир: города и перелёты
+WORLD_TITLE,World,Мир
+WORLD_GANGS,gangs: %s,банды: %s
+WORLD_FLIGHT,$%s · %s h,$%s · %s ч
+BTN_FLY,Fly,Лететь
+BTN_CLOSE,Close,Закрыть
+LOG_FLEW,You flew to %s. Ticket: $%s.,Ты прилетел в город %s. Билет: $%s.

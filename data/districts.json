@@ -1,22 +1,22 @@
 [
-	{
-		"id": "market", "name_key": "DISTRICT_MARKET", "police": 1.0, "has_market": true,
-		"prices": { "mushrooms": 1.0, "herbs": 1.0, "tea": 1.0, "cigarettes": 0.9, "reagents": 1.1, "moon_moss": 1.0,
-			"moon_pollen": 1.0, "phones": 1.0, "blue_dust": 1.1 }
-	},
-	{
-		"id": "station", "name_key": "DISTRICT_STATION", "police": 1.4, "has_market": true,
-		"prices": { "mushrooms": 1.2, "herbs": 0.9, "tea": 1.1, "cigarettes": 1.2, "reagents": 0.8, "moon_moss": 0.85,
-			"moon_pollen": 0.9, "phones": 1.25, "blue_dust": 0.9 }
-	},
-	{
-		"id": "clubs", "name_key": "DISTRICT_CLUBS", "police": 0.8, "has_market": true,
-		"prices": { "mushrooms": 1.3, "herbs": 1.2, "tea": 1.25, "cigarettes": 1.1, "reagents": 1.2, "moon_moss": 1.3,
-			"moon_pollen": 1.3, "phones": 0.85, "blue_dust": 1.3 }
-	},
-	{
-		"id": "forest", "name_key": "DISTRICT_FOREST", "police": 0.3, "has_market": false,
-		"prices": { "mushrooms": 1.0, "herbs": 1.0, "tea": 1.0, "cigarettes": 1.0, "reagents": 1.0, "moon_moss": 1.0,
-			"moon_pollen": 1.0, "phones": 1.0, "blue_dust": 1.0 }
-	}
+	{"id": "market", "name_key": "DISTRICT_MARKET", "police": 1.0, "has_market": true, "prices": {"mushrooms": 1.0, "herbs": 1.0, "tea": 1.0, "cigarettes": 0.9, "reagents": 1.1, "moon_moss": 1.0, "moon_pollen": 1.0, "phones": 1.0, "blue_dust": 1.1}, "city": "berlin"},
+	{"id": "station", "name_key": "DISTRICT_STATION", "police": 1.4, "has_market": true, "prices": {"mushrooms": 1.2, "herbs": 0.9, "tea": 1.1, "cigarettes": 1.2, "reagents": 0.8, "moon_moss": 0.85, "moon_pollen": 0.9, "phones": 1.25, "blue_dust": 0.9}, "city": "berlin"},
+	{"id": "clubs", "name_key": "DISTRICT_CLUBS", "police": 0.8, "has_market": true, "prices": {"mushrooms": 1.3, "herbs": 1.2, "tea": 1.25, "cigarettes": 1.1, "reagents": 1.2, "moon_moss": 1.3, "moon_pollen": 1.3, "phones": 0.85, "blue_dust": 1.3}, "city": "berlin"},
+	{"id": "forest", "name_key": "DISTRICT_FOREST", "police": 0.3, "has_market": false, "prices": {"mushrooms": 1.0, "herbs": 1.0, "tea": 1.0, "cigarettes": 1.0, "reagents": 1.0, "moon_moss": 1.0, "moon_pollen": 1.0, "phones": 1.0, "blue_dust": 1.0}, "city": "berlin"},
+	{"id": "ams_canals", "name_key": "DISTRICT_AMS_CANALS", "police": 0.9, "has_market": true, "city": "amsterdam", "prices": {"mushrooms": 1.0, "herbs": 0.85, "tea": 1.1, "cigarettes": 0.95, "reagents": 1.1, "moon_moss": 0.75, "moon_pollen": 0.8, "phones": 1.1, "blue_dust": 1.21}},
+	{"id": "ams_port", "name_key": "DISTRICT_AMS_PORT", "police": 1.1, "has_market": true, "city": "amsterdam", "prices": {"mushrooms": 1.15, "herbs": 0.77, "tea": 1.16, "cigarettes": 1.15, "reagents": 0.8, "moon_moss": 0.64, "moon_pollen": 0.72, "phones": 1.32, "blue_dust": 1.03}},
+	{"id": "ams_night", "name_key": "DISTRICT_AMS_NIGHT", "police": 0.7, "has_market": true, "city": "amsterdam", "prices": {"mushrooms": 1.25, "herbs": 1.02, "tea": 1.32, "cigarettes": 1.1, "reagents": 1.2, "moon_moss": 0.98, "moon_pollen": 1.04, "phones": 0.94, "blue_dust": 1.49}},
+	{"id": "ams_park", "name_key": "DISTRICT_AMS_PARK", "police": 0.4, "has_market": false, "city": "amsterdam", "prices": {"mushrooms": 1.0, "herbs": 0.85, "tea": 1.1, "cigarettes": 1.0, "reagents": 1.0, "moon_moss": 0.75, "moon_pollen": 0.8, "phones": 1.1, "blue_dust": 1.15}},
+	{"id": "mrs_center", "name_key": "DISTRICT_MRS_CENTER", "police": 1.1, "has_market": true, "city": "marseille", "prices": {"mushrooms": 1.0, "herbs": 1.1, "tea": 1.0, "cigarettes": 0.71, "reagents": 0.94, "moon_moss": 1.0, "moon_pollen": 1.0, "phones": 0.85, "blue_dust": 1.16}},
+	{"id": "mrs_docks", "name_key": "DISTRICT_MRS_DOCKS", "police": 1.3, "has_market": true, "city": "marseille", "prices": {"mushrooms": 1.15, "herbs": 0.99, "tea": 1.05, "cigarettes": 0.86, "reagents": 0.68, "moon_moss": 0.85, "moon_pollen": 0.9, "phones": 1.02, "blue_dust": 0.99}},
+	{"id": "mrs_quay", "name_key": "DISTRICT_MRS_QUAY", "police": 0.9, "has_market": true, "city": "marseille", "prices": {"mushrooms": 1.25, "herbs": 1.32, "tea": 1.2, "cigarettes": 0.83, "reagents": 1.02, "moon_moss": 1.3, "moon_pollen": 1.3, "phones": 0.72, "blue_dust": 1.43}},
+	{"id": "mrs_calanques", "name_key": "DISTRICT_MRS_CALANQUES", "police": 0.3, "has_market": false, "city": "marseille", "prices": {"mushrooms": 1.0, "herbs": 1.1, "tea": 1.0, "cigarettes": 0.75, "reagents": 0.85, "moon_moss": 1.0, "moon_pollen": 1.0, "phones": 0.85, "blue_dust": 1.1}},
+	{"id": "ist_bazaar", "name_key": "DISTRICT_IST_BAZAAR", "police": 1.1, "has_market": true, "city": "istanbul", "prices": {"mushrooms": 1.0, "herbs": 1.0, "tea": 0.7, "cigarettes": 0.81, "reagents": 0.88, "moon_moss": 1.2, "moon_pollen": 1.0, "phones": 0.75, "blue_dust": 1.31}},
+	{"id": "ist_port", "name_key": "DISTRICT_IST_PORT", "police": 1.3, "has_market": true, "city": "istanbul", "prices": {"mushrooms": 1.15, "herbs": 0.9, "tea": 0.73, "cigarettes": 0.98, "reagents": 0.64, "moon_moss": 1.02, "moon_pollen": 0.9, "phones": 0.9, "blue_dust": 1.12}},
+	{"id": "ist_beyoglu", "name_key": "DISTRICT_IST_BEYOGLU", "police": 1.0, "has_market": true, "city": "istanbul", "prices": {"mushrooms": 1.25, "herbs": 1.2, "tea": 0.84, "cigarettes": 0.94, "reagents": 0.96, "moon_moss": 1.56, "moon_pollen": 1.3, "phones": 0.64, "blue_dust": 1.62}},
+	{"id": "ist_forest", "name_key": "DISTRICT_IST_FOREST", "police": 0.3, "has_market": false, "city": "istanbul", "prices": {"mushrooms": 1.0, "herbs": 1.0, "tea": 0.7, "cigarettes": 0.85, "reagents": 0.8, "moon_moss": 1.2, "moon_pollen": 1.0, "phones": 0.75, "blue_dust": 1.25}},
+	{"id": "mia_downtown", "name_key": "DISTRICT_MIA_DOWNTOWN", "police": 1.4, "has_market": true, "city": "miami", "prices": {"mushrooms": 1.3, "herbs": 1.0, "tea": 1.25, "cigarettes": 1.23, "reagents": 1.32, "moon_moss": 1.35, "moon_pollen": 1.45, "phones": 1.2, "blue_dust": 1.68}},
+	{"id": "mia_port", "name_key": "DISTRICT_MIA_PORT", "police": 1.6, "has_market": true, "city": "miami", "prices": {"mushrooms": 1.49, "herbs": 0.9, "tea": 1.31, "cigarettes": 1.49, "reagents": 0.96, "moon_moss": 1.15, "moon_pollen": 1.3, "phones": 1.44, "blue_dust": 1.44}},
+	{"id": "mia_beach", "name_key": "DISTRICT_MIA_BEACH", "police": 1.2, "has_market": true, "city": "miami", "prices": {"mushrooms": 1.62, "herbs": 1.2, "tea": 1.5, "cigarettes": 1.43, "reagents": 1.44, "moon_moss": 1.76, "moon_pollen": 1.89, "phones": 1.02, "blue_dust": 2.08}},
+	{"id": "mia_glades", "name_key": "DISTRICT_MIA_GLADES", "police": 0.5, "has_market": false, "city": "miami", "prices": {"mushrooms": 1.3, "herbs": 1.0, "tea": 1.25, "cigarettes": 1.3, "reagents": 1.2, "moon_moss": 1.35, "moon_pollen": 1.45, "phones": 1.2, "blue_dust": 1.6}}
 ]

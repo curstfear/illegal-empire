@@ -84,8 +84,15 @@ var _materials: Dictionary = {}
 @onready var camera_rig: Node3D = $CameraRig
 
 
+## Раскладка города, где сейчас игрок (без партии — родной город).
+static func layout_path() -> String:
+	if GameState.session == null:
+		return CITY_PATH
+	return String(GameState.session.world.get_city(GameState.session.city).get("layout", CITY_PATH))
+
+
 func _ready() -> void:
-	_data = JSON.parse_string(FileAccess.get_file_as_string(CITY_PATH))
+	_data = JSON.parse_string(FileAccess.get_file_as_string(layout_path()))
 	_size = int(_data.size)
 	for road: float in _data.roads:
 		_roads.append(int(road))
@@ -420,7 +427,7 @@ func _build_districts() -> void:
 ## Открытая клетка: площадь, сквер или парковка (в лесопарке — луг с деревьями).
 ## Возвращает высоту для «коробки» клика.
 func _build_open_tile(pos: Vector3, district: String, c: int, r: int) -> float:
-	if district == "forest":
+	if _data.styles[district].get("park", false):
 		_build_park_tile(pos, _rng.randi_range(1, 4))
 		return 1.5
 	var weights: Dictionary = _data.open_space
@@ -452,7 +459,8 @@ func _add_hit_box(pos: Vector3, height: float, district: String, property_id: St
 
 ## Здания на продажу: модель, подпись «Продаётся»/«Твоё», своя «коробка» для клика.
 func _build_properties() -> void:
-	_properties = GameData.load_properties()
+	# Здания только этого города.
+	_properties = GameData.load_properties().filter(func(p: Dictionary) -> bool: return _data.quadrants.has(p.district))
 	for prop: Dictionary in _properties:
 		var c := int(prop.tile[0])
 		var r := int(prop.tile[1])

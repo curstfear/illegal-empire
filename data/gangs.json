@@ -1,18 +1,210 @@
 {
 	"gangs": [
-		{ "id": "bazaar", "name_key": "GANG_BAZAAR", "boss_key": "BOSS_BAZAAR", "temper": "greedy", "home": "market",
-			"color": [0.09, 0.6, 0.35], "people": 10, "cash": 3000, "relation": 0 },
-		{ "id": "rails", "name_key": "GANG_RAILS", "boss_key": "BOSS_RAILS", "temper": "cautious", "home": "station",
-			"color": [0.86, 0.66, 0.04], "people": 12, "cash": 4000, "relation": 5 },
-		{ "id": "neon", "name_key": "GANG_NEON", "boss_key": "BOSS_NEON", "temper": "hothead", "home": "clubs",
-			"color": [0.62, 0.3, 0.88], "people": 9, "cash": 3500, "relation": -10 }
+		{
+			"id": "bazaar",
+			"name_key": "GANG_BAZAAR",
+			"boss_key": "BOSS_BAZAAR",
+			"temper": "greedy",
+			"home": "market",
+			"color": [
+				0.09,
+				0.6,
+				0.35
+			],
+			"people": 10,
+			"cash": 3000,
+			"relation": 0
+		},
+		{
+			"id": "rails",
+			"name_key": "GANG_RAILS",
+			"boss_key": "BOSS_RAILS",
+			"temper": "cautious",
+			"home": "station",
+			"color": [
+				0.86,
+				0.66,
+				0.04
+			],
+			"people": 12,
+			"cash": 4000,
+			"relation": 5
+		},
+		{
+			"id": "neon",
+			"name_key": "GANG_NEON",
+			"boss_key": "BOSS_NEON",
+			"temper": "hothead",
+			"home": "clubs",
+			"color": [
+				0.62,
+				0.3,
+				0.88
+			],
+			"people": 9,
+			"cash": 3500,
+			"relation": -10
+		},
+		{
+			"id": "locks",
+			"name_key": "GANG_LOCKS",
+			"boss_key": "BOSS_LOCKS",
+			"temper": "cautious",
+			"home": "ams_canals",
+			"color": [
+				0.05,
+				0.62,
+				0.58
+			],
+			"people": 9,
+			"cash": 3500,
+			"relation": 5
+		},
+		{
+			"id": "tulip",
+			"name_key": "GANG_TULIP",
+			"boss_key": "BOSS_TULIP",
+			"temper": "greedy",
+			"home": "ams_night",
+			"color": [
+				0.9,
+				0.35,
+				0.55
+			],
+			"people": 8,
+			"cash": 3000,
+			"relation": 0
+		},
+		{
+			"id": "pilots",
+			"name_key": "GANG_PILOTS",
+			"boss_key": "BOSS_PILOTS",
+			"temper": "greedy",
+			"home": "mrs_docks",
+			"color": [
+				0.62,
+				0.42,
+				0.22
+			],
+			"people": 12,
+			"cash": 4500,
+			"relation": 0
+		},
+		{
+			"id": "mistral",
+			"name_key": "GANG_MISTRAL",
+			"boss_key": "BOSS_MISTRAL",
+			"temper": "hothead",
+			"home": "mrs_quay",
+			"color": [
+				0.85,
+				0.3,
+				0.25
+			],
+			"people": 10,
+			"cash": 3500,
+			"relation": -5
+		},
+		{
+			"id": "horn",
+			"name_key": "GANG_HORN",
+			"boss_key": "BOSS_HORN",
+			"temper": "cautious",
+			"home": "ist_bazaar",
+			"color": [
+				0.8,
+				0.6,
+				0.1
+			],
+			"people": 13,
+			"cash": 5000,
+			"relation": 5
+		},
+		{
+			"id": "gulls",
+			"name_key": "GANG_GULLS",
+			"boss_key": "BOSS_GULLS",
+			"temper": "hothead",
+			"home": "ist_port",
+			"color": [
+				0.35,
+				0.65,
+				0.7
+			],
+			"people": 10,
+			"cash": 3500,
+			"relation": -5
+		},
+		{
+			"id": "flamingo",
+			"name_key": "GANG_FLAMINGO",
+			"boss_key": "BOSS_FLAMINGO",
+			"temper": "greedy",
+			"home": "mia_beach",
+			"color": [
+				0.95,
+				0.45,
+				0.65
+			],
+			"people": 15,
+			"cash": 8000,
+			"relation": 0
+		},
+		{
+			"id": "hurricane",
+			"name_key": "GANG_HURRICANE",
+			"boss_key": "BOSS_HURRICANE",
+			"temper": "hothead",
+			"home": "mia_port",
+			"color": [
+				0.58,
+				0.3,
+				0.82
+			],
+			"people": 16,
+			"cash": 7000,
+			"relation": -10
+		}
 	],
 	"tempers": {
-		"greedy": { "name_key": "TEMPER_GREEDY", "anger": 1.0, "forgive": 1.0, "betray": 0.02,
-			"actions": { "demand": 4, "dump": 2, "attack": 1, "poach": 1, "retake": 2 } },
-		"cautious": { "name_key": "TEMPER_CAUTIOUS", "anger": 0.7, "forgive": 1.5, "betray": 0.01,
-			"actions": { "demand": 2, "dump": 3, "attack": 1, "poach": 2, "retake": 2 } },
-		"hothead": { "name_key": "TEMPER_HOTHEAD", "anger": 1.5, "forgive": 0.6, "betray": 0.03,
-			"actions": { "demand": 1, "dump": 1, "attack": 3, "poach": 1, "retake": 3 } }
+		"greedy": {
+			"name_key": "TEMPER_GREEDY",
+			"anger": 1.0,
+			"forgive": 1.0,
+			"betray": 0.02,
+			"actions": {
+				"demand": 4,
+				"dump": 2,
+				"attack": 1,
+				"poach": 1,
+				"retake": 2
+			}
+		},
+		"cautious": {
+			"name_key": "TEMPER_CAUTIOUS",
+			"anger": 0.7,
+			"forgive": 1.5,
+			"betray": 0.01,
+			"actions": {
+				"demand": 2,
+				"dump": 3,
+				"attack": 1,
+				"poach": 2,
+				"retake": 2
+			}
+		},
+		"hothead": {
+			"name_key": "TEMPER_HOTHEAD",
+			"anger": 1.5,
+			"forgive": 0.6,
+			"betray": 0.03,
+			"actions": {
+				"demand": 1,
+				"dump": 1,
+				"attack": 3,
+				"poach": 1,
+				"retake": 3
+			}
+		}
 	}
 }

@@ -15,6 +15,8 @@ var pressure: Dictionary = {}
 var previous_prices: Dictionary = {}
 ## Влияние сегодняшнего события (пусто — события нет).
 var event: Dictionary = {}
+## Город, где случилось сегодняшнее событие «на весь город» ("" — везде).
+var event_city: String = ""
 ## Цены прошлых дней для графиков: { район: { товар: [цена вечером дня, …] } }, не длиннее HISTORY_DAYS.
 var history: Dictionary = {}
 
@@ -139,9 +141,16 @@ func roll_day(rng: RandomNumberGenerator, new_event: Dictionary) -> void:
 
 ## Множитель полиции от события в этом районе.
 func event_police(district: String) -> float:
-	if event.is_empty() or (event.district != "" and event.district != district):
-		return 1.0
-	return event.police
+	return event.police if _event_here(district) else 1.0
+
+
+## Событие дня касается района: события «на весь город» — только в городе, где они случились (event_city).
+func _event_here(district: String) -> bool:
+	if event.is_empty():
+		return false
+	if event.district != "":
+		return event.district == district
+	return event_city == "" or get_district(district).get("city", event_city) == event_city
 
 
 func _remember_prices() -> void:
@@ -153,7 +162,7 @@ func _remember_prices() -> void:
 
 func _price(district: String, id: String, p: float) -> int:
 	var price: float = get_good(id).base_price * get_district(district).prices[id] * factors[id] * (1.0 + p)
-	if not event.is_empty() and (event.district == "" or event.district == district):
+	if _event_here(district):
 		price *= event.prices.get(id, 1.0)
 	return maxi(1, roundi(price))
 

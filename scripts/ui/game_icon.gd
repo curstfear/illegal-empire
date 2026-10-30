@@ -4,7 +4,7 @@ extends Control
 ## деньги, розыск, силы, долг, время, товары.
 
 ## Какую иконку рисовать: clean, dirty, debt, heat, energy, day,
-## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, district, warehouse, lab, front, van.
+## mushrooms, herbs, cigarettes, moon_moss, phones, blue_dust, district, warehouse, lab, front, van, globe.
 var kind := ""
 
 
@@ -94,6 +94,16 @@ func _draw() -> void:
 			_rounded_rect(Rect2(c - Vector2(s * 0.4, s * 0.4), Vector2(s * 0.8, s * 0.8)), s * 0.1, ink)
 			draw_rect(Rect2(c + Vector2(-s * 0.22, -s * 0.4), Vector2(s * 0.4, s * 0.26)), Color.WHITE)
 			draw_rect(Rect2(c + Vector2(-s * 0.26, s * 0.06), Vector2(s * 0.52, s * 0.3)), Color(1, 1, 1, 0.9))
+		"globe":
+			# Глобус: круг, экватор, меридиан-овал.
+			var ink := Color(0.27, 0.3, 0.38)
+			draw_arc(c, s * 0.4, 0, TAU, 32, ink, s * 0.08, true)
+			draw_line(c + Vector2(-s * 0.4, 0), c + Vector2(s * 0.4, 0), ink, s * 0.07, true)
+			var oval := PackedVector2Array()
+			for i in 33:
+				var a := TAU * i / 32.0
+				oval.append(c + Vector2(cos(a) * s * 0.17, sin(a) * s * 0.4))
+			draw_polyline(oval, ink, s * 0.07, true)
 		"menu":
 			var ink := Color(0.27, 0.3, 0.38)
 			for i in 3:
