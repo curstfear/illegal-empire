@@ -62,7 +62,7 @@ BTN_BORROW,"Borrow $%s (you'll owe $%s)","Занять $%s (вернуть $%s)"
 BANK_TITLE,Bank,Банк
 BANK_INFO,Savings: $%s · Loan: $%s,Вклад: $%s · Кредит: $%s
 BANK_HINT,Takes clean money only. Police can't touch savings. You can borrow $%s now.,Только чистые деньги. Вклад полиция не тронет. Сейчас дадут в кредит $%s.
-BANK_HINT_HEAT,The bank won't lend to someone the police are after.,Банк не даёт кредит тем, кого ищет полиция.
+BANK_HINT_HEAT,The bank won't lend to someone the police are after.,"Банк не даёт кредит тем, кого ищет полиция."
 BTN_DEPOSIT,Deposit clean,Положить чистые
 BTN_WITHDRAW,Withdraw,Снять
 BTN_TAKE_LOAN,Loan $%s,Кредит $%s
@@ -168,3 +168,206 @@ KPI_HEAT,Heat here,Розыск здесь
 KPI_MONEY_CHART,All your money (incl. savings) over the last days,Все твои деньги (с вкладом) за последние дни
 COL_CHART,Price · 14 days,Цена · 14 дней
 TAB_LOG,Log,Журнал
+GOOD_TEA,House tea,Фирменный чай
+GOOD_REAGENTS,Reagents,Реагенты
+GOOD_MOON_POLLEN,"""Moon Pollen""",«Лунная пыльца»
+POCKET,Pocket: %d/%d,Карман: %d/%d
+LOG_POCKET_FULL,Your pockets are full — %d left behind.,Карман полон — %d шт. пришлось оставить.
+PROP_MARKET_WAREHOUSE,Market warehouse,Склад у рынка
+PROP_LAUNDROMAT,"""Clean Sheet"" laundromat",Прачечная «Белый лист»
+PROP_STATION_WAREHOUSE,Freight yard warehouse,Склад на сортировке
+PROP_STATION_LAB,Basement under the station,Подвал под вокзалом
+PROP_CAFE,"""Night Owl"" cafe",Кафе «Ночная сова»
+PROP_CLUB_LAB,Basement behind the club,Подвал за клубом
+PROP_FOREST_SHED,Forester's shed,Сарай лесника
+PROP_FOR_SALE_TAG,%s · for sale,%s · продаётся
+PROP_KIND_WAREHOUSE,Warehouse,Склад
+PROP_KIND_LAB,Lab,Лаборатория
+PROP_KIND_FRONT,Front business,Бизнес-прикрытие
+PROP_STATUS_OWNED,yours,твоё
+PROP_STATUS_RENTED,rented ($%s a night),в аренде ($%s за ночь)
+PROP_STATUS_FOR_SALE,$%s · or rent $%s a night,$%s · или аренда $%s за ночь
+BTN_BUY_PROPERTY,Buy $%s (clean),Купить $%s (чистыми)
+BTN_RENT_PROPERTY,Rent $%s/night,Аренда $%s/ночь
+PROP_BUY_HINT,Buying takes clean money. Rent is paid every night (clean first).,Купить можно только на чистые. Аренда списывается каждую ночь (сначала чистыми).
+PROP_STOCK,Inside: %d/%d places · pocket: %d/%d,Внутри: %d/%d мест · в кармане: %d/%d
+PROP_GOOD_LINE,%s — pocket %d · inside %d,%s — в кармане %d · внутри %d
+BTN_STORE,Put in,Положить
+BTN_TAKE,Take,Забрать
+PROP_PRODUCTION,Production,Производство
+RECIPE_LINE,%s → %d %s (%d night(s)),%s → %d %s (ночей: %d)
+BTN_BREW,Brew (%d),Варить (%d)
+PROP_BATCH,"Brewing: %d × %s, ready in %d night(s)","Варится: %d × %s, готово через %d ноч."
+PROP_LAB_LEVEL,Equipment lvl %d · defects %d%% · great batch %d%%,Оборудование ур. %d · брак %d%% · удачная партия %d%%
+BTN_UPGRADE,Upgrade $%s,Улучшить $%s
+PROP_LAUNDER_INFO,"Waiting to launder: $%s · up to $%s a night, fee %d%% · register income $%s a night","В очереди на отмыв: $%s · до $%s за ночь, комиссия %d%% · касса $%s за ночь"
+PROP_FROZEN,Tax audit: laundering frozen for %d more night(s).,Проверка налоговой: отмыв заморожен ещё на %d ноч.
+PROP_TAX,Tax office attention: %d/100,Внимание налоговой: %d/100
+BTN_LAUNDER,Launder dirty ($%s),Сдать грязные ($%s)
+RECIPE_MOON_POLLEN,"""Moon Pollen""",«Лунная пыльца»
+RECIPE_BLUE_DUST,"""Blue Dust""",«Синяя пыль»
+RECIPE_TEA,House tea,Фирменный чай
+LOG_PROPERTY_BOUGHT,You bought: %s.,Ты купил: %s.
+LOG_PROPERTY_RENTED,You rented: %s.,Ты арендовал: %s.
+LOG_PRODUCTION_STARTED,Brewing started: %d × %s. Ready by morning (or later).,Варка пошла: %d × %s. Готово к утру (или позже).
+LOG_LAB_UPGRADED,Equipment upgraded to level %d.,Оборудование улучшено до уровня %d.
+LOG_LAUNDER_QUEUED,$%s handed to the register to launder.,$%s сдано в кассу на отмыв.
+LOG_BATCH_DONE,%s: ready %d %s.,%s: готово %d — %s.
+LOG_BATCH_DEFECT,Defects in %d batch(es) — part of the output is ruined.,Брак в %d партиях — часть продукта испорчена.
+LOG_LAB_FIRE,Fire at %s! The batch is lost and half the stock burned.,"Пожар: %s! Партия сгорела, половина запасов тоже."
+LOG_PROPERTY_RAID,Police raid at %s! Illegal goods seized and equipment smashed.,"Облава: %s! Нелегальный товар изъят, оборудование разбито."
+LOG_PROPERTY_RENT_DIRTY,Rent for %s paid with dirty cash. Noticed.,Аренду за «%s» заплатил грязными. Это заметили.
+LOG_LAUNDERED,%s: laundered $%s clean.,%s: отмыто $%s чистыми.
+LOG_CAFE_SOLD,Cafe sold %d cups of tea for $%s.,Кафе продало %d чашек чая на $%s.
+LOG_TAX_AUDIT,"Tax audit! Fine $%s, laundering frozen for %d nights.","Проверка налоговой! Штраф $%s, отмыв заморожен на %d ночи."
+PROP_RISKS,Tonight: smell +%d · snitch %d%% · raid %d%%,За ночь: запах +%d · донос %d%% · облава %d%%
+PROP_EVIDENCE,Evidence: %d/100 (raises raid chance),Улики: %d/100 (облава вероятнее)
+BTN_CLEANUP,Clean up (−%d energy),Прибраться (−%d сил)
+PROP_UPGRADES,Upgrades,Улучшения
+BTN_INSTALL,Install $%s,Поставить $%s
+PROP_SELL_HINT,Only an empty building (no goods or batches) can be sold or left.,Продать или съехать можно только из пустого здания (без товара и варки).
+BTN_SELL_PROPERTY,Sell $%s,Продать $%s
+BTN_LEAVE_PROPERTY,End lease,Съехать
+UPG_VENT,Ventilation,Вентиляция
+UPG_VENT_DESC,smell −60%,запах −60%
+UPG_EXTINGUISHER,Fire safety,Огнетушители
+UPG_EXTINGUISHER_DESC,fire and explosion −70%,пожар и взрыв −70%
+UPG_ALARM,Alarm,Сигнализация
+UPG_ALARM_DESC,raid chance −50%,облава −50%
+UPG_STASH,Hidden stash,Тайник
+UPG_STASH_DESC,15 places survive a raid,15 мест уцелеют при облаве
+UPG_FRIDGE,Cold room,Холодильник
+UPG_FRIDGE_DESC,"mushrooms, herbs, tea and moss don't spoil","грибы, травы, чай и мох не портятся"
+UPG_BOOKS,Double bookkeeping,Двойная бухгалтерия
+UPG_BOOKS_DESC,tax office notices laundering half as much,налоговая замечает отмыв вдвое слабее
+LOG_PROPERTY_SOLD,You sold %s for $%s.,"Ты продал: %s, за $%s."
+LOG_PROPERTY_LEFT,You ended the lease: %s.,Ты съехал: %s.
+LOG_UPGRADE_BOUGHT,%s installed: %s.,Поставлено: %s — %s.
+LOG_CLEANED_UP,%s: cleaned up — evidence gone.,%s: прибрался — улик не осталось.
+LOG_SNITCHED,Neighbors complained about the smell: %s. Police are interested.,Соседи пожаловались на запах: %s. Полиция заинтересовалась.
+LOG_LAB_EXPLOSION,"Explosion at %s! Everything inside is lost, equipment and upgrades destroyed.","Взрыв: %s! Всё внутри пропало, оборудование и улучшения разбиты."
+LOG_BATCH_GREAT,Great work: %d batch(es) gave extra product.,Удачно: %d партий дали больше продукта.
+LOG_STASH_SAVED,The stash saved %d item(s).,Тайник спас %d шт.
+LOG_SPOILED,%s: %d %s spoiled.,%s: испортилось %d — %s.
+TAB_BUILDINGS,Buildings,Здания
+KPI_SUB_TOTAL,all $%s,всего $%s
+KPI_SUB_LAUNDER,laundering $%s,в отмыве $%s
+KPI_SUB_INTEREST,+%d%% in %d d,+%d%% через %d дн.
+KPI_SUB_ENERGY,restores by morning,восстановятся к утру
+PAY_TITLE,Loan shark payment,Платёж ростовщику
+PAY_PROGRESS,Paid $%s of $%s,Внесено $%s из $%s
+PAY_DONE,paid ✓,внесено ✓
+PAY_TODAY,due today!,срок сегодня!
+PAY_DAYS_LEFT,%d d left,осталось %d дн.
+BTN_PAY_SHORT,Pay $%s,Внести $%s
+TRACK_START,Start,Начало
+TRACK_PAYMENT,Payment,Платёж
+TRACK_INTEREST,Interest,Проценты
+TRACK_TODAY,Today,Сегодня
+TRACK_DAY,day %d,день %d
+KICKER_DISTRICT,District,Район
+CARD_DISTRICT_INFO,Things to do here: %d,Дел в районе: %d
+PILL_HERE,You are here,Ты здесь
+PILL_AWAY,%d h away,Идти %d ч
+PILL_HEAT,Heat %s,Розыск %s
+PILL_OWNED,Yours,Твоё
+PILL_RENTED,Rented $%s/night,Аренда $%s/ночь
+PILL_FOR_SALE,For sale,Продаётся
+PILL_BREWING,Brewing,Варится
+PILL_FROZEN,Frozen %d n,Заморожено %d н.
+PILL_SPOILS,Spoils,Портится
+PILL_ILLEGAL,Illegal,Нелегально
+PILL_INSTALLED,Installed,Стоит
+PILL_LAUNDERING,Laundering,Отмыв
+PILL_EMPTY,Empty,Пусто
+PILL_STORED,Stored,На складе
+TILE_HEAT,Heat,Розыск
+TILE_POLICE,Police,Полиция
+TILE_BUILDINGS,Your buildings,Твои здания
+TILE_MARKET,Market,Рынок
+TILE_YES,yes,есть
+TILE_NO,no,нет
+TILE_PRICE,Price,Цена
+TILE_RENT,Rent,Аренда
+TILE_NIGHT,night,ночь
+TILE_CAPACITY,Places,Мест
+TILE_NEIGHBORS,Neighbors,Соседи
+TILE_STOCK,Storage,Склад
+TILE_LAUNDER,Laundering queue,В отмыве
+TILE_TAX,Tax office,Налоговая
+TILE_REGISTER,Register,Касса
+TILE_EVIDENCE,Evidence,Улики
+TILE_RAID,Raid tonight,Облава за ночь
+TILE_SMELL,Smell · snitch,Запах · донос
+SECTION_JOBS,Jobs here,Дела района
+SECTION_INVENTORY,Goods,Товар
+SECTION_LAUNDER,Laundering,Отмыв
+PROP_GOOD_COUNTS,inside %d · pocket %d,внутри %d · в кармане %d
+PROP_EMPTY,Nothing inside and nothing in your pocket to store.,"Внутри пусто, и в кармане нечего положить."
+PROP_CLEANUP_HINT,Evidence makes raids likelier. Cleaning takes 2 h.,Улики повышают шанс облавы. Уборка — 2 ч.
+NEIGHBORS_FEW,few,мало
+NEIGHBORS_SOME,some,есть
+NEIGHBORS_MANY,many,много
+BUILDINGS_EMPTY,No buildings yet. Click a “for sale” pin in the city.,Пока нет зданий. Нажми на метку «продаётся» в городе.
+NICK_GLOOMY,Gloomy,Хмурый
+NICK_QUICK,Quick,Шустрый
+NICK_BEARD,Beard,Борода
+NICK_PROFESSOR,Professor,Профессор
+NICK_QUIET,Quiet,Тихоня
+NICK_BOAR,Boar,Кабан
+NICK_OWL,Owl,Сова
+NICK_KIDDO,Kiddo,Малой
+NICK_FOX,Fox,Лис
+NICK_CHEMIST,Chemist,Химик
+NICK_CHUBBY,Chubby,Толстый
+NICK_SHOELACE,Shoelace,Шнурок
+NICK_NAIL,Nail,Гвоздь
+NICK_GINGER,Ginger,Рыжая
+NICK_BEE,Bee,Пчёлка
+NICK_GRAMPS,Gramps,Дед
+NICK_BUTTON,Button,Кнопка
+NICK_RAVEN,Raven,Ворон
+NICK_DRY,Dry,Сухой
+NICK_FLASH,Flash,Молния
+NICK_DUMPLING,Dumpling,Пельмень
+NICK_HEDGEHOG,Hedgehog,Ёжик
+NICK_BAGEL,Bagel,Бублик
+NICK_CORKSCREW,Corkscrew,Штопор
+TAB_CREW,Crew,Люди
+ROLE_COOK,Cook,Повар
+ROLE_DEALER,Dealer,Дилер
+ROLE_GUARD,Guard,Охранник
+ROLE_LETTER_COOK,C,П
+ROLE_LETTER_DEALER,D,Д
+ROLE_LETTER_GUARD,G,О
+ROLE_DESC_COOK,"Works in a lab: fewer defects, more great batches (3% per skill level).",Работает в лаборатории: меньше брака и больше удачных партий (по 3% за уровень навыка).
+ROLE_DESC_DEALER,"Sells illegal goods from the building's storage every night (2 + skill units, at 75–95% of the district price). Dirty cash, adds heat.","Каждую ночь продаёт нелегальное со склада здания (2 + навык штук, по 75–95% цены района). Деньги грязные, розыск растёт."
+ROLE_DESC_GUARD,Guards a building: raid chance −10% per skill level.,Охраняет здание: облава реже на 10% за уровень навыка.
+TRAIT_GREEDY,greedy,жадный
+TRAIT_GREEDY_DESC,"+1 skill, but wage +30%","+1 к навыку, но зарплата +30%"
+TRAIT_LOYAL,loyal,верный
+TRAIT_LOYAL_DESC,wage −10%,зарплата −10%
+TRAIT_DRINKER,drinker,пьёт
+TRAIT_DRINKER_DESC,"cheap (−20%), but skips work 1 night in 5","дешёвый (−20%), но 1 ночь из 5 не выходит"
+TRAIT_SLY,sly,хитрый
+TRAIT_SLY_DESC,as a dealer sells 15% dearer; wage +10%,дилером продаёт на 15% дороже; зарплата +10%
+TRAIT_HOTHEAD,hothead,вспыльчивый
+TRAIT_HOTHEAD_DESC,"+1 skill, but makes noise: +4 heat a night","+1 к навыку, но шумит: +4 розыска за ночь"
+TRAIT_COWARD,coward,трусливый
+TRAIT_COWARD_DESC,"cheap (−25%), but runs away for good during a raid","дешёвый (−25%), но при облаве сбегает насовсем"
+CREW_MINE,Your crew %d/%d · wages $%s a night,Бригада %d/%d · зарплаты $%s за ночь
+CREW_EMPTY,Nobody yet. Hire people below and put them to work in your buildings.,Пока никого. Найми людей ниже и поставь в свои здания.
+CREW_CANDIDATES,Looking for work today,Ищут работу сегодня
+CREW_PER_DAY,a day,в день
+CREW_NO_JOB,No job,Без работы
+CREW_NOBODY_HERE,Nobody works here. Assign people in the Crew tab.,Здесь никто не работает. Поставить людей — во вкладке «Люди».
+SECTION_CREW,People,Люди
+BTN_HIRE,Hire $%s,Нанять $%s
+BTN_FIRE,Fire,Уволить
+LOG_CREW_HIRED,Hired %s (%s).,Новый человек в бригаде: %s (%s).
+LOG_CREW_FIRED,%s is fired.,Уволили: %s.
+LOG_CREW_WAGES,Crew wages: $%s.,Зарплаты бригаде: $%s.
+LOG_CREW_UNPAID,No money for %s's wage — they quit.,Нечем платить — больше не работает: %s.
+LOG_CREW_NO_SHOW,%s didn't show up for work (hangover).,Не вышли на работу (похмелье): %s.
+LOG_CREW_FLED,%s panicked during the raid and ran off for good.,Испугались облавы и сбежали насовсем: %s.
+LOG_DEALER_SOLD,Dealer %s sold %d item(s) for $%s (dirty).,Дилер %s: продано %d шт. на $%s (грязными).

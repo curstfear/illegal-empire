@@ -126,6 +126,7 @@ func _spawn_car(path: String, kind: String) -> void:
 	car.position = lane.position
 	# Машины KayKit смотрят вдоль оси Z.
 	car.rotation.y = _heading(lane.axis, lane.dir)
+	city.soften(car)
 	add_child(car)
 	_movers.append({ "node": car, "axis": lane.axis, "dir": lane.dir,
 			"speed": CAR_SPEED * _rng.randf_range(0.8, 1.2), "kind": kind })

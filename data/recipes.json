@@ -1,0 +1,8 @@
+[
+	{ "id": "moon_pollen", "name_key": "RECIPE_MOON_POLLEN", "where": "lab", "nights": 1,
+		"inputs": { "moon_moss": 3 }, "output": "moon_pollen", "amount": 2, "smell": 6 },
+	{ "id": "blue_dust", "name_key": "RECIPE_BLUE_DUST", "where": "lab", "nights": 2,
+		"inputs": { "reagents": 2, "moon_pollen": 1 }, "output": "blue_dust", "amount": 1, "smell": 10, "volatile": true },
+	{ "id": "tea", "name_key": "RECIPE_TEA", "where": "kitchen", "nights": 1,
+		"inputs": { "herbs": 2, "mushrooms": 2 }, "output": "tea", "amount": 3, "smell": 0 }
+]

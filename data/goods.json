@@ -1,8 +1,11 @@
 [
-	{ "id": "mushrooms", "name_key": "GOOD_MUSHROOMS", "base_price": 8, "volatility": 0.225, "legal": true, "heat": 0.0, "depth": 60, "stall_daily": 15 },
-	{ "id": "herbs", "name_key": "GOOD_HERBS", "base_price": 15, "volatility": 0.2, "legal": true, "heat": 0.0, "depth": 40, "stall_daily": 8 },
-	{ "id": "cigarettes", "name_key": "GOOD_CIGARETTES", "base_price": 30, "volatility": 0.3, "legal": false, "heat": 0.4, "depth": 30, "stall_daily": 5 },
-	{ "id": "moon_moss", "name_key": "GOOD_MOON_MOSS", "base_price": 70, "volatility": 0.45, "legal": false, "heat": 1.2, "depth": 15, "stall_daily": 0 },
-	{ "id": "phones", "name_key": "GOOD_PHONES", "base_price": 200, "volatility": 0.375, "legal": false, "heat": 2.5, "depth": 8, "stall_daily": 0 },
-	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525, "legal": false, "heat": 5.0, "depth": 4, "stall_daily": 0 }
+	{ "id": "mushrooms", "name_key": "GOOD_MUSHROOMS", "base_price": 8, "volatility": 0.225, "legal": true, "heat": 0.0, "depth": 60, "stall_daily": 15, "size": 1, "perish": 0.15 },
+	{ "id": "herbs", "name_key": "GOOD_HERBS", "base_price": 15, "volatility": 0.2, "legal": true, "heat": 0.0, "depth": 40, "stall_daily": 8, "size": 1, "perish": 0.05 },
+	{ "id": "tea", "name_key": "GOOD_TEA", "base_price": 22, "volatility": 0.15, "legal": true, "heat": 0.0, "depth": 40, "stall_daily": 6, "size": 1, "perish": 0.1 },
+	{ "id": "cigarettes", "name_key": "GOOD_CIGARETTES", "base_price": 30, "volatility": 0.3, "legal": false, "heat": 0.4, "depth": 30, "stall_daily": 5, "size": 1 },
+	{ "id": "reagents", "name_key": "GOOD_REAGENTS", "base_price": 25, "volatility": 0.2, "legal": false, "heat": 0.3, "depth": 30, "stall_daily": 0, "size": 2 },
+	{ "id": "moon_moss", "name_key": "GOOD_MOON_MOSS", "base_price": 70, "volatility": 0.45, "legal": false, "heat": 1.2, "depth": 15, "stall_daily": 0, "size": 1, "perish": 0.05 },
+	{ "id": "moon_pollen", "name_key": "GOOD_MOON_POLLEN", "base_price": 190, "volatility": 0.35, "legal": false, "heat": 2.0, "depth": 10, "stall_daily": 0, "size": 1 },
+	{ "id": "phones", "name_key": "GOOD_PHONES", "base_price": 200, "volatility": 0.375, "legal": false, "heat": 2.5, "depth": 8, "stall_daily": 0, "size": 2 },
+	{ "id": "blue_dust", "name_key": "GOOD_BLUE_DUST", "base_price": 400, "volatility": 0.525, "legal": false, "heat": 5.0, "depth": 4, "stall_daily": 0, "size": 1 }
 ]

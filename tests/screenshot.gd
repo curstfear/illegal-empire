@@ -34,6 +34,21 @@ func _ready() -> void:
 	_shot(out_dir.path_join("3_forest.png"))
 	print("лес: район ", s.district, ", грибов ", s.inventory.mushrooms, ", время ", Clock.minutes_of_day())
 
+	# Сарай лесника: карточка «продаётся», покупка, мох на склад, варка пыльцы.
+	screen.open_property_card("forest_shed")
+	await _frames(10)
+	_shot(out_dir.path_join("3a_shed_for_sale.png"))
+	s.clean += 1500
+	GameState.buy_property("forest_shed")
+	s.inventory.moon_moss = 6
+	GameState.store_goods("forest_shed", "moon_moss")
+	GameState.start_production("forest_shed", "moon_pollen")
+	await _frames(10)
+	_shot(out_dir.path_join("3b_shed_brewing.png"))
+	print("сарай: мой = ", s.properties.is_mine("forest_shed"), ", партий = ", s.properties.state.forest_shed.batches.size())
+	var picked: Array = city._pick(city.property_anchor_screen_position("forest_shed") + Vector2(0, 30))
+	print("клик по сараю → ", picked)
+
 	# Несколько дней торговли, чтобы на графиках была история.
 	for i in 6:
 		s.clean += 60
@@ -46,15 +61,40 @@ func _ready() -> void:
 	screen.get_node("%CardMarketButton").pressed.emit()
 	s.clean += 400
 	GameState.buy_stall()
-	screen.open_drawer(1)
+	screen.open_tab("stall")
 	await _frames(10)
 	_shot(out_dir.path_join("4_market_window.png"))
+
+	# Прачечная: покупка и сдача грязных в отмыв.
+	screen.get_node("%MarketCloseButton").pressed.emit()
+	s.clean += 3000
+	s.dirty += 900
+	GameState.buy_property("laundromat")
+	GameState.launder("laundromat")
+	screen.open_property_card("laundromat")
+	await _frames(10)
+	_shot(out_dir.path_join("4b_laundromat.png"))
+	print("пыльца в сарае после ночей: ", s.properties.stock_of("forest_shed", "moon_pollen"),
+			", в отмыве: ", s.properties.state.laundromat.dirty_queue)
+
+	# Бригада: нанять двоих с биржи, поставить в здания, открыть вкладку «Люди».
+	s.clean += 500
+	for candidate: Dictionary in s.crew.candidates.duplicate().slice(0, 2):
+		GameState.hire(int(candidate.id))
+	for person: Dictionary in s.crew.people:
+		for place: String in ["forest_shed", "laundromat"]:
+			if s.can_assign(int(person.id), place) and person.job == "":
+				GameState.assign(int(person.id), place)
+	screen.open_tab("crew")
+	await _frames(10)
+	_shot(out_dir.path_join("4c_crew.png"))
+	print("бригада: ", s.crew.people.map(func(p: Dictionary) -> String: return "%s/%s/%s" % [p.role, p.trait, p.job]))
 
 	# Ночь в клубах.
 	screen.get_node("%MarketCloseButton").pressed.emit()
 	screen.open_card("clubs")
 	screen.get_node("%CardTravelButton").pressed.emit()
-	screen.open_drawer(1)
+	screen.open_tab("stall")
 	Clock.elapsed = 0.72 * 90.0
 	Clock.paused = true
 	await _frames(15)

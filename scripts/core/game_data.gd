@@ -6,6 +6,9 @@ const GOODS_PATH := "res://data/goods.json"
 const DISTRICTS_PATH := "res://data/districts.json"
 const EVENTS_PATH := "res://data/events.json"
 const ACTIVITIES_PATH := "res://data/activities.json"
+const PROPERTIES_PATH := "res://data/properties.json"
+const RECIPES_PATH := "res://data/recipes.json"
+const CREW_PATH := "res://data/crew.json"
 
 
 static func load_balance() -> Dictionary:
@@ -26,6 +29,18 @@ static func load_events() -> Array:
 
 static func load_activities() -> Array:
 	return _load_json(ACTIVITIES_PATH)
+
+
+static func load_properties() -> Array:
+	return _load_json(PROPERTIES_PATH)
+
+
+static func load_recipes() -> Array:
+	return _load_json(RECIPES_PATH)
+
+
+static func load_crew() -> Dictionary:
+	return _load_json(CREW_PATH)
 
 
 static func _load_json(path: String) -> Variant:

@@ -1,0 +1,21 @@
+{
+	"roles": {
+		"cook": { "name_key": "ROLE_COOK", "wage_base": 40, "wage_per_skill": 10, "works_in": ["lab"] },
+		"dealer": { "name_key": "ROLE_DEALER", "wage_base": 30, "wage_per_skill": 8, "works_in": ["warehouse", "lab", "front"] },
+		"guard": { "name_key": "ROLE_GUARD", "wage_base": 25, "wage_per_skill": 8, "works_in": ["warehouse", "lab", "front"] }
+	},
+	"traits": {
+		"greedy": { "name_key": "TRAIT_GREEDY", "wage": 1.3, "skill": 1 },
+		"loyal": { "name_key": "TRAIT_LOYAL", "wage": 0.9, "skill": 0 },
+		"drinker": { "name_key": "TRAIT_DRINKER", "wage": 0.8, "skill": 0, "no_show": 0.2 },
+		"sly": { "name_key": "TRAIT_SLY", "wage": 1.1, "skill": 0, "price": 0.15 },
+		"hothead": { "name_key": "TRAIT_HOTHEAD", "wage": 1.0, "skill": 1, "heat": 4 },
+		"coward": { "name_key": "TRAIT_COWARD", "wage": 0.75, "skill": 0, "flees": true }
+	},
+	"nicknames": [
+		"NICK_GLOOMY", "NICK_QUICK", "NICK_BEARD", "NICK_PROFESSOR", "NICK_QUIET", "NICK_BOAR",
+		"NICK_OWL", "NICK_KIDDO", "NICK_FOX", "NICK_CHEMIST", "NICK_CHUBBY", "NICK_SHOELACE",
+		"NICK_NAIL", "NICK_GINGER", "NICK_BEE", "NICK_GRAMPS", "NICK_BUTTON", "NICK_RAVEN",
+		"NICK_DRY", "NICK_FLASH", "NICK_DUMPLING", "NICK_HEDGEHOG", "NICK_BAGEL", "NICK_CORKSCREW"
+	]
+}

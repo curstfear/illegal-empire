@@ -89,6 +89,111 @@ func stock_stall(id: String) -> void:
 		changed.emit()
 
 
+# --- Недвижимость ---
+
+func buy_property(id: String) -> void:
+	if session.buy_property(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_PROPERTY_BOUGHT", [session.properties.get_def(id).name_key]]])
+		changed.emit()
+
+
+func rent_property(id: String) -> void:
+	if session.rent_property(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_PROPERTY_RENTED", [session.properties.get_def(id).name_key]]])
+		changed.emit()
+
+
+func store_goods(id: String, good: String) -> void:
+	if session.store_goods(id, good) > 0:
+		changed.emit()
+
+
+func take_goods(id: String, good: String) -> void:
+	if session.take_goods(id, good) > 0:
+		changed.emit()
+
+
+func start_production(id: String, recipe_id: String) -> void:
+	var count := session.start_production(id, recipe_id)
+	if count > 0:
+		Audio.ui("confirmation")
+		reported.emit([["LOG_PRODUCTION_STARTED", [count, session.properties.get_recipe(recipe_id).name_key]]])
+		changed.emit()
+
+
+func upgrade_lab(id: String) -> void:
+	if session.upgrade_lab(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_LAB_UPGRADED", [int(session.properties.state[id].level)]]])
+		changed.emit()
+
+
+func sell_property(id: String) -> void:
+	var price := session.sell_property(id)
+	if price >= 0:
+		if price > 0:
+			Audio.coin()
+		else:
+			Audio.ui("confirmation")
+		reported.emit([["LOG_PROPERTY_SOLD" if price > 0 else "LOG_PROPERTY_LEFT", [session.properties.get_def(id).name_key, price]]])
+		changed.emit()
+
+
+func buy_upgrade(id: String, upgrade: String) -> void:
+	if session.buy_upgrade(id, upgrade):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_UPGRADE_BOUGHT", [session.balance.upgrades[upgrade].name_key, session.properties.get_def(id).name_key]]])
+		changed.emit()
+
+
+## Уборка занимает часы — до конца дня их должно хватить.
+func can_cleanup(id: String) -> bool:
+	return session.can_cleanup(id) and Clock.hours_left() >= float(session.balance.cleanup_hours)
+
+
+func cleanup(id: String) -> void:
+	if not can_cleanup(id):
+		return
+	session.cleanup(id)
+	Audio.ui("confirmation")
+	reported.emit([["LOG_CLEANED_UP", [session.properties.get_def(id).name_key]]])
+	changed.emit()
+	Clock.advance_hours(session.balance.cleanup_hours)
+
+
+# --- Бригада ---
+
+func hire(id: int) -> void:
+	var person := session.crew.get_candidate(id)
+	if session.hire(id):
+		Audio.ui("confirmation")
+		reported.emit([["LOG_CREW_HIRED", [person.nick, session.crew.roles[person.role].name_key]]])
+		changed.emit()
+
+
+func fire(id: int) -> void:
+	var person := session.crew.get_person(id)
+	if session.fire(id):
+		reported.emit([["LOG_CREW_FIRED", [person.nick]]])
+		changed.emit()
+
+
+func assign(person_id: int, property_id: String) -> void:
+	if session.assign(person_id, property_id):
+		Audio.ui("select")
+		changed.emit()
+
+
+func launder(id: String) -> void:
+	var amount := session.launder(id)
+	if amount > 0:
+		Audio.coin()
+		reported.emit([["LOG_LAUNDER_QUEUED", [amount]]])
+		changed.emit()
+
+
 func pay(amount: int) -> void:
 	if session.pay(amount) > 0:
 		changed.emit()
@@ -174,4 +279,5 @@ func _check_finished() -> bool:
 
 func _make_session() -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
-			GameData.load_districts(), GameData.load_events(), GameData.load_activities())
+			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew())

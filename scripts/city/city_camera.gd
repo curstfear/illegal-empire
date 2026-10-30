@@ -21,7 +21,7 @@ var target := Vector3.ZERO:
 		target = value
 		position = value
 
-var _zoom := 34.0
+var _zoom := 28.0
 var _yaw := 45.0
 ## Перетаскивание: какая кнопка зажата, где нажали и началось ли движение.
 var _drag_button := MOUSE_BUTTON_NONE

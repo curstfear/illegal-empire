@@ -1,0 +1,18 @@
+[
+	{ "id": "market_warehouse", "neighbors": 1.2, "kind": "warehouse", "name_key": "PROP_MARKET_WAREHOUSE", "district": "market", "tile": [4, 10],
+		"buy_price": 1500, "rent": 25, "capacity": 80, "model": "kenney_city_industrial/building-q.glb", "scale": 0.85 },
+	{ "id": "laundromat", "neighbors": 1.2, "kind": "front", "name_key": "PROP_LAUNDROMAT", "district": "market", "tile": [10, 4],
+		"buy_price": 3000, "rent": 45, "capacity": 20, "launder_limit": 600, "launder_fee": 0.15, "revenue": 70,
+		"model": "kaykit_city/building_B.gltf", "scale": 1.0 },
+	{ "id": "station_warehouse", "neighbors": 0.8, "kind": "warehouse", "name_key": "PROP_STATION_WAREHOUSE", "district": "station", "tile": [24, 10],
+		"buy_price": 2500, "rent": 40, "capacity": 150, "model": "kenney_city_industrial/building-l.glb", "scale": 0.85 },
+	{ "id": "station_lab", "neighbors": 1.0, "kind": "lab", "name_key": "PROP_STATION_LAB", "district": "station", "tile": [18, 4],
+		"buy_price": 2200, "rent": 35, "capacity": 30, "model": "kenney_city_industrial/building-h.glb", "scale": 1.1 },
+	{ "id": "cafe", "neighbors": 1.0, "kind": "front", "name_key": "PROP_CAFE", "district": "clubs", "tile": [4, 18],
+		"buy_price": 4000, "rent": 60, "capacity": 30, "launder_limit": 900, "launder_fee": 0.12, "revenue": 90, "kitchen": true,
+		"model": "kenney_city_commercial/building-h.glb", "scale": 1.5 },
+	{ "id": "club_lab", "neighbors": 0.8, "kind": "lab", "name_key": "PROP_CLUB_LAB", "district": "clubs", "tile": [10, 24],
+		"buy_price": 1800, "rent": 30, "capacity": 30, "model": "kenney_city_industrial/building-j.glb", "scale": 1.2 },
+	{ "id": "forest_shed", "neighbors": 0.2, "kind": "lab", "name_key": "PROP_FOREST_SHED", "district": "forest", "tile": [24, 17],
+		"buy_price": 1200, "rent": 20, "capacity": 20, "model": "kenney_city_industrial/building-o.glb", "scale": 1.2 }
+]

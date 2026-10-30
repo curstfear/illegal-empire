@@ -3,9 +3,13 @@ extends Node3D
 ## Сетка улиц делит город на кварталы; центральные улицы делят его на 4 района.
 ## В кварталах — дома, площади, скверы и парковки. Клик по кварталу выбирает район,
 ## наведение курсора подсвечивает район.
-## Только картинка: про игру знает лишь, в каком районе сейчас игрок.
+## Только картинка: про игру знает лишь, в каком районе сейчас игрок и какие здания его.
+## Вид — «воздушный», как в референсе: модели приглушены шейдером soft.gdshader, земля светлая,
+## твои здания перекрашены в синий, над зданиями на продажу — булавки.
 
 signal district_clicked(district: String)
+## Клик по зданию, которое можно купить или арендовать (или уже твоё).
+signal property_clicked(id: String)
 
 ## На сколько пикселей можно сдвинуть палец/мышь, чтобы это ещё считалось кликом.
 const CLICK_SLOP := 8.0
@@ -13,9 +17,18 @@ const CLICK_SLOP := 8.0
 const CITY_PATH := "res://data/city.json"
 const MODELS := "res://assets/models/"
 const KAY := MODELS + "kaykit_city/"
-## Размер подписей зданий: такой он при масштабе камеры TAG_BASE_ZOOM.
-const TAG_PIXEL_SIZE := 0.0095
-const TAG_BASE_ZOOM := 26.0
+const IND := MODELS + "kenney_city_industrial/"
+const SOFT_SHADER := preload("res://scenes/city/soft.gdshader")
+## Цвета «воздушного» города.
+const COLOR_GROUND := Color(0.9, 0.92, 0.95)
+const COLOR_GRASS := Color(0.67, 0.88, 0.56)
+const COLOR_WATER := Color(0.38, 0.68, 0.96)
+const COLOR_CROWN := Color(0.36, 0.7, 0.38)
+const COLOR_TRUNK := Color(0.6, 0.46, 0.36)
+## Скругление внешних углов газона (доля клетки).
+const LAWN_RADIUS := 0.4
+const COLOR_MINE := Color(0.184, 0.42, 1.0)
+const COLOR_FOR_SALE := Color(0.98, 0.6, 0.2)
 ## Фонари: сколько света ночью и какого цвета.
 const LAMP_COLOR := Color(1.0, 0.78, 0.5)
 
@@ -38,13 +51,29 @@ var _rng := RandomNumberGenerator.new()
 var _press_position := Vector2.ZERO
 ## Невидимые «коробки» клеток для клика: [AABB, район]. Высота — как у здания.
 var _hit_boxes: Array = []
+## Здания на продажу (data/properties.json): подписи, булавки, модели и точки для карточки по id.
+var _properties: Array = []
+var _property_tags: Dictionary = {}
+var _property_pins: Dictionary = {}
+var _property_nodes: Dictionary = {}
+var _property_anchors: Dictionary = {}
+## Чьё здание было на прошлом кадре — перекрашиваем модель только при смене.
+var _property_owned: Dictionary = {}
+## Мягкие материалы: ключ «исходный материал + перекраска» → ShaderMaterial.
+var _soft_materials: Dictionary = {}
+## Общие меши булавок: [шар, конус].
+var _pin_meshes: Array = []
 ## Подсветка земли района под курсором и подписи главных зданий по районам.
 var _highlights: Dictionary = {}
 var _main_tags: Dictionary = {}
-var _tags: Array[Label3D] = []
+var _tags: Array[MapTag] = []
+## Слой подписей: поверх 3D, но под интерфейсом.
+var _tag_layer := CanvasLayer.new()
 var _hovered: String = ""
 ## Общие меши деревьев: [ствол, крона].
 var _tree_meshes: Array = []
+## Клетки газона (парки, лесопарк, пруды): рисуются одним сплошным полем в _build_lawns.
+var _lawn: Dictionary = {}
 ## Общие материалы по цвету.
 var _materials: Dictionary = {}
 
@@ -62,17 +91,20 @@ func _ready() -> void:
 	_build_ground()
 	_build_roads()
 	_build_pois()
+	_build_properties()
 	_build_districts()
+	_build_lawns()
+	_build_ponds()
 	_build_markers()
 	_build_highlights()
 	camera_rig.target = _tile_center(_center, _center)
 
 
 func _process(delta: float) -> void:
-	# Подписи держат одинаковый размер на экране при любом приближении камеры.
-	var tag_size: float = TAG_PIXEL_SIZE * camera_rig.camera.size / TAG_BASE_ZOOM
-	for tag: Label3D in _tags:
-		tag.pixel_size = tag_size
+	_refresh_property_tags()
+	# Подписи-плашки следуют за зданиями.
+	for tag: MapTag in _tags:
+		tag.follow(camera_rig.camera)
 	# Маркер «ты здесь» висит над героем на тротуаре.
 	if _player_marker != null and GameState.session != null:
 		var anchor: Vector3 = _ground_anchors.get(GameState.session.district, Vector3.ZERO)
@@ -93,21 +125,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.position.distance_to(_press_position) > CLICK_SLOP:
 		return
-	var district := district_at_screen(event.position)
-	if district != "":
-		select(district)
-		district_clicked.emit(district)
+	var picked := _pick(event.position)
+	if picked[1] != "":
+		select_property(picked[1])
+		property_clicked.emit(picked[1])
+		get_viewport().set_input_as_handled()
+	elif picked[0] != "":
+		select(picked[0])
+		district_clicked.emit(picked[0])
 		get_viewport().set_input_as_handled()
 
 
 ## Район под точкой экрана: ближайшая «коробка» здания на луче от камеры.
 ## Если луч не задел ни одного здания — смотрим, на какую клетку земли он упал.
 func district_at_screen(screen_pos: Vector2) -> String:
+	return _pick(screen_pos)[0]
+
+
+## Что под точкой экрана: [район, id здания на продажу или ""].
+func _pick(screen_pos: Vector2) -> Array:
 	var camera: Camera3D = camera_rig.camera
 	var origin := camera.project_ray_origin(screen_pos)
 	var direction := camera.project_ray_normal(screen_pos)
-	var best := ""
+	var best: Array = []
 	var best_distance := INF
+	# Здания на продажу важнее: если луч их задел, выбираем их, даже если перед ними деревья или дома.
+	var best_property: Array = []
+	var best_property_distance := INF
 	for entry: Array in _hit_boxes:
 		var hit: Variant = (entry[0] as AABB).intersects_ray(origin, direction)
 		if hit == null:
@@ -115,11 +159,18 @@ func district_at_screen(screen_pos: Vector2) -> String:
 		var distance := origin.distance_to(hit)
 		if distance < best_distance:
 			best_distance = distance
-			best = entry[1]
-	if best != "" or absf(direction.y) < 0.0001:
-		return best
+			best = entry
+		if entry[2] != "" and distance < best_property_distance:
+			best_property_distance = distance
+			best_property = entry
+	if not best_property.is_empty():
+		return [best_property[1], best_property[2]]
+	if not best.is_empty():
+		return [best[1], best[2]]
+	if absf(direction.y) < 0.0001:
+		return ["", ""]
 	var ground := origin + direction * (-origin.y / direction.y)
-	return district_at_tile(floori(ground.x / _tile + 0.5), floori(ground.z / _tile + 0.5))
+	return [district_at_tile(floori(ground.x / _tile + 0.5), floori(ground.z / _tile + 0.5)), ""]
 
 
 func _set_hovered(district: String) -> void:
@@ -129,7 +180,7 @@ func _set_hovered(district: String) -> void:
 	for id: String in _highlights:
 		_highlights[id].visible = id == district
 	for id: String in _main_tags:
-		_main_tags[id].modulate = Color(1.0, 0.85, 0.35) if id == district else Color.WHITE
+		_main_tags[id].highlight(id == district)
 	Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if district != "" else Input.CURSOR_ARROW)
 
 
@@ -189,6 +240,18 @@ func anchor_screen_position(district: String) -> Vector2:
 	return camera.unproject_position(anchor + Vector3(0, 0.6, 0))
 
 
+## Точка на экране над зданием на продажу (для его карточки).
+func property_anchor_screen_position(id: String) -> Vector2:
+	var camera: Camera3D = camera_rig.camera
+	return camera.unproject_position(_property_anchors.get(id, Vector3.ZERO) + Vector3(0, 0.6, 0))
+
+
+func select_property(id: String) -> void:
+	var anchor: Vector3 = _property_anchors[id]
+	_select_ring.visible = true
+	_select_ring.position = Vector3(anchor.x, 0.12, anchor.z)
+
+
 ## Подсветить выбранный район кольцом на земле.
 func select(district: String) -> void:
 	_select_ring.visible = district != ""
@@ -211,8 +274,30 @@ func _place(path: String, pos: Vector3, rot_deg: float = 0.0, scale_k: float = 1
 	node.position = pos
 	node.rotation_degrees.y = rot_deg
 	node.scale = Vector3.ONE * scale_k
+	soften(node)
 	add_child(node)
 	return node
+
+
+## Приглушить цвета модели (и перекрасить, если tint_amount > 0). Материалы общие для одинаковых исходников.
+func soften(node: Node3D, tint: Color = Color.WHITE, tint_amount: float = 0.0) -> void:
+	for mesh: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		if mesh.mesh == null:
+			continue
+		for i in mesh.mesh.get_surface_count():
+			var source := mesh.mesh.surface_get_material(i)
+			if not source is StandardMaterial3D:
+				continue
+			var key := "%d|%s|%.2f" % [source.get_instance_id(), tint.to_html(), tint_amount]
+			if not _soft_materials.has(key):
+				var soft := ShaderMaterial.new()
+				soft.shader = SOFT_SHADER
+				soft.set_shader_parameter("albedo_tex", (source as StandardMaterial3D).albedo_texture)
+				soft.set_shader_parameter("albedo_color", (source as StandardMaterial3D).albedo_color)
+				soft.set_shader_parameter("tint", tint)
+				soft.set_shader_parameter("tint_amount", tint_amount)
+				_soft_materials[key] = soft
+			mesh.set_surface_override_material(i, _soft_materials[key])
 
 
 func _build_ground() -> void:
@@ -222,7 +307,7 @@ func _build_ground() -> void:
 	plane.size = Vector2(extent + 400.0, extent + 400.0)
 	ground.mesh = plane
 	ground.position = Vector3(extent / 2.0 - _tile / 2.0, -0.02, extent / 2.0 - _tile / 2.0)
-	ground.material_override = _flat_material(Color(0.8, 0.82, 0.87))
+	ground.material_override = _flat_material(COLOR_GROUND)
 	add_child(ground)
 
 
@@ -291,7 +376,7 @@ func _build_pois() -> void:
 ## Кварталы: часть клеток — дома (доля = density стиля района), остальное — открытые места.
 func _build_districts() -> void:
 	var taken := {}
-	for poi: Dictionary in _data.pois:
+	for poi: Dictionary in _data.pois + _properties:
 		taken[Vector2i(int(poi.tile[0]), int(poi.tile[1]))] = true
 	var pond := {}
 	for tile: Array in _data.pond:
@@ -348,9 +433,101 @@ func _build_open_tile(pos: Vector3, district: String, c: int, r: int) -> float:
 
 
 ## Невидимая «коробка» клетки для клика: вся клетка от земли до верха здания.
-func _add_hit_box(pos: Vector3, height: float, district: String) -> void:
+func _add_hit_box(pos: Vector3, height: float, district: String, property_id: String = "") -> void:
 	var half := _tile / 2.0
-	_hit_boxes.append([AABB(pos - Vector3(half, 0, half), Vector3(_tile, height, _tile)), district])
+	_hit_boxes.append([AABB(pos - Vector3(half, 0, half), Vector3(_tile, height, _tile)), district, property_id])
+
+
+## Здания на продажу: модель, подпись «Продаётся»/«Твоё», своя «коробка» для клика.
+func _build_properties() -> void:
+	_properties = GameData.load_properties()
+	for prop: Dictionary in _properties:
+		var c := int(prop.tile[0])
+		var r := int(prop.tile[1])
+		var pos := _tile_center(c, r)
+		if not String(prop.model).begins_with("kaykit_city/building"):
+			_place(KAY + "base.gltf", pos)
+		var facing := _toward_road(c, r)
+		var node := _place(MODELS + prop.model, pos, rad_to_deg(atan2(facing.x, facing.z)), float(prop.scale))
+		var height := _height_of(node) if node != null else 1.0
+		_property_nodes[prop.id] = node
+		_property_anchors[prop.id] = pos + Vector3(0, height, 0)
+		_property_pins[prop.id] = _add_pin(pos + Vector3(0, height + 0.25, 0))
+		_property_tags[prop.id] = _add_name_tag("", pos + Vector3(0, height + 1.85, 0), true)
+		_add_hit_box(pos, maxf(height, 1.0) + 1.2, prop.district, prop.id)
+		# У складов — контейнеры во дворе, как паллеты у склада в референсе.
+		if prop.kind == "warehouse":
+			var side := Vector3(facing.z, 0, facing.x)
+			for k in 3:
+				var model := IND + "shipping-container-%s.glb" % ["a", "b", "c"][k]
+				_place(model, pos + facing * 0.75 + side * (0.85 - k * 0.4), 90.0 + rad_to_deg(atan2(facing.x, facing.z)), 1.0)
+
+
+## Булавки и подписи зданий: на продажу — оранжевая булавка, твоё — синяя булавка с названием
+## и синяя перекраска модели. Булавки слегка покачиваются.
+func _refresh_property_tags() -> void:
+	if GameState.session == null:
+		return
+	var bob := sin(Time.get_ticks_msec() / 400.0) * 0.06
+	for id: String in _property_tags:
+		var tag: MapTag = _property_tags[id]
+		var mine: bool = GameState.session.properties.is_mine(id)
+		tag.set_text(GameState.session.properties.get_def(id).name_key if mine else "")
+		var pin: Node3D = _property_pins[id]
+		pin.position.y = _property_anchors[id].y + 0.25 + bob
+		var color := COLOR_MINE if mine else COLOR_FOR_SALE
+		(pin.get_child(0) as MeshInstance3D).material_override = _pin_material(color)
+		(pin.get_child(1) as MeshInstance3D).material_override = _pin_material(color)
+		if _property_owned.get(id, false) != mine and _property_nodes[id] != null:
+			_property_owned[id] = mine
+			soften(_property_nodes[id], COLOR_MINE, 0.7 if mine else 0.0)
+
+
+## Булавка на карте: шар на острие вниз, как метки в референсе.
+func _add_pin(pos: Vector3) -> Node3D:
+	if _pin_meshes.is_empty():
+		var head := SphereMesh.new()
+		head.radius = 0.22
+		head.height = 0.44
+		var tip := CylinderMesh.new()
+		tip.top_radius = 0.17
+		tip.bottom_radius = 0.0
+		tip.height = 0.36
+		_pin_meshes = [head, tip]
+	var pin := Node3D.new()
+	pin.position = pos
+	pin.scale = Vector3.ONE * 1.8
+	var head_node := MeshInstance3D.new()
+	head_node.mesh = _pin_meshes[0]
+	head_node.position.y = 0.5
+	pin.add_child(head_node)
+	var tip_node := MeshInstance3D.new()
+	tip_node.mesh = _pin_meshes[1]
+	tip_node.position.y = 0.26
+	pin.add_child(tip_node)
+	var dot := MeshInstance3D.new()
+	var dot_mesh := SphereMesh.new()
+	dot_mesh.radius = 0.09
+	dot_mesh.height = 0.18
+	dot.mesh = dot_mesh
+	dot.position = Vector3(0, 0.52, 0.16)
+	dot.material_override = _pin_material(Color.WHITE)
+	pin.add_child(dot)
+	add_child(pin)
+	return pin
+
+
+func _pin_material(color: Color) -> StandardMaterial3D:
+	var key := "pin" + color.to_html()
+	if not _materials.has(key):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.roughness = 0.4
+		mat.emission_enabled = true
+		mat.emission = color
+		mat.emission_energy_multiplier = 0.25
+		_materials[key] = mat
+	return _materials[key]
 
 
 ## Подсветка земли каждого района (видна в просветах между домами и на краях).
@@ -366,7 +543,7 @@ func _build_highlights() -> void:
 		quad.mesh = plane
 		var corner := _tile_center(first_c, first_r) - Vector3(_tile / 2.0, 0, _tile / 2.0)
 		quad.position = corner + Vector3(span / 2.0, 0.13, span / 2.0)
-		var mat := _flat_material(Color(1.0, 0.85, 0.35, 0.22))
+		var mat := _flat_material(Color(0.184, 0.42, 1.0, 0.1))
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		quad.material_override = mat
 		quad.visible = false
@@ -374,22 +551,91 @@ func _build_highlights() -> void:
 		_highlights[district] = quad
 
 
-## Газон с деревьями.
+## Газон с деревьями (сама трава — в _build_lawns, чтобы соседние клетки слились).
 func _build_park_tile(pos: Vector3, trees: int) -> void:
-	_add_flat(pos, Color(0.36, 0.62, 0.38))
+	_lawn[Vector2i(roundi(pos.x / _tile), roundi(pos.z / _tile))] = true
 	for i in trees:
 		var offset := Vector3(_rng.randf_range(-0.65, 0.65), 0, _rng.randf_range(-0.65, 0.65))
 		_add_tree(pos + offset, _rng.randf_range(0.8, 1.3))
 
 
-## Пруд: вода с травяной каймой.
+## Клетка пруда: под водой — газон (вода рисуется целиком в _build_ponds).
 func _build_pond_tile(pos: Vector3) -> void:
-	_add_flat(pos, Color(0.36, 0.62, 0.38))
-	var water := _add_flat(pos + Vector3(0, 0.01, 0), Color(0.35, 0.62, 0.85))
-	water.scale = Vector3(1.02, 1, 1.02)
-	var mat: StandardMaterial3D = water.material_override
-	mat.roughness = 0.15
-	mat.metallic_specular = 0.8
+	_lawn[Vector2i(roundi(pos.x / _tile), roundi(pos.z / _tile))] = true
+
+
+## Сплошной газон: каждая клетка — во всю ширину, скруглены только внешние углы
+## (где по обеим сторонам угла газона нет). Так парк — одно поле с мягкими краями.
+func _build_lawns() -> void:
+	var r := _tile * LAWN_RADIUS
+	for tile: Vector2i in _lawn:
+		var radii := []
+		for corner: Vector2i in [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1), Vector2i(1, -1)]:
+			var open := not _lawn.has(tile + Vector2i(corner.x, 0)) and not _lawn.has(tile + Vector2i(0, corner.y))
+			radii.append(r if open else 0.0)
+		_add_rounded(_tile_center(tile.x, tile.y), Vector2.ONE * _tile, 0.0, COLOR_GRASS, radii)
+
+
+## Пруды: каждая группа соседних клеток — одна скруглённая гладь на газоне.
+func _build_ponds() -> void:
+	var left := {}
+	for tile: Array in _data.pond:
+		left[Vector2i(int(tile[0]), int(tile[1]))] = true
+	while not left.is_empty():
+		var first: Vector2i = left.keys()[0]
+		var group: Array[Vector2i] = [first]
+		left.erase(first)
+		var i := 0
+		while i < group.size():
+			for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var next: Vector2i = group[i] + step
+				if left.has(next):
+					left.erase(next)
+					group.append(next)
+			i += 1
+		var lo := group[0]
+		var hi := group[0]
+		for tile in group:
+			lo = Vector2i(mini(lo.x, tile.x), mini(lo.y, tile.y))
+			hi = Vector2i(maxi(hi.x, tile.x), maxi(hi.y, tile.y))
+		var center := (_tile_center(lo.x, lo.y) + _tile_center(hi.x, hi.y)) / 2.0
+		var size := Vector2(hi.x - lo.x + 1, hi.y - lo.y + 1) * _tile - Vector2.ONE * _tile * 0.35
+		var water := _add_rounded(center + Vector3(0, 0.01, 0), size, minf(size.x, size.y) * 0.4, COLOR_WATER)
+		var mat: StandardMaterial3D = water.material_override
+		mat.roughness = 0.12
+		mat.metallic_specular = 0.9
+
+
+## Плоская скруглённая плашка на земле (газон, вода): прямоугольник со скруглёнными углами.
+## corner_radii — свой радиус для каждого угла (+x+z, −x+z, −x−z, +x−z); иначе у всех radius.
+func _add_rounded(pos: Vector3, size: Vector2, radius: float, color: Color, corner_radii: Array = []) -> MeshInstance3D:
+	var limit := minf(size.x, size.y) / 2.0
+	var outline := PackedVector3Array()
+	var signs := [Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1), Vector2(1, -1)]
+	for k in 4:
+		var corner_r: float = minf(corner_radii[k] if not corner_radii.is_empty() else radius, limit)
+		var center: Vector2 = signs[k] * (size / 2.0 - Vector2.ONE * corner_r)
+		for j in 9:
+			var angle := (k + j / 8.0) * PI / 2.0
+			var p: Vector2 = center + Vector2(cos(angle), sin(angle)) * corner_r
+			outline.append(Vector3(p.x, 0, p.y))
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	for k in outline.size():
+		vertices.append_array([Vector3.ZERO, outline[(k + 1) % outline.size()], outline[k]])
+		normals.append_array([Vector3.UP, Vector3.UP, Vector3.UP])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = pos + Vector3(0, 0.012, 0)
+	node.material_override = _flat_material(color)
+	add_child(node)
+	return node
 
 
 ## Плоская цветная клетка (газон, вода).
@@ -411,11 +657,11 @@ func _add_tree(pos: Vector3, size: float) -> void:
 		trunk.top_radius = 0.05
 		trunk.bottom_radius = 0.07
 		trunk.height = 0.45
-		trunk.material = _flat_material(Color(0.5, 0.34, 0.24))
+		trunk.material = _flat_material(COLOR_TRUNK)
 		var crown := SphereMesh.new()
 		crown.radius = 0.32
 		crown.height = 0.6
-		crown.material = _flat_material(Color(0.3, 0.66, 0.42))
+		crown.material = _flat_material(COLOR_CROWN)
 		_tree_meshes = [trunk, crown]
 	var tree := Node3D.new()
 	tree.position = pos
@@ -452,27 +698,22 @@ func _build_markers() -> void:
 	torus.rings = 48
 	_select_ring.mesh = torus
 	_select_ring.scale = Vector3(1, 0.05, 1)
-	var ring_mat := _flat_material(Color(1, 1, 1, 0.9))
+	var ring_mat := _flat_material(Color(0.184, 0.42, 1.0, 0.85))
 	ring_mat.emission_enabled = true
-	ring_mat.emission = Color(1, 1, 1)
+	ring_mat.emission = Color(0.184, 0.42, 1.0)
 	ring_mat.emission_energy_multiplier = 0.4
 	_select_ring.material_override = ring_mat
 	_select_ring.visible = false
 	add_child(_select_ring)
 
 
-func _add_name_tag(key: String, pos: Vector3) -> Label3D:
-	var tag := Label3D.new()
-	tag.text = key
-	tag.position = pos
-	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.pixel_size = 0.006
-	tag.font_size = 48
-	tag.outline_size = 16
-	tag.modulate = Color(1, 1, 1)
-	tag.outline_modulate = Color(0.05, 0.06, 0.1, 0.85)
-	tag.no_depth_test = true
-	add_child(tag)
+## Подпись-плашка над зданием (см. MapTag); у твоих зданий — с синей точкой.
+func _add_name_tag(key: String, pos: Vector3, mine: bool = false) -> MapTag:
+	if _tag_layer.get_parent() == null:
+		_tag_layer.layer = 0
+		add_child(_tag_layer)
+	var tag := MapTag.new(key, pos, mine)
+	_tag_layer.add_child(tag)
 	_tags.append(tag)
 	return tag
 
@@ -494,6 +735,7 @@ func _flat_material(color: Color) -> StandardMaterial3D:
 	_materials[key] = mat
 	mat.albedo_color = color
 	mat.roughness = 0.9
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if color.a < 1.0:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	return mat

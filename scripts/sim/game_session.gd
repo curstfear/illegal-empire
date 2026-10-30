@@ -1,7 +1,8 @@
 class_name GameSession
 extends RefCounted
 ## Одна партия: деньги (чистые и грязные), долги, карман с товаром, день, район,
-## рынок, розыск, события, банк, силы, навыки, подработки, сбор и ларёк.
+## рынок, розыск, события, банк, силы, навыки, подработки, сбор, ларёк,
+## карман ограниченного размера, недвижимость (склады, лаборатории, фасады и отмыв) и бригада (повара, дилеры, охрана).
 ## Только логика и числа, никаких узлов сцены — так её легко тестировать и сохранять.
 ## Действия, о которых надо рассказать игроку, возвращают отчёт: список [ключ_перевода, аргументы].
 
@@ -17,6 +18,8 @@ var events: EventDeck
 var bank: Bank
 var skills: Skills
 var stall: Stall
+var properties: Properties
+var crew: Crew
 ## Подработки и сбор (data/activities.json).
 var activities: Array = []
 var rng := RandomNumberGenerator.new()
@@ -51,7 +54,8 @@ var money: int:
 
 
 func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list: Array,
-		activity_list: Array, seed_value: int = 0) -> void:
+		activity_list: Array, property_list: Array, recipe_list: Array, crew_data: Dictionary,
+		seed_value: int = 0) -> void:
 	balance = balance_data
 	market = Market.new(goods, districts, balance)
 	police = Police.new(districts, balance)
@@ -59,6 +63,8 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 	bank = Bank.new(balance)
 	skills = Skills.new(balance)
 	stall = Stall.new(goods)
+	properties = Properties.new(property_list, recipe_list, goods)
+	crew = Crew.new(crew_data, int(balance_data.crew_skill_max))
 	activities = activity_list
 	energy = balance.energy_max
 	if seed_value != 0:
@@ -73,6 +79,7 @@ func _init(balance_data: Dictionary, goods: Array, districts: Array, event_list:
 		inventory[good.id] = 0
 		spent_on[good.id] = 0
 	events.roll(rng)
+	crew.roll_candidates(rng, int(balance.crew_candidates))
 
 
 ## Все деньги: чистые, грязные и вклад в банке.
@@ -121,13 +128,31 @@ func has_market() -> bool:
 	return market.get_district(district).has_market
 
 
-## Сколько штук можно купить на все деньги.
+## Сколько штук можно купить: хватает и денег, и места в кармане.
 func max_affordable(id: String) -> int:
-	return market.max_affordable(district, id, money)
+	return mini(market.max_affordable(district, id, money), pocket_free() / good_size(id))
+
+
+# --- Карман ---
+
+func good_size(id: String) -> int:
+	return int(market.get_good(id).get("size", 1))
+
+
+## Сколько мест в кармане занято (тяжёлый товар занимает больше).
+func pocket_used() -> int:
+	var used := 0
+	for id: String in inventory:
+		used += inventory[id] * good_size(id)
+	return used
+
+
+func pocket_free() -> int:
+	return maxi(0, int(balance.pocket_size) - pocket_used())
 
 
 func buy(id: String, amount: int) -> bool:
-	if not can_act() or not has_market() or amount <= 0:
+	if not can_act() or not has_market() or amount <= 0 or amount * good_size(id) > pocket_free():
 		return false
 	var cost := market.quote_buy(district, id, amount)
 	if cost > money:
@@ -244,9 +269,13 @@ func do_activity(id: String) -> Array:
 		report.append(["LOG_JOB_DONE", [activity.name_key, pay]])
 	else:
 		var range_ := activity_yield(activity)
-		var amount := rng.randi_range(range_[0], range_[1])
+		var found := rng.randi_range(range_[0], range_[1])
+		# Сколько влезло в карман — столько и унёс.
+		var amount := mini(found, pocket_free() / good_size(activity.good))
 		inventory[activity.good] += amount
 		report.append(["LOG_GATHERED", [amount, market.get_good(activity.good).name_key]])
+		if amount < found:
+			report.append(["LOG_POCKET_FULL", [found - amount]])
 	if skills.level(activity.skill) > level_before:
 		report.append(["LOG_SKILL_UP", ["SKILL_" + activity.skill.to_upper(), skills.level(activity.skill)]])
 	return report
@@ -312,6 +341,515 @@ func _run_stall() -> Array:
 	clean -= from_clean
 	debt += fee - from_clean
 	return report
+
+
+# --- Недвижимость ---
+
+## Стоишь ли в районе здания (всё, кроме просмотра, — только на месте).
+func at_property(id: String) -> bool:
+	return properties.get_def(id).district == district
+
+
+func can_buy_property(id: String) -> bool:
+	return can_act() and at_property(id) and not properties.state[id].owned \
+			and clean >= int(properties.get_def(id).buy_price)
+
+
+## Покупка — только на чистые деньги (сделка с документами).
+func buy_property(id: String) -> bool:
+	if not can_buy_property(id):
+		return false
+	clean -= int(properties.get_def(id).buy_price)
+	properties.state[id].owned = true
+	properties.state[id].rented = false
+	return true
+
+
+## Аренду платим каждую ночь; чтобы начать, нужны чистые на первые сутки.
+func can_rent_property(id: String) -> bool:
+	return can_act() and at_property(id) and not properties.is_mine(id) \
+			and clean >= int(properties.get_def(id).rent)
+
+
+func rent_property(id: String) -> bool:
+	if not can_rent_property(id):
+		return false
+	properties.state[id].rented = true
+	return true
+
+
+func can_use_property(id: String) -> bool:
+	return can_act() and at_property(id) and properties.is_mine(id)
+
+
+## Положить весь товар этого вида из кармана в здание (сколько влезет).
+func store_goods(id: String, good: String) -> int:
+	if not can_use_property(id):
+		return 0
+	var amount := mini(inventory[good], properties.stock_free(id) / good_size(good))
+	if amount <= 0:
+		return 0
+	_remove_from_inventory(good, amount)
+	properties.add_stock(id, good, amount)
+	return amount
+
+
+## Забрать весь товар этого вида из здания в карман (сколько влезет).
+func take_goods(id: String, good: String) -> int:
+	if not can_use_property(id):
+		return 0
+	var amount := mini(properties.stock_of(id, good), pocket_free() / good_size(good))
+	if amount <= 0:
+		return 0
+	properties.add_stock(id, good, -amount)
+	inventory[good] += amount
+	return amount
+
+
+## Запустить варку: столько партий, на сколько хватает сырья в здании.
+func start_production(id: String, recipe_id: String) -> int:
+	if not can_use_property(id):
+		return 0
+	var count := properties.max_batches(id, recipe_id)
+	if count <= 0:
+		return 0
+	properties.start_batches(id, recipe_id, count)
+	return count
+
+
+func lab_upgrade_cost(id: String) -> int:
+	var level: int = properties.state[id].level
+	if level >= int(balance.lab_levels):
+		return 0
+	return int(balance.lab_upgrade_cost[level])
+
+
+## Оборудование покупается «с рук» — подходят любые деньги.
+func can_upgrade_lab(id: String) -> bool:
+	return can_use_property(id) and lab_upgrade_cost(id) > 0 and money >= lab_upgrade_cost(id)
+
+
+func upgrade_lab(id: String) -> bool:
+	if not can_upgrade_lab(id):
+		return false
+	_spend(lab_upgrade_cost(id))
+	properties.state[id].level += 1
+	return true
+
+
+## Продать купленное здание (часть цены чистыми) или съехать из арендованного.
+## Только пустое: без товара, варки и денег в кассе.
+func can_sell_property(id: String) -> bool:
+	return can_use_property(id) and properties.is_empty(id)
+
+
+func property_sell_price(id: String) -> int:
+	if not properties.state[id].owned:
+		return 0
+	return roundi(int(properties.get_def(id).buy_price) * float(balance.property_sell_share))
+
+
+func sell_property(id: String) -> int:
+	if not can_sell_property(id):
+		return -1
+	var price := property_sell_price(id)
+	_earn(price, true)
+	properties.reset(id)
+	crew.unassign_from(id)
+	return price
+
+
+## Улучшение здания (вентиляция, огнетушители, сигнализация, тайник, холодильник, двойная бухгалтерия).
+## Ставится «с рук» — подходят любые деньги. Пропадает при продаже и взрыве.
+func can_buy_upgrade(id: String, upgrade: String) -> bool:
+	return can_use_property(id) and properties.upgrades_for(id, balance.upgrades).has(upgrade) \
+			and not properties.has_upgrade(id, upgrade) and money >= int(balance.upgrades[upgrade].cost)
+
+
+func buy_upgrade(id: String, upgrade: String) -> bool:
+	if not can_buy_upgrade(id, upgrade):
+		return false
+	_spend(int(balance.upgrades[upgrade].cost))
+	properties.state[id].upgrades.append(upgrade)
+	return true
+
+
+## Множитель от улучшения: если стоит — его factor, иначе 1.
+func _upgrade_factor(id: String, upgrade: String) -> float:
+	return float(balance.upgrades[upgrade].factor) if properties.has_upgrade(id, upgrade) else 1.0
+
+
+## Прибраться: вынести мусор и следы — улики обнуляются, тратятся силы.
+func can_cleanup(id: String) -> bool:
+	return can_use_property(id) and properties.state[id].evidence > 0.0 and energy >= int(balance.cleanup_energy)
+
+
+func cleanup(id: String) -> bool:
+	if not can_cleanup(id):
+		return false
+	energy -= int(balance.cleanup_energy)
+	properties.state[id].evidence = 0.0
+	return true
+
+
+## Шанс брака партии: от уровня оборудования, меньше с Ремеслом и с поваром.
+func defect_chance(id: String) -> float:
+	var level: int = properties.state[id].level
+	return maxf(0.02, float(balance.lab_defect_chance[level - 1]) - skills.level("craft") * float(balance.defect_per_craft_level)
+			- _best_skill(id, "cook") * float(balance.cook_defect_per_skill))
+
+
+## Шанс удачной партии (продукта больше): от оборудования, Ремесла и повара.
+func great_chance(id: String) -> float:
+	var level: int = properties.state[id].level
+	return float(balance.great_batch_chance[level - 1]) + skills.level("craft") * float(balance.great_per_craft_level) \
+			+ _best_skill(id, "cook") * float(balance.cook_great_per_skill)
+
+
+func _best_skill(property_id: String, role: String) -> int:
+	var best := crew.best_at(property_id, role)
+	return 0 if best.is_empty() else int(best.skill)
+
+
+## Сколько запаха даст варка этой ночью (вентиляция глушит).
+func smell_tonight(id: String) -> float:
+	var smell := 0.0
+	for batch: Dictionary in properties.state[id].batches:
+		smell += float(properties.get_recipe(batch.recipe).smell) * int(batch.count)
+	return smell * _upgrade_factor(id, "vent") * skills.heat_multiplier()
+
+
+## Шанс, что соседи донесут на запах.
+func snitch_chance(id: String) -> float:
+	var neighbors := float(properties.get_def(id).get("neighbors", 1.0))
+	return minf(float(balance.snitch_max), smell_tonight(id) * neighbors * float(balance.snitch_per_smell))
+
+
+func can_launder(id: String) -> bool:
+	return can_use_property(id) and properties.get_def(id).kind == "front" and dirty > 0 \
+			and properties.state[id].frozen_days == 0
+
+
+## Сдать все грязные в кассу фасада: по ночам они выходят чистыми в пределах лимита.
+func launder(id: String) -> int:
+	if not can_launder(id):
+		return 0
+	var amount := dirty
+	dirty = 0
+	properties.state[id].dirty_queue += amount
+	return amount
+
+
+## Ночь для недвижимости: аренда, порча, варка, запах и доносы, пожары и взрывы, улики и облавы,
+## касса фасадов, отмыв, налоговая.
+func _run_properties() -> Array:
+	var report: Array = []
+	var goods_legal := {}
+	for good: Dictionary in market.goods:
+		goods_legal[good.id] = good.legal
+	var laundered_share := 0.0
+	report.append_array(_roll_presence())
+	for prop: Dictionary in properties.mine():
+		var id: String = prop.id
+		var s: Dictionary = properties.state[id]
+		var where: String = prop.district
+		if s.rented:
+			report.append_array(_pay_property_rent(prop))
+		# Вспыльчивые шумят — розыск района растёт.
+		for person: Dictionary in crew.working_at(id):
+			if crew.present.get(person.id, true):
+				police.add_heat(where, float(crew.trait_value(person, "heat", 0)))
+		report.append_array(_spoil(prop))
+		var snitched := false
+		if not s.batches.is_empty() and rng.randf() < snitch_chance(id):
+			snitched = true
+			police.add_heat(where, balance.snitch_heat)
+			report.append(["LOG_SNITCHED", [prop.name_key]])
+		if prop.kind == "lab" or prop.get("kitchen", false):
+			report.append_array(_run_batches(prop))
+		report.append_array(_run_dealers(prop, goods_legal))
+		var illegal := properties.has_illegal(id, goods_legal)
+		if illegal and _property_raided(prop, snitched):
+			var hidden := _lose_property_goods(id, goods_legal)
+			police.add_heat(where, balance.activity_bust_heat)
+			report.append(["LOG_PROPERTY_RAID", [prop.name_key]])
+			# Трусливые при облаве сбегают насовсем.
+			for person: Dictionary in crew.working_at(id):
+				if crew.trait_value(person, "flees", false):
+					crew.fire(person.id)
+					report.append(["LOG_CREW_FLED", [person.nick]])
+			if hidden > 0:
+				report.append(["LOG_STASH_SAVED", [hidden]])
+		# Улики копятся, пока внутри нелегальное, и сами выветриваются, когда чисто.
+		if illegal:
+			s.evidence = minf(100.0, s.evidence + float(balance.evidence_per_night))
+		else:
+			s.evidence = maxf(0.0, s.evidence - float(balance.evidence_decay))
+		if prop.kind == "front":
+			var revenue: int = prop.revenue
+			_earn(revenue, true)
+			# Кафе продаёт свой чай посетителям по полной цене района — чистыми.
+			if prop.get("kitchen", false) and properties.stock_of(id, "tea") > 0:
+				var sold := mini(properties.stock_of(id, "tea"), int(market.get_good("tea").stall_daily) * 2)
+				var income := sold * market.buy_price(where, "tea")
+				properties.add_stock(id, "tea", -sold)
+				_earn(income, true)
+				report.append(["LOG_CAFE_SOLD", [sold, income]])
+			var limit: int = prop.launder_limit
+			var amount := 0 if s.frozen_days > 0 else mini(s.dirty_queue, limit)
+			if amount > 0:
+				s.dirty_queue -= amount
+				var out := roundi(amount * (1.0 - float(prop.launder_fee)))
+				_earn(out, true)
+				laundered_share += float(amount) / limit * _upgrade_factor(id, "books")
+				report.append(["LOG_LAUNDERED", [prop.name_key, out]])
+			s.frozen_days = maxi(0, s.frozen_days - 1)
+	report.append_array(_run_tax(laundered_share))
+	return report
+
+
+# --- Бригада ---
+
+func can_hire(id: int) -> bool:
+	var person := crew.get_candidate(id)
+	return can_act() and not person.is_empty() and crew.people.size() < int(balance.crew_max) \
+			and money >= int(person.wage)
+
+
+## Нанять: первый день оплачиваешь сразу (любыми деньгами).
+func hire(id: int) -> bool:
+	if not can_hire(id):
+		return false
+	_spend(int(crew.get_candidate(id).wage))
+	crew.hire(id)
+	return true
+
+
+func fire(id: int) -> bool:
+	if not can_act() or crew.get_person(id).is_empty():
+		return false
+	crew.fire(id)
+	return true
+
+
+## Поставить человека в своё здание подходящего типа ("" — снять с работы).
+func can_assign(person_id: int, property_id: String) -> bool:
+	var person := crew.get_person(person_id)
+	if person.is_empty() or not can_act():
+		return false
+	if property_id == "":
+		return true
+	return properties.is_mine(property_id) and crew.can_work_in(person, properties.get_def(property_id).kind)
+
+
+func assign(person_id: int, property_id: String) -> bool:
+	if not can_assign(person_id, property_id):
+		return false
+	crew.get_person(person_id).job = property_id
+	return true
+
+
+## Кто вышел на работу: пьющий иногда не приходит.
+func _roll_presence() -> Array:
+	var report: Array = []
+	crew.present.clear()
+	for person: Dictionary in crew.people:
+		var here := rng.randf() >= float(crew.trait_value(person, "no_show", 0.0))
+		crew.present[person.id] = here
+		if not here and person.job != "":
+			report.append(["LOG_CREW_NO_SHOW", [person.nick]])
+	return report
+
+
+## Дилеры в здании продают нелегальное из его склада (дорогое — первым) по цене района со скидкой.
+## Деньги грязные, розыск — району. Где нет рынка, покупателей нет.
+func _run_dealers(prop: Dictionary, goods_legal: Dictionary) -> Array:
+	var report: Array = []
+	var where: String = prop.district
+	if not market.get_district(where).has_market:
+		return report
+	var goods := market.goods.filter(func(good: Dictionary) -> bool: return not good.legal)
+	goods.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.base_price) > int(b.base_price))
+	for dealer: Dictionary in crew.working_at(prop.id, "dealer"):
+		if not crew.present.get(dealer.id, true):
+			continue
+		var left := int(balance.dealer_units_base) + int(balance.dealer_units_per_skill) * int(dealer.skill)
+		var mult := float(balance.dealer_price_base) + float(balance.dealer_price_per_skill) * int(dealer.skill) \
+				+ float(crew.trait_value(dealer, "price", 0.0))
+		var sold := 0
+		var income := 0
+		for good: Dictionary in goods:
+			var n := mini(left, properties.stock_of(prop.id, good.id))
+			if n <= 0:
+				continue
+			income += roundi(market.quote_sell(where, good.id, n) * mult)
+			market.apply_trade(where, good.id, -n)
+			properties.add_stock(prop.id, good.id, -n)
+			police.add_heat(where, float(good.heat) * n * float(balance.dealer_heat_share) * skills.heat_multiplier())
+			sold += n
+			left -= n
+		if sold > 0:
+			_earn(income, false)
+			report.append(["LOG_DEALER_SOLD", [dealer.nick, sold, income]])
+	return report
+
+
+## Зарплаты за ночь: сначала грязными (наличка), потом чистыми. Кому не хватило — уходит.
+func _pay_crew() -> Array:
+	var report: Array = []
+	var total := 0
+	for person: Dictionary in crew.people.duplicate():
+		var wage := int(person.wage)
+		if money < wage:
+			crew.fire(person.id)
+			report.append(["LOG_CREW_UNPAID", [person.nick]])
+			continue
+		_spend(wage)
+		total += wage
+	if total > 0:
+		report.append(["LOG_CREW_WAGES", [total]])
+	return report
+
+
+## Порча: скоропортящееся (грибы, травы, чай, мох) гниёт без холодильника.
+func _spoil(prop: Dictionary) -> Array:
+	var report: Array = []
+	var lost := properties.spoilage(prop.id)
+	for good: String in lost:
+		properties.add_stock(prop.id, good, -int(lost[good]))
+		report.append(["LOG_SPOILED", [prop.name_key, int(lost[good]), market.get_good(good).name_key]])
+	return report
+
+
+func _pay_property_rent(prop: Dictionary) -> Array:
+	var rent: int = prop.rent
+	var from_clean := mini(rent, clean)
+	clean -= from_clean
+	var rest := rent - from_clean
+	var from_dirty := mini(rest, dirty)
+	dirty -= from_dirty
+	debt += rest - from_dirty
+	if from_dirty > 0:
+		police.add_heat(prop.district, balance.dirty_rent_heat)
+	return [] if rest == 0 else [["LOG_PROPERTY_RENT_DIRTY", [prop.name_key]]]
+
+
+## Варка: партии идут к готовности; готовые — в склад здания (с риском брака), запах — в розыск района.
+func _run_batches(prop: Dictionary) -> Array:
+	var id: String = prop.id
+	var s: Dictionary = properties.state[id]
+	var report: Array = []
+	if s.batches.is_empty():
+		return report
+	var level: int = s.level
+	var safety := _upgrade_factor(id, "extinguisher")
+	var volatile: bool = s.batches.any(func(batch: Dictionary) -> bool:
+		return properties.get_recipe(batch.recipe).get("volatile", false))
+	if prop.kind == "lab" and volatile and rng.randf() < float(balance.lab_explosion_chance[level - 1]) * safety:
+		# Взрыв: всё внутри пропало, оборудование и улучшения разбиты, на шум съезжается полиция.
+		properties.reset(id, true)
+		police.add_heat(prop.district, balance.explosion_heat)
+		report.append(["LOG_LAB_EXPLOSION", [prop.name_key]])
+		return report
+	if prop.kind == "lab" and rng.randf() < float(balance.lab_fire_chance[level - 1]) * safety:
+		s.batches.clear()
+		for good: String in s.stock.keys():
+			properties.add_stock(id, good, -int(s.stock[good]) / 2)
+		report.append(["LOG_LAB_FIRE", [prop.name_key]])
+		return report
+	police.add_heat(prop.district, smell_tonight(id))
+	var still: Array = []
+	for batch: Dictionary in s.batches:
+		var recipe := properties.get_recipe(batch.recipe)
+		batch.nights_left -= 1
+		if batch.nights_left > 0:
+			still.append(batch)
+			continue
+		var made: int = batch.count * int(recipe.amount)
+		var defects := 0
+		for i in batch.count:
+			if rng.randf() < defect_chance(id):
+				defects += 1
+		made -= defects * ceili(float(recipe.amount) / 2.0)
+		# Удачные партии (из небракованных) дают на половину больше.
+		var great := 0
+		for i in batch.count - defects:
+			if rng.randf() < great_chance(id):
+				great += 1
+		made += great * ceili(float(recipe.amount) * float(balance.great_batch_bonus))
+		properties.add_stock(id, recipe.output, made)
+		skills.add_xp("craft", int(balance.xp_activity) * batch.count)
+		report.append(["LOG_BATCH_DONE", [prop.name_key, made, market.get_good(recipe.output).name_key]])
+		if defects > 0:
+			report.append(["LOG_BATCH_DEFECT", [defects]])
+		if great > 0:
+			report.append(["LOG_BATCH_GREAT", [great]])
+	s.batches = still
+	return report
+
+
+## Облава на здание: лаборатории — от розыска района и силы полиции; склады — реже.
+## Улики и донос соседей повышают шанс, сигнализация — снижает (успеваешь прибрать).
+func raid_chance(id: String, snitched: bool = false) -> float:
+	var prop := properties.get_def(id)
+	var where: String = prop.district
+	var multiplier: float = market.get_district(where).police * market.event_police(where)
+	var chance := police.check_chance(where, multiplier)
+	chance *= float(balance.lab_raid_factor) if prop.kind == "lab" else float(balance.warehouse_raid_factor)
+	chance *= 1.0 + properties.state[id].evidence * float(balance.evidence_raid_per_point)
+	chance *= _upgrade_factor(id, "alarm")
+	# Охрана: каждый вышедший охранник снижает шанс (вместе — не больше чем на 80%).
+	var guarded := 0.0
+	for guard: Dictionary in crew.working_at(id, "guard"):
+		if crew.present.get(guard.id, true):
+			guarded += int(guard.skill) * float(balance.guard_raid_per_skill)
+	chance *= 1.0 - minf(0.8, guarded)
+	if snitched:
+		chance *= float(balance.snitch_raid_mult)
+	return minf(1.0, chance)
+
+
+func _property_raided(prop: Dictionary, snitched: bool) -> bool:
+	return rng.randf() < raid_chance(prop.id, snitched)
+
+
+## Облава забирает нелегальное. Что влезло в тайник — уцелело. Возвращает, сколько штук спасено.
+func _lose_property_goods(id: String, goods_legal: Dictionary) -> int:
+	var s: Dictionary = properties.state[id]
+	var places := int(balance.upgrades.stash.places) if properties.has_upgrade(id, "stash") else 0
+	var saved := 0
+	for good: String in s.stock.keys():
+		if goods_legal.get(good, true):
+			continue
+		var kept := mini(int(s.stock[good]), places / good_size(good))
+		places -= kept * good_size(good)
+		saved += kept
+		if kept > 0:
+			s.stock[good] = kept
+		else:
+			s.stock.erase(good)
+	s.batches = s.batches.filter(func(batch: Dictionary) -> bool:
+		return properties.get_recipe(batch.recipe).smell == 0)
+	s.level = 1
+	return saved
+
+
+## Налоговая: отмыв на полный лимит поднимает внимание, со временем оно спадает.
+## Когда внимание высокое — может прийти проверка: штраф и заморозка отмыва.
+func _run_tax(laundered_share: float) -> Array:
+	properties.tax_attention += laundered_share * float(balance.tax_attention_per_full_day)
+	properties.tax_attention = clampf(properties.tax_attention - float(balance.tax_attention_decay), 0.0, 100.0)
+	if properties.tax_attention < float(balance.tax_audit_threshold) or rng.randf() >= float(balance.tax_audit_chance):
+		return []
+	var fine := roundi(float(balance.tax_fine_base) + clean * float(balance.tax_fine_share))
+	var from_clean := mini(fine, clean)
+	clean -= from_clean
+	debt += fine - from_clean
+	for prop: Dictionary in properties.mine():
+		if prop.kind == "front":
+			properties.state[prop.id].frozen_days = int(balance.tax_freeze_days)
+	properties.tax_attention = 30.0
+	return [["LOG_TAX_AUDIT", [fine, int(balance.tax_freeze_days)]]]
 
 
 # --- Полиция ---
@@ -495,6 +1033,8 @@ func end_day() -> Array:
 	if status != Status.PLAYING:
 		return report
 	pending_check = {}
+	report.append_array(_run_properties())
+	report.append_array(_pay_crew())
 	report.append_array(_run_stall())
 	report.append_array(_pay_rent())
 	if day % 7 == 0:
@@ -515,6 +1055,7 @@ func end_day() -> Array:
 	police.decay(balance.heat_decay)
 	events.roll(rng)
 	market.roll_day(rng, events.today)
+	crew.roll_candidates(rng, int(balance.crew_candidates))
 	report.insert(0, ["LOG_DAY_ENDED", [day]])
 	day += 1
 	energy = balance.energy_max
@@ -555,6 +1096,8 @@ func to_dict() -> Dictionary:
 		"energy": energy,
 		"skills": skills.to_dict(),
 		"stall": stall.to_dict(),
+		"properties": properties.to_dict(),
+		"crew": crew.to_dict(),
 		"clean": clean,
 		"dirty": dirty,
 		"clean_earned": clean_earned,
@@ -581,6 +1124,8 @@ func load_dict(data: Dictionary) -> void:
 	energy = int(data.energy)
 	skills.load_dict(data.skills)
 	stall.load_dict(data.stall)
+	properties.load_dict(data.get("properties", {}))
+	crew.load_dict(data.get("crew", {}))
 	clean = int(data.clean)
 	dirty = int(data.dirty)
 	clean_earned = int(data.clean_earned)

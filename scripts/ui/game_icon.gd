@@ -62,12 +62,72 @@ func _draw() -> void:
 			_rounded_rect(Rect2(c + Vector2(-s * 0.26, -s * 0.46), Vector2(s * 0.52, s * 0.92)), s * 0.1, Color(0.2, 0.22, 0.3))
 			draw_rect(Rect2(c + Vector2(-s * 0.19, -s * 0.36), Vector2(s * 0.38, s * 0.62)), Color(0.45, 0.65, 0.95))
 			draw_circle(c + Vector2(0, s * 0.36), s * 0.05, Color(0.8, 0.8, 0.85))
+		"tea":
+			# Чашка с паром.
+			draw_rect(Rect2(c + Vector2(-s * 0.3, -s * 0.05), Vector2(s * 0.5, s * 0.4)), Color(0.85, 0.55, 0.35))
+			draw_arc(c + Vector2(s * 0.24, s * 0.12), s * 0.11, -PI / 2.0, PI / 2.0, 10, Color(0.85, 0.55, 0.35), s * 0.07, true)
+			draw_line(c + Vector2(-s * 0.36, s * 0.38), c + Vector2(s * 0.26, s * 0.38), Color(0.6, 0.45, 0.35), s * 0.07, true)
+			for x in [-0.15, 0.05]:
+				draw_arc(c + Vector2(s * x, -s * 0.28), s * 0.09, PI * 0.5, PI * 1.5, 8, Color(0.6, 0.65, 0.75), s * 0.05, true)
+		"reagents":
+			# Колба с жидкостью.
+			draw_rect(Rect2(c + Vector2(-s * 0.08, -s * 0.46), Vector2(s * 0.16, s * 0.3)), Color(0.75, 0.8, 0.88))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.08, -s * 0.16), c + Vector2(s * 0.08, -s * 0.16),
+					c + Vector2(s * 0.36, s * 0.42), c + Vector2(-s * 0.36, s * 0.42)]), Color(0.75, 0.8, 0.88))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.2, s * 0.1), c + Vector2(s * 0.2, s * 0.1),
+					c + Vector2(s * 0.33, s * 0.38), c + Vector2(-s * 0.33, s * 0.38)]), Color(0.55, 0.85, 0.4))
+		"moon_pollen":
+			# Мешочек с мерцающей пыльцой.
+			draw_circle(c + Vector2(0, s * 0.12), s * 0.32, Color(0.7, 0.62, 0.85))
+			draw_rect(Rect2(c + Vector2(-s * 0.12, -s * 0.36), Vector2(s * 0.24, s * 0.2)), Color(0.6, 0.52, 0.78))
+			for p in [Vector2(-0.12, 0.05), Vector2(0.1, 0.18), Vector2(0.0, -0.05)]:
+				draw_circle(c + p * s, s * 0.05, Color(1.0, 0.97, 0.7))
 		"blue_dust":
 			var gem := PackedVector2Array([c + Vector2(0, -s * 0.46), c + Vector2(s * 0.38, -s * 0.05),
 					c + Vector2(0, s * 0.46), c + Vector2(-s * 0.38, -s * 0.05)])
 			draw_colored_polygon(gem, Color(0.35, 0.55, 1.0))
 			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.46), c + Vector2(s * 0.38, -s * 0.05),
 					c + Vector2(0, -s * 0.05)]), Color(0.6, 0.78, 1.0))
+		"save":
+			# Дискета.
+			var ink := Color(0.27, 0.3, 0.38)
+			_rounded_rect(Rect2(c - Vector2(s * 0.4, s * 0.4), Vector2(s * 0.8, s * 0.8)), s * 0.1, ink)
+			draw_rect(Rect2(c + Vector2(-s * 0.22, -s * 0.4), Vector2(s * 0.4, s * 0.26)), Color.WHITE)
+			draw_rect(Rect2(c + Vector2(-s * 0.26, s * 0.06), Vector2(s * 0.52, s * 0.3)), Color(1, 1, 1, 0.9))
+		"menu":
+			var ink := Color(0.27, 0.3, 0.38)
+			for i in 3:
+				var y := -s * 0.26 + i * s * 0.26
+				draw_line(c + Vector2(-s * 0.32, y), c + Vector2(s * 0.32, y), ink, s * 0.09, true)
+		"district":
+			# Булавка на карте.
+			var blue := Color(0.184, 0.42, 1.0)
+			draw_circle(c + Vector2(0, -s * 0.12), s * 0.3, blue)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.26, -s * 0.0), c + Vector2(s * 0.26, -s * 0.0),
+					c + Vector2(0, s * 0.46)]), blue)
+			draw_circle(c + Vector2(0, -s * 0.12), s * 0.12, Color.WHITE)
+		"warehouse":
+			# Ангар: стены и покатая крыша, ворота.
+			var blue := Color(0.184, 0.42, 1.0)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.44, -s * 0.05), c + Vector2(0, -s * 0.4),
+					c + Vector2(s * 0.44, -s * 0.05)]), blue.darkened(0.15))
+			draw_rect(Rect2(c + Vector2(-s * 0.38, -s * 0.05), Vector2(s * 0.76, s * 0.45)), blue)
+			draw_rect(Rect2(c + Vector2(-s * 0.16, s * 0.1), Vector2(s * 0.32, s * 0.3)), Color(1, 1, 1, 0.85))
+		"lab":
+			# Колба.
+			var green := Color(0.2, 0.68, 0.45)
+			draw_rect(Rect2(c + Vector2(-s * 0.1, -s * 0.44), Vector2(s * 0.2, s * 0.3)), green.lightened(0.3))
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.1, -s * 0.16), c + Vector2(s * 0.1, -s * 0.16),
+					c + Vector2(s * 0.38, s * 0.42), c + Vector2(-s * 0.38, s * 0.42)]), green)
+			draw_circle(c + Vector2(-s * 0.08, s * 0.22), s * 0.06, Color(1, 1, 1, 0.8))
+		"front":
+			# Лавка с полосатым навесом.
+			var orange := Color(0.95, 0.55, 0.2)
+			draw_rect(Rect2(c + Vector2(-s * 0.38, -s * 0.05), Vector2(s * 0.76, s * 0.45)), orange.lightened(0.55))
+			for i in 4:
+				var x := -s * 0.42 + i * s * 0.21
+				draw_rect(Rect2(c + Vector2(x, -s * 0.38), Vector2(s * 0.21, s * 0.3)), orange if i % 2 == 0 else Color.WHITE)
+			draw_rect(Rect2(c + Vector2(-s * 0.12, s * 0.12), Vector2(s * 0.24, s * 0.28)), orange.darkened(0.2))
 
 
 func _coin(c: Vector2, s: float, color: Color) -> void:

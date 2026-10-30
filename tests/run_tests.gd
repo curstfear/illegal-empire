@@ -30,6 +30,22 @@ func _init() -> void:
 	_test_skills()
 	_test_stall()
 	_test_history()
+	_test_pocket()
+	_test_property_buy_and_storage()
+	_test_production()
+	_test_lab_risks()
+	_test_laundering_and_tax()
+	_test_cafe_tea()
+	_test_property_sale()
+	_test_property_upgrades()
+	_test_snitch_and_explosion()
+	_test_great_batch()
+	_test_spoilage_and_evidence()
+	_test_properties_save()
+	_test_crew_hiring()
+	_test_crew_work()
+	_test_crew_traits()
+	_test_crew_save()
 	_test_save_and_load()
 	_report_balance_bot()
 	_report_honest_bots()
@@ -39,7 +55,8 @@ func _init() -> void:
 
 func _new_session(seed_value: int = 42) -> GameSession:
 	return GameSession.new(GameData.load_balance(), GameData.load_goods(),
-			GameData.load_districts(), GameData.load_events(), GameData.load_activities(), seed_value)
+			GameData.load_districts(), GameData.load_events(), GameData.load_activities(),
+			GameData.load_properties(), GameData.load_recipes(), GameData.load_crew(), seed_value)
 
 
 ## Сессия без случайных проверок полиции — для тестов торговли.
@@ -355,6 +372,431 @@ func _test_stall() -> void:
 	s.end_day()
 	_check(s.stall.stock.mushrooms == 5, "за день ларёк продал 15 грибов, осталось 5")
 	_check(s.clean > clean_before - 12 - 5, "ларёк принёс чистые деньги (минус аренда и место)")
+
+
+## Сессия с деньгами, без случайных проверок и без брака — для тестов недвижимости.
+func _rich_session() -> GameSession:
+	var s := _calm_session()
+	s.clean = 20000
+	s.balance.lab_defect_chance = [0.0, 0.0, 0.0]
+	s.balance.lab_fire_chance = [0.0, 0.0, 0.0]
+	s.balance.lab_explosion_chance = [0.0, 0.0, 0.0]
+	s.balance.great_batch_chance = [0.0, 0.0, 0.0]
+	s.balance.great_per_craft_level = 0.0
+	s.balance.snitch_per_smell = 0.0
+	s.balance.lab_raid_factor = 0.0
+	s.balance.warehouse_raid_factor = 0.0
+	return s
+
+
+func _test_pocket() -> void:
+	var s := _calm_session()
+	_check(s.pocket_used() == 0 and s.pocket_free() == 30, "карман: 30 свободных мест")
+	s.clean = 100000
+	_check(s.max_affordable("phones") == 15, "телефон занимает 2 места — влезет 15 (сейчас %d)" % s.max_affordable("phones"))
+	_check(not s.buy("mushrooms", 31), "31 гриб в карман не влезет")
+	s.buy("mushrooms", 28)
+	s.travel("forest")
+	var report := s.do_activity("pick_herbs")
+	_check(s.inventory.herbs <= 2, "собрал не больше, чем влезло (2 места)")
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_POCKET_FULL") or s.inventory.herbs == 2,
+			"если не влезло — об этом сказано")
+
+
+func _test_property_buy_and_storage() -> void:
+	var s := _rich_session()
+	_check(not s.can_buy_property("station_warehouse"), "склад на вокзале не купить, стоя на рынке")
+	_check(s.buy_property("market_warehouse") and s.clean == 18500, "купили склад у рынка за $1 500 чистыми")
+	s.dirty = 5000
+	s.clean = 100
+	s.travel("station")
+	_check(not s.can_buy_property("station_lab"), "грязными здание не купить")
+	_check(s.rent_property("station_lab") and s.properties.is_mine("station_lab"), "арендовали подвал на вокзале")
+	s.travel("market")
+	s.clean = 10000
+	s.buy("phones", 10)
+	_check(s.store_goods("market_warehouse", "phones") == 10 and s.inventory.phones == 0, "положили 10 телефонов на склад")
+	_check(s.properties.stock_used("market_warehouse") == 20, "10 телефонов занимают 20 мест склада")
+	_check(s.take_goods("market_warehouse", "phones") == 10 and s.inventory.phones == 10, "забрали обратно")
+	var clean_before := s.clean
+	s.end_day()
+	_check(s.clean == clean_before - 12 - 35, "ночью: аренда комнаты $12 и подвала $35")
+
+
+func _test_production() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.inventory.moon_moss = 6
+	s.store_goods("forest_shed", "moon_moss")
+	_check(s.start_production("forest_shed", "moon_pollen") == 2, "из 6 мха — 2 партии пыльцы")
+	_check(s.properties.stock_of("forest_shed", "moon_moss") == 0, "сырьё ушло в варку")
+	var heat_before: float = s.police.heat.forest
+	s.end_day()
+	_check(s.properties.stock_of("forest_shed", "moon_pollen") == 4, "к утру 4 «Лунной пыльцы»")
+	_check(s.police.heat.forest > heat_before - 12.0, "варка пахнет: розыск района растёт")
+	# Цепочка: мох → пыльца → «Синяя пыль» (пыльца уже лежит в сарае).
+	s.inventory.reagents = 2
+	s.store_goods("forest_shed", "reagents")
+	_check(s.start_production("forest_shed", "blue_dust") == 1, "«Синяя пыль» варится из пыльцы — второй шаг цепочки")
+	_check(s.properties.stock_of("forest_shed", "moon_pollen") == 3, "на партию ушла 1 пыльца")
+	s.end_day()
+	_check(s.properties.stock_of("forest_shed", "blue_dust") == 0, "«Синяя пыль» за одну ночь не готова")
+	s.end_day()
+	_check(s.properties.stock_of("forest_shed", "blue_dust") == 1, "через 2 ночи — 1 «Синяя пыль»")
+	_check(s.upgrade_lab("forest_shed") and s.properties.state.forest_shed.level == 2, "улучшили оборудование")
+
+
+func _test_lab_risks() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.balance.lab_defect_chance = [1.0, 1.0, 1.0]
+	s.inventory.moon_moss = 3
+	s.store_goods("forest_shed", "moon_moss")
+	s.start_production("forest_shed", "moon_pollen")
+	s.end_day()
+	_check(s.properties.stock_of("forest_shed", "moon_pollen") == 1, "брак: вместо 2 пыльцы — 1")
+
+	var raid := _rich_session()
+	raid.travel("forest")
+	raid.buy_property("forest_shed")
+	raid.upgrade_lab("forest_shed")
+	raid.inventory.moon_moss = 6
+	raid.store_goods("forest_shed", "moon_moss")
+	raid.balance.lab_raid_factor = 100.0
+	raid.balance.check_base = 1.0
+	raid.end_day()
+	_check(raid.properties.stock_of("forest_shed", "moon_moss") == 0 and raid.properties.state.forest_shed.level == 1,
+			"облава: нелегальное забрали, оборудование сломали")
+
+	var fire := _rich_session()
+	fire.travel("forest")
+	fire.buy_property("forest_shed")
+	fire.balance.lab_fire_chance = [1.0, 1.0, 1.0]
+	fire.inventory.moon_moss = 6
+	fire.store_goods("forest_shed", "moon_moss")
+	fire.start_production("forest_shed", "moon_pollen")
+	fire.end_day()
+	_check(fire.properties.state.forest_shed.batches.is_empty() and fire.properties.stock_of("forest_shed", "moon_pollen") == 0,
+			"пожар: варка пропала")
+
+
+func _test_laundering_and_tax() -> void:
+	var s := _rich_session()
+	s.clean = 5000
+	s.buy_property("laundromat")
+	s.dirty = 1000
+	_check(s.launder("laundromat") == 1000 and s.dirty == 0, "сдали $1 000 грязных в прачечную")
+	var clean_before := s.clean
+	s.end_day()
+	_check(s.clean == clean_before + 70 + 510 - 12, "за ночь: касса $70 + отмыто $510 (600 − 15%%) − аренда комнаты")
+	_check(s.properties.state.laundromat.dirty_queue == 400, "в очереди осталось $400")
+	_check(s.properties.tax_attention == 1.0, "налоговая заметила полный лимит (+4 −3)")
+	s.properties.tax_attention = 99.0
+	s.balance.tax_audit_chance = 1.0
+	var debt_before := s.debt
+	var report := s.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_TAX_AUDIT"), "проверка налоговой при высоком внимании")
+	_check(s.properties.state.laundromat.frozen_days > 0, "после проверки отмыв заморожен")
+	s.dirty = 300
+	_check(not s.can_launder("laundromat"), "во время заморозки грязные не принимают")
+	_check(s.clean + s.debt - debt_before >= 0, "штраф списан")
+
+
+func _test_cafe_tea() -> void:
+	var s := _rich_session()
+	s.travel("clubs")
+	s.buy_property("cafe")
+	s.inventory.herbs = 4
+	s.inventory.mushrooms = 4
+	s.store_goods("cafe", "herbs")
+	s.store_goods("cafe", "mushrooms")
+	_check(s.start_production("cafe", "tea") == 2, "на кухне кафе: 2 партии чая")
+	_check(s.start_production("cafe", "moon_pollen") == 0, "пыльцу в кафе не сваришь")
+	var report := s.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_CAFE_SOLD"), "кафе продаёт свой чай посетителям в ту же ночь")
+
+
+func _test_properties_save() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.inventory.moon_moss = 6
+	s.store_goods("forest_shed", "moon_moss")
+	s.start_production("forest_shed", "moon_pollen")
+	s.properties.tax_attention = 12.5
+	s.buy_upgrade("forest_shed", "vent")
+	s.properties.state.forest_shed.evidence = 18.0
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.properties.to_dict()) == JSON.stringify(s.properties.to_dict()),
+			"здания, склад, варка, улучшения, улики и налоговая сохраняются")
+
+
+## Кандидат с нужной ролью и чертой (подменяем случайного).
+func _candidate(s: GameSession, role: String, trait_id: String, skill: int) -> int:
+	var person: Dictionary = s.crew.candidates[0]
+	person.role = role
+	person.trait = trait_id
+	person.skill = skill
+	person.wage = 50
+	return person.id
+
+
+func _test_crew_hiring() -> void:
+	var s := _rich_session()
+	_check(s.crew.candidates.size() == 3, "на бирже 3 кандидата")
+	var id := _candidate(s, "guard", "loyal", 2)
+	var clean_before := s.clean
+	_check(s.hire(id) and s.crew.people.size() == 1 and s.clean == clean_before - 50, "наняли: первый день оплачен сразу")
+	_check(s.crew.get_candidate(id).is_empty(), "кандидат ушёл с биржи")
+	_check(not s.assign(id, "market_warehouse"), "в чужое здание не поставить")
+	s.buy_property("market_warehouse")
+	_check(s.assign(id, "market_warehouse"), "охранника — на свой склад")
+	var cook_id := _candidate(s, "cook", "loyal", 2)
+	s.hire(cook_id)
+	_check(not s.assign(cook_id, "market_warehouse"), "повар на складе не работает — только в лаборатории")
+	var report := s.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_CREW_WAGES"), "ночью платим зарплаты")
+	_check(s.crew.candidates.size() == 3 and s.crew.get_candidate(id).is_empty(), "утром на бирже новые кандидаты")
+	s.clean = 0
+	s.dirty = 60
+	report = s.end_day()
+	_check(s.crew.people.size() == 1 and report.any(func(e: Array) -> bool: return e[0] == "LOG_CREW_UNPAID"),
+			"не хватило денег на зарплату — один ушёл")
+	s.sell_property("market_warehouse")
+	_check(s.crew.people.all(func(p: Dictionary) -> bool: return p.job == ""), "склад продан — люди без места")
+	_check(s.fire(s.crew.people[0].id) and s.crew.people.is_empty(), "уволили")
+
+
+func _test_crew_work() -> void:
+	# Повар: брак ниже, удачных партий больше.
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.balance.lab_defect_chance = [0.25, 0.15, 0.07]
+	s.balance.great_batch_chance = [0.05, 0.12, 0.25]
+	var defect := s.defect_chance("forest_shed")
+	var great := s.great_chance("forest_shed")
+	var cook := _candidate(s, "cook", "loyal", 3)
+	s.hire(cook)
+	s.assign(cook, "forest_shed")
+	_check(is_equal_approx(s.defect_chance("forest_shed"), defect - 0.09), "повар 3 ур.: брак −9%%")
+	_check(is_equal_approx(s.great_chance("forest_shed"), great + 0.09), "повар 3 ур.: удачная партия +9%%")
+
+	# Охранник: облава реже.
+	var g := _rich_session()
+	g.buy_property("market_warehouse")
+	g.balance.warehouse_raid_factor = 0.5
+	g.balance.check_base = 0.3
+	var raid := g.raid_chance("market_warehouse")
+	var guard := _candidate(g, "guard", "loyal", 3)
+	g.hire(guard)
+	g.assign(guard, "market_warehouse")
+	_check(is_equal_approx(g.raid_chance("market_warehouse"), raid * 0.7), "охранник 3 ур.: облава −30%%")
+
+	# Дилер: сам продаёт со склада, деньги грязные, розыск растёт.
+	var d := _rich_session()
+	d.buy_property("market_warehouse")
+	d.inventory.cigarettes = 10
+	d.store_goods("market_warehouse", "cigarettes")
+	var dealer := _candidate(d, "dealer", "loyal", 2)
+	d.hire(dealer)
+	d.assign(dealer, "market_warehouse")
+	var dirty_before := d.dirty
+	var report := d.end_day()
+	_check(d.properties.stock_of("market_warehouse", "cigarettes") == 6, "дилер 2 ур. продал за ночь 4 пачки")
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_DEALER_SOLD"), "в журнале — продажи дилера")
+	_check(d.dirty > dirty_before - 50, "выручка дилера — грязными")
+
+	var forest := _rich_session()
+	forest.travel("forest")
+	forest.buy_property("forest_shed")
+	forest.inventory.moon_moss = 5
+	forest.store_goods("forest_shed", "moon_moss")
+	var lonely := _candidate(forest, "dealer", "loyal", 3)
+	forest.hire(lonely)
+	forest.assign(lonely, "forest_shed")
+	forest.end_day()
+	_check(forest.properties.stock_of("forest_shed", "moon_moss") >= 4, "в лесу покупателей нет — дилер не продаёт")
+
+
+func _test_crew_traits() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	var drunk := _candidate(s, "guard", "drinker", 2)
+	s.hire(drunk)
+	s.assign(drunk, "market_warehouse")
+	s.crew.traits.drinker.no_show = 1.0
+	var report := s.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_CREW_NO_SHOW"), "пьющий не вышел на работу")
+
+	var c := _rich_session()
+	c.buy_property("market_warehouse")
+	c.inventory.cigarettes = 5
+	c.store_goods("market_warehouse", "cigarettes")
+	var coward := _candidate(c, "guard", "coward", 1)
+	c.hire(coward)
+	c.assign(coward, "market_warehouse")
+	c.balance.warehouse_raid_factor = 100.0
+	c.balance.check_base = 1.0
+	report = c.end_day()
+	_check(c.crew.people.is_empty() and report.any(func(e: Array) -> bool: return e[0] == "LOG_CREW_FLED"),
+			"трус при облаве сбежал")
+
+	var h := _rich_session()
+	h.buy_property("market_warehouse")
+	var hothead := _candidate(h, "guard", "hothead", 2)
+	h.hire(hothead)
+	h.assign(hothead, "market_warehouse")
+	var heat_before: float = h.police.heat.market
+	h.end_day()
+	_check(h.police.heat.market > heat_before - float(h.balance.heat_decay) + 3.0, "вспыльчивый шумит — розыск района выше")
+
+
+func _test_crew_save() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	var id := _candidate(s, "dealer", "sly", 3)
+	s.hire(id)
+	s.assign(id, "market_warehouse")
+	var data: Variant = JSON.parse_string(JSON.stringify(s.to_dict()))
+	var loaded := _rich_session()
+	loaded.load_dict(data)
+	_check(JSON.stringify(loaded.crew.to_dict()) == JSON.stringify(s.crew.to_dict()), "бригада и биржа сохраняются")
+
+
+func _test_property_sale() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	s.inventory.mushrooms = 5
+	s.store_goods("market_warehouse", "mushrooms")
+	_check(not s.can_sell_property("market_warehouse"), "здание с товаром не продать")
+	s.take_goods("market_warehouse", "mushrooms")
+	var clean_before := s.clean
+	_check(s.sell_property("market_warehouse") == 900 and s.clean == clean_before + 900, "продали пустой склад за 60%% цены — $900 чистыми")
+	_check(not s.properties.is_mine("market_warehouse"), "склад больше не наш")
+	s.travel("station")
+	s.rent_property("station_lab")
+	_check(s.sell_property("station_lab") == 0 and not s.properties.is_mine("station_lab"), "из аренды можно съехать бесплатно")
+
+
+func _test_property_upgrades() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	_check(not s.can_buy_upgrade("forest_shed", "books"), "бухгалтерия только для фасадов")
+	s.inventory.moon_moss = 6
+	s.store_goods("forest_shed", "moon_moss")
+	s.start_production("forest_shed", "moon_pollen")
+	var smell := s.smell_tonight("forest_shed")
+	_check(s.buy_upgrade("forest_shed", "vent") and is_equal_approx(s.smell_tonight("forest_shed"), smell * 0.4), "вентиляция: запах −60%%")
+	s.balance.lab_raid_factor = 0.5
+	s.balance.check_base = 0.2
+	var raid := s.raid_chance("forest_shed")
+	s.buy_upgrade("forest_shed", "alarm")
+	_check(is_equal_approx(s.raid_chance("forest_shed"), raid * 0.5), "сигнализация: облава −50%%")
+	_check(not s.buy_upgrade("forest_shed", "alarm"), "второй раз ту же сигнализацию не поставить")
+
+	var stash := _rich_session()
+	stash.travel("forest")
+	stash.buy_property("forest_shed")
+	stash.buy_upgrade("forest_shed", "stash")
+	stash.inventory.moon_moss = 20
+	stash.store_goods("forest_shed", "moon_moss")
+	stash.balance.lab_raid_factor = 100.0
+	stash.balance.check_base = 1.0
+	var report := stash.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_STASH_SAVED"), "облава была, но тайник сработал")
+	_check(stash.properties.stock_of("forest_shed", "moon_moss") == 15, "в тайнике уцелело 15 мха из 20 (порча до облавы: −1)")
+
+	var books := _rich_session()
+	books.clean = 5000
+	books.buy_property("laundromat")
+	books.buy_upgrade("laundromat", "books")
+	books.dirty = 1000
+	books.launder("laundromat")
+	books.properties.tax_attention = 10.0
+	books.end_day()
+	_check(books.properties.tax_attention == 9.0, "с двойной бухгалтерией внимание налоговой +2 вместо +4")
+
+
+func _test_snitch_and_explosion() -> void:
+	var s := _rich_session()
+	s.travel("clubs")
+	s.buy_property("club_lab")
+	s.balance.snitch_per_smell = 1.0
+	s.inventory.moon_moss = 6
+	s.store_goods("club_lab", "moon_moss")
+	s.start_production("club_lab", "moon_pollen")
+	var heat_before: float = s.police.heat.clubs
+	var report := s.end_day()
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_SNITCHED"), "соседи донесли на сильный запах")
+	_check(s.police.heat.clubs > heat_before + 12.0, "после доноса розыск района выше, чем от одного запаха")
+
+	var boom := _rich_session()
+	boom.travel("forest")
+	boom.buy_property("forest_shed")
+	boom.upgrade_lab("forest_shed")
+	boom.buy_upgrade("forest_shed", "vent")
+	boom.balance.lab_explosion_chance = [1.0, 1.0, 1.0]
+	boom.inventory.reagents = 2
+	boom.inventory.moon_pollen = 1
+	boom.store_goods("forest_shed", "reagents")
+	boom.store_goods("forest_shed", "moon_pollen")
+	boom.start_production("forest_shed", "blue_dust")
+	report = boom.end_day()
+	var st: Dictionary = boom.properties.state.forest_shed
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_LAB_EXPLOSION"), "«Синяя пыль» может взорваться")
+	_check(st.owned and st.stock.is_empty() and st.upgrades.is_empty() and st.level == 1,
+			"после взрыва сарай наш, но пустой, без оборудования и улучшений")
+
+	var calm := _rich_session()
+	calm.travel("forest")
+	calm.buy_property("forest_shed")
+	calm.balance.lab_explosion_chance = [1.0, 1.0, 1.0]
+	calm.inventory.moon_moss = 3
+	calm.store_goods("forest_shed", "moon_moss")
+	calm.start_production("forest_shed", "moon_pollen")
+	report = calm.end_day()
+	_check(not report.any(func(e: Array) -> bool: return e[0] == "LOG_LAB_EXPLOSION"), "пыльца не взрывается")
+
+
+func _test_great_batch() -> void:
+	var s := _rich_session()
+	s.travel("forest")
+	s.buy_property("forest_shed")
+	s.balance.great_batch_chance = [1.0, 1.0, 1.0]
+	s.inventory.moon_moss = 3
+	s.store_goods("forest_shed", "moon_moss")
+	s.start_production("forest_shed", "moon_pollen")
+	var report := s.end_day()
+	_check(s.properties.stock_of("forest_shed", "moon_pollen") == 3, "удачная партия: 3 пыльцы вместо 2")
+	_check(report.any(func(e: Array) -> bool: return e[0] == "LOG_BATCH_GREAT"), "в журнале — удачная партия")
+
+
+func _test_spoilage_and_evidence() -> void:
+	var s := _rich_session()
+	s.buy_property("market_warehouse")
+	s.inventory.mushrooms = 20
+	s.inventory.cigarettes = 5
+	s.store_goods("market_warehouse", "mushrooms")
+	s.store_goods("market_warehouse", "cigarettes")
+	s.end_day()
+	_check(s.properties.stock_of("market_warehouse", "mushrooms") == 17, "грибы гниют: −15%% за ночь (20 → 17)")
+	_check(s.properties.stock_of("market_warehouse", "cigarettes") == 5, "сигареты не портятся")
+	_check(s.properties.state.market_warehouse.evidence == 6.0, "нелегальное на складе — копятся улики")
+	s.buy_upgrade("market_warehouse", "fridge")
+	s.end_day()
+	_check(s.properties.stock_of("market_warehouse", "mushrooms") == 17, "с холодильником грибы не гниют")
+	s.balance.warehouse_raid_factor = 0.15
+	s.balance.check_base = 0.2
+	var dirty_raid := s.raid_chance("market_warehouse")
+	_check(s.cleanup("market_warehouse") and s.properties.state.market_warehouse.evidence == 0.0, "прибрался — улик нет")
+	_check(s.raid_chance("market_warehouse") < dirty_raid, "без улик облава менее вероятна")
+	_check(s.energy == int(s.balance.energy_max) - int(s.balance.cleanup_energy), "уборка стоит сил")
 
 
 func _test_history() -> void:
